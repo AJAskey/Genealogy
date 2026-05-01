@@ -250,12 +250,13 @@ writes. No locking issues. Add complexity only if performance requires it later.
 
 ## File Locations (Local Machine)
 
-| Location | Contents |
-|---|---|
-| `E:\Storage\Census\IPUMS\Original\` | Raw CSV files from IPUMS |
-| `D:\Data\Genealogy_Data\` | SQLite databases (one per decade) |
-| `E:\Claude\design\` | Design documents, AI responses |
-| `E:\Claude\python\` | Python scripts |
+| Location                                          | Contents |
+|---------------------------------------------------|---|
+| `E:\Storage\Census\IPUMS\Original\`               | Raw CSV files from IPUMS |
+| `D:\Data\Genealogy_Data\`                         | SQLite databases (one per decade) |
+| `E:\Users\Andy\PycharmProjects\Genealogy\design\` | Design documents, AI responses |
+| `E:\Users\Andy\PycharmProjects\Genealogy\python`  | Python scripts
+| 'E:\Users\Andy\PycharmProjects\Genealogy\JSON'    | JSON files associted with inddex from DB
 
 ---
 
@@ -273,3 +274,4 @@ Key unique contributions:
 - **Claude:** Human review gate / text file buffer; person-level vs.
   household-level Origin ID distinction; citation tracking for IPUMS
   data use protection
+
