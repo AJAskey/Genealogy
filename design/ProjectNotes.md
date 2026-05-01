@@ -250,13 +250,13 @@ writes. No locking issues. Add complexity only if performance requires it later.
 
 ## File Locations (Local Machine)
 
-| Location                                          | Contents |
-|---------------------------------------------------|---|
-| `E:\Storage\Census\IPUMS\Original\`               | Raw CSV files from IPUMS |
-| `D:\Data\Genealogy_Data\`                         | SQLite databases (one per decade) |
+| Location                                        | Contents |
+|-------------------------------------------------|---|
+| `E:\Storage\Census\IPUMS\Original\`             | Raw CSV files from IPUMS |
+| `D:\Data\Genealogy_Data\`                       | SQLite databases (one per decade) |
 | `E:\Users\Andy\PycharmProjects\Genealogy\design\` | Design documents, AI responses |
-| `E:\Users\Andy\PycharmProjects\Genealogy\python`  | Python scripts
-| 'E:\Users\Andy\PycharmProjects\Genealogy\JSON'    | JSON files associted with inddex from DB
+| `E:\Users\Andy\PycharmProjects\Genealogy\python` | Python scripts
+| `E:\Users\Andy\PycharmProjects\Genealogy\JSON`   | JSON files associted with index from DB
 
 ---
 
