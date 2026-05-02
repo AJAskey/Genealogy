@@ -1,0 +1,14 @@
+{
+    "RELATE ": {
+        "01": "Head/Householder",
+        "02": "Spouse",
+        "03": "Child",
+        "04": "Child-in-law",
+        "05": "Parent",
+        "06": "Parent-in-Law",
+        "07": "Sibling",
+        "08": "Sibling-in-Law",
+        "09": "Grandchild",
+        "10": "Other relatives"
+    }
+}
