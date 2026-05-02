@@ -50,7 +50,7 @@ def setup_database(db_name):
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
 
-    columns_sql  = "composite_id TEXT PRIMARY KEY, "
+    columns_sql = "composite_id TEXT PRIMARY KEY, "
     columns_sql += ", ".join([f"{col.lower()} TEXT" for col in TARGET_COLUMNS])
 
     cursor.execute(f"CREATE TABLE IF NOT EXISTS population ({columns_sql})")
@@ -69,24 +69,24 @@ def ingest_to_vault(input_csv, db_name):
     """
     setup_database(db_name)
 
-    conn   = sqlite3.connect(db_name)
+    conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
 
-    cols_string  = "composite_id, " + ", ".join([col.lower() for col in TARGET_COLUMNS])
+    cols_string = "composite_id, " + ", ".join([col.lower() for col in TARGET_COLUMNS])
     placeholders = "?, " + ", ".join(["?"] * len(TARGET_COLUMNS))
     insert_query = f"INSERT OR IGNORE INTO population ({cols_string}) VALUES ({placeholders})"
 
-    batch      = []
+    batch = []
     batch_size = 100000
-    count      = 0
+    count = 0
     start_time = time.time()
 
     with open(input_csv, mode='r', errors='replace') as infile:
         reader = csv.DictReader(infile, delimiter=',')
 
         for row in reader:
-            serial       = row.get('SERIAL', '').strip()
-            pernum       = row.get('PERNUM', '').strip()
+            serial = row.get('SERIAL', '').strip()
+            pernum = row.get('PERNUM', '').strip()
             composite_id = f"{serial}_{pernum}"
 
             row_data = [composite_id]
@@ -125,8 +125,8 @@ if __name__ == '__main__':
                 print(f"Skipping {filename} - could not extract year from filename")
                 continue
 
-            yr            = match.group(1)
-            csv_file      = os.path.join(input_directory, filename)
+            yr = match.group(1)
+            csv_file = os.path.join(input_directory, filename)
             database_name = rf"D:\Data\Genealogy_Data\MasterVault_{yr}.db"
 
             print(f"\n--- Processing: {filename} -> MasterVault_{yr}.db ---")

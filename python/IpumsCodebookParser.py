@@ -50,9 +50,14 @@ def set_target_vars(filepath):
     whatever variables are in the current extract -- no hardcoded list needed.
     Skips YEAR and SAMPLE which are metadata fields without code definitions.
     """
+
     find_vars = False
 
-    with open(filepath, 'r', encoding="utf-8") as f:
+    # iGnoR trivial TARGETS
+    bad_tgts = ["COUNTYICP", "NFATHERS", "FAMUNIT", "FAMSIZE", "NCHILD", "NSIBS", "ELDCH", "YNGCH", "AGE",
+                "HISTID", "Description:", "1940", "Note:", "SERIAL", "YEAR"]
+
+    with (open(filepath, 'r', encoding="utf-8") as f):
         for line in f:
             line = line.strip()
 
@@ -63,15 +68,26 @@ def set_target_vars(filepath):
             if find_vars:
                 if len(line) < 1:
                     break
-                if line.startswith("YEAR"):
-                    continue
-                if line.startswith("SAMPLE"):
-                    continue
+
                 if line.startswith("All Years X"):
+                    f.close()
                     return
 
-                v = line.split()
-                TARGET_VARS.append(v[0])
+                process = True
+                for t in bad_tgts:
+                    if line.startswith(t):
+                        print("ignoring ", t)
+                        process = False
+                        break
+
+                if process:
+                    v = line.split()
+                    if len(v) > 0:
+                        TARGET_VARS.append(v[0] + " ")
+                        print("Adding) a Target ", v[0])
+
+    for t in TARGET_VARS:
+        print("TARGET_VARS: ", t)
 
 
 # ---------------------------------------------------------------------------
@@ -85,12 +101,18 @@ def parse_ipums_codebook(filepath, target_variable):
     Variables with no code definitions (SERIAL, AGE, BIRTHYR etc.) will
     return an empty dict and are skipped by the caller.
     """
-    codes_dict   = {}
+    codes_dict = {}
     is_capturing = False
 
+    # Skio first 40 line for process this 2ns phase - already processed in set_target_vars
+    lcnt = 0
     with open(filepath, 'r', encoding='utf-8', errors='replace') as file:
         for line in file:
             line = line.strip()
+
+            lcnt = lcnt + 1
+            if lcnt < 40:
+                continue
 
             # Stop when we hit a blank line or a non-digit line after capture starts
             if is_capturing and (line == "" or not line[0].isdigit()):
@@ -106,11 +128,13 @@ def parse_ipums_codebook(filepath, target_variable):
             if is_capturing:
                 match = re.match(r"^(\d+)\s+(.+)$", line)
                 if match:
-                    code        = match.group(1).strip()
+                    code = match.group(1).strip()
                     description = match.group(2).strip()
                     codes_dict[code] = description
+                    print("    Adding code : ", code, "-->", description)
 
-    return codes_dict
+        file.close()
+        return codes_dict
 
 
 # ---------------------------------------------------------------------------
@@ -143,7 +167,7 @@ def write_getter(variable_name, json_path, key_width, output_dir):
     l_var = variable_name.lower()
     u_var = variable_name.upper()
 
-    filename = os.path.join(output_dir, f"_get_{l_var}.py")
+    filename = os.path.join(output_dir, f"_get_{l_var.strip()}.py")
 
     getter_code = f'''"""
 -----------------------------------
@@ -165,7 +189,7 @@ import json
 _map   = {{}}          # code_string -> description
 _width = 1            # key width detected from JSON (e.g. 1, 2, 3, 4)
 
-_json_path = r"E:/Claude/JSON/{l_var}_codes.json"
+_json_path = r"../JSON/{l_var.strip()}_codes.json"
 
 try:
     with open(_json_path, 'r', encoding='utf-8') as _f:
@@ -234,21 +258,24 @@ if __name__ == "__main__":
 
 if __name__ == '__main__':
 
-    CODEBOOK_FILE = r"E:/Claude/data/basic.txt"
-    JSON_DIR      = r"E:/Claude/JSON"
-    GETTER_DIR    = r"E:/Claude/python"
+    CODEBOOK_FILE = r"../data/basic.txt"
+    JSON_DIR = r"../JSON"
+    GETTER_DIR = r"./"
 
-    os.makedirs(JSON_DIR,   exist_ok=True)
+    os.makedirs(JSON_DIR, exist_ok=True)
     os.makedirs(GETTER_DIR, exist_ok=True)
 
     success_count = 0
-    fail_list     = []
+    fail_list = []
 
     set_target_vars(CODEBOOK_FILE)
     print(f"Variables found in codebook: {len(TARGET_VARS)}\n")
 
     for var in TARGET_VARS:
         print(f"Processing {var} ...")
+
+        if var.startswith("BPL"):
+            print("  ")
 
         codes = parse_ipums_codebook(CODEBOOK_FILE, var)
 
@@ -260,7 +287,7 @@ if __name__ == '__main__':
         width = detect_key_width(codes)
         print(f"  Found {len(codes)} codes, key width = {width}")
 
-        json_file = os.path.join(JSON_DIR, f"{var.lower()}_codes.json")
+        json_file = os.path.join(JSON_DIR, f"{var.strip().lower()}_codes.json")
         with open(json_file, 'w', encoding='utf-8') as jf:
             json.dump({var: codes}, jf, indent=4)
         print(f"  JSON saved: {json_file}")
@@ -269,7 +296,7 @@ if __name__ == '__main__':
 
         success_count += 1
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"Done. {success_count} variables processed successfully.")
     if fail_list:
         print(f"\nNo code definitions found for {len(fail_list)} variables:")

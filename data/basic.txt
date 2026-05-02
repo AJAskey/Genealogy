@@ -1,4 +1,4 @@
-Description: 1940 genealogy - low variable
+Description: 1940 genealogy - family match
 Samples selected:
       1940 100% database
             Note: 
@@ -12,31 +12,34 @@ Case Selection:               No
   SAMPLE                       H   5-10           6     X       
   SERIAL                       H  11-18           8     X       
   NUMPREC                      H  19-20           2     X       
-  STATEICP                     H  21-22           2     X       
-  COUNTYICP                    H  23-26           4     X       
-  CITY                         H  27-30           4     X       
-  NFATHERS                     H  31              1     X       
-  PERNUM                       P  32-35           4     X       
-  FAMUNIT                      P  36-37           2     X       
-  FAMSIZE                      P  38-39           2     X       
-  MOMLOC                       P  40-41           2     X       
-  POPLOC                       P  42-43           2     X       
-  SPLOC                        P  44-45           2     X       
-  NCHILD                       P  46              1     X       
-  NSIBS                        P  47              1     X       
-  ELDCH                        P  48-49           2     X       
-  YNGCH                        P  50-51           2     X       
-  RELATE                       P  52-53           2     X       
-  RELATED                      P  54-57           4     X       
-  SEX                          P  58              1     X       
-  AGE                          P  59-61           3     X       
-  BIRTHYR                      P  62-65           4     X       
-  RACE                         P  66              1     X       
-  RACED                        P  67-69           3     X       
-  BPL                          P  70-72           3     X       
-  BPLD                         P  73-77           5     X       
-  VERSIONHIST                  P  78-79           2     X       
-  HISTID                       P  80-115         36     X       
+  HHWT                         H  21-30          10     X       
+  STATEICP                     H  31-32           2     X       
+  COUNTYICP                    H  33-36           4     X       
+  CITY                         H  37-40           4     X       
+  GQ                           H  41              1     X       
+  NFATHERS                     H  42              1     X       
+  PERNUM                       P  43-46           4     X       
+  PERWT                        P  47-56          10     X       
+  FAMUNIT                      P  57-58           2     X       
+  FAMSIZE                      P  59-60           2     X       
+  MOMLOC                       P  61-62           2     X       
+  POPLOC                       P  63-64           2     X       
+  SPLOC                        P  65-66           2     X       
+  NCHILD                       P  67              1     X       
+  NSIBS                        P  68              1     X       
+  ELDCH                        P  69-70           2     X       
+  YNGCH                        P  71-72           2     X       
+  RELATE                       P  73-74           2     X       
+  RELATED                      P  75-78           4     X       
+  SEX                          P  79              1     X       
+  AGE                          P  80-82           3     X       
+  BIRTHYR                      P  83-86           4     X       
+  RACE                         P  87              1     X       
+  RACED                        P  88-90           3     X       
+  BPL                          P  91-93           3     X       
+  BPLD                         P  94-98           5     X       
+  VERSIONHIST                  P  99-100          2     X       
+  HISTID                       P 101-136         36     X       
 
 Variable Availability Key:
 All Years X - available in this sample
@@ -1765,6 +1768,17 @@ CITY                City (identifiable cities only)
 7630                Youngstown, OH
 7631                Ypsilanti, MI
 7650                Zanesville, OH
+
+GQ                  Group quarters status
+0                   Vacant unit
+                    Households:
+1                   Households under 1970 definition
+2                   Additional households under 1990 definition
+                    Group Quarters:
+3                   Group quarters--Institutions
+4                   Other group quarters
+5                   Additional households under 2000 definition
+6                   Fragment
 
 NFATHERS            Number of fathers in household
 0                   0 fathers or N/A
