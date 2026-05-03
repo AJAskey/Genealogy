@@ -227,7 +227,7 @@ if __name__ == '__main__':
     input_directory = r"E:\Census\IPUMS\Original"
 
     for filename in os.listdir(input_directory):
-        if filename.endswith("usa_00036.csv"):
+        if filename.endswith("census-1900.csv"):
             file_path = os.path.join(input_directory, filename)
             # tmp = re.sub("usa_00032.csv", "0", file_path)
 
@@ -241,7 +241,7 @@ if __name__ == '__main__':
             file_stats_before = get_system_snapshot()
             # -----------------------------------------------------------------
 
-            dump_data(CSV_FILE, "dump.txt")
+            dump_data(CSV_FILE, "../Output/dump.txt")
 
             # ---- PER-FILE end -----------------------------------------------
             file_wall_end = time.time()

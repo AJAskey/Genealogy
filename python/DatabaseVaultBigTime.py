@@ -258,10 +258,10 @@ if __name__ == '__main__':
     input_directory = r"E:\Census\IPUMS\Original"
 
     for filename in os.listdir(input_directory):
-        if filename.endswith("usa_00035.csv"):
+        if filename.endswith("census-1900.csv"):
             file_path = os.path.join(input_directory, filename)
             # tmp = re.sub("usa_00032.csv", "0", file_path)
-            yr = "1850-1900"
+            yr = "1900"
 
             CSV_FILE = file_path
             DATABASE_NAME = r"D:\Data\Genealogy_Data\MasterVault_" + yr + ".db"

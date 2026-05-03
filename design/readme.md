@@ -275,3 +275,4 @@ Key unique contributions:
   household-level Origin ID distinction; citation tracking for IPUMS
   data use protection
 
+[See documentation](design/readme.md)
