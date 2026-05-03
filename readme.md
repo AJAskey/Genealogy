@@ -273,6 +273,6 @@ Key unique contributions:
   sequential int instead for readability)
 - **Claude:** Human review gate / text file buffer; person-level vs.
   household-level Origin ID distinction; citation tracking for IPUMS
-  data use protection
+  data use protection 
 
 [Design notes](design/readme.md)
