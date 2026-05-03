@@ -11,11 +11,12 @@ Summary: Data Access Layer for VERSIONHIST  codes.
 """
 import json
 
+
 # ---------------------------------------------------------------------------
 # 1. CACHE -- loaded once at import time
 # ---------------------------------------------------------------------------
-_map = {}  # code_string -> description
-_width = 1  # key width detected from JSON (e.g. 1, 2, 3, 4)
+_map   = {}          # code_string -> description
+_width = 1            # key width detected from JSON (e.g. 1, 2, 3, 4)
 
 _json_path = r"../JSON/versionhist_codes.json"
 
@@ -33,7 +34,7 @@ except Exception as _e:
 # ---------------------------------------------------------------------------
 # 2. GETTER
 # ---------------------------------------------------------------------------
-def get_versionhist(code):
+def get_versionhist (code):
     """
     Returns the description for a VERSIONHIST  code.
 
@@ -68,7 +69,7 @@ if __name__ == "__main__":
 
         print(f"    Testing all input formats for key={first_key!r} ({_map[first_key]}):")
         for t in test_inputs:
-            result = get_versionhist(t)
+            result = get_versionhist (t)
             print(f"      get_versionhist ({t!r:>8}) -> {result}")
     else:
         print("    No data loaded -- check JSON path.")

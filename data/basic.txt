@@ -1,45 +1,64 @@
-Description: 1940 genealogy - family match
+Description: Revision of (1900 genealogy with samples)
 Samples selected:
-      1940 100% database
+      1900 5%
+            Note: 
+            Density of the full data file:  5.0%
+            Density of your extract: 5.0%
+
+      1900 1%
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1900 1% sample with oversamples
+            Note: 
+            Density of the full data file:  1.2%
+            Density of your extract: 1.2%
+
+      1900 100% database
             Note: 
             Density of the full data file:  100.0%
             Density of your extract: 100.0%
 
 File Type:                    rectangular
 Case Selection:               No
-  Variable                         Columns        Len   1940    
-  YEAR                         H   1-4            4     X       
-  SAMPLE                       H   5-10           6     X       
-  SERIAL                       H  11-18           8     X       
-  NUMPREC                      H  19-20           2     X       
-  HHWT                         H  21-30          10     X       
-  STATEICP                     H  31-32           2     X       
-  COUNTYICP                    H  33-36           4     X       
-  CITY                         H  37-40           4     X       
-  GQ                           H  41              1     X       
-  NFATHERS                     H  42              1     X       
-  PERNUM                       P  43-46           4     X       
-  PERWT                        P  47-56          10     X       
-  FAMUNIT                      P  57-58           2     X       
-  FAMSIZE                      P  59-60           2     X       
-  MOMLOC                       P  61-62           2     X       
-  POPLOC                       P  63-64           2     X       
-  SPLOC                        P  65-66           2     X       
-  NCHILD                       P  67              1     X       
-  NSIBS                        P  68              1     X       
-  ELDCH                        P  69-70           2     X       
-  YNGCH                        P  71-72           2     X       
-  RELATE                       P  73-74           2     X       
-  RELATED                      P  75-78           4     X       
-  SEX                          P  79              1     X       
-  AGE                          P  80-82           3     X       
-  BIRTHYR                      P  83-86           4     X       
-  RACE                         P  87              1     X       
-  RACED                        P  88-90           3     X       
-  BPL                          P  91-93           3     X       
-  BPLD                         P  94-98           5     X       
-  VERSIONHIST                  P  99-100          2     X       
-  HISTID                       P 101-136         36     X       
+  Variable                         Columns        Len   1900    1900    1900    1900    
+  YEAR                         H   1-4            4     X       X       X       X       
+  SAMPLE                       H   5-10           6     X       X       X       X       
+  SERIAL                       H  11-18           8     X       X       X       X       
+  NUMPREC                      H  19-20           2     X       X       X       X       
+  HHWT                         H  21-30          10     X       X       X       X       
+  CLUSTER                      H  31-43          13     X       X       X       .       
+  STATEICP                     H  44-45           2     X       X       X       X       
+  COUNTYICP                    H  46-49           4     X       X       X       X       
+  CITY                         H  50-53           4     X       X       X       X       
+  STRATA                       H  54-65          12     X       X       X       .       
+  GQ                           H  66              1     X       X       X       X       
+  NFATHERS                     H  67              1     X       X       X       X       
+  PERNUM                       P  68-71           4     X       X       X       X       
+  PERWT                        P  72-81          10     X       X       X       X       
+  FAMUNIT                      P  82-83           2     X       X       X       X       
+  FAMSIZE                      P  84-85           2     X       X       X       X       
+  MOMLOC                       P  86-87           2     X       X       X       X       
+  POPLOC                       P  88-89           2     X       X       X       X       
+  SPLOC                        P  90-91           2     X       X       X       X       
+  NCHILD                       P  92              1     X       X       X       X       
+  NSIBS                        P  93              1     X       X       X       X       
+  ELDCH                        P  94-95           2     X       X       X       X       
+  YNGCH                        P  96-97           2     X       X       X       X       
+  RELATE                       P  98-99           2     X       X       X       X       
+  RELATED                      P 100-103          4     X       X       X       X       
+  SEX                          P 104              1     X       X       X       X       
+  AGE                          P 105-107          3     X       X       X       X       
+  BIRTHYR                      P 108-111          4     X       X       X       X       
+  RACE                         P 112              1     X       X       X       X       
+  RACED                        P 113-115          3     X       X       X       X       
+  BPL                          P 116-118          3     X       X       X       X       
+  BPLD                         P 119-123          5     X       X       X       X       
+  VERSIONHIST                  P 124-125          2     .       .       .       X       
+  NAMELAST                     P 126-196         71     X       X       X       .       
+  NAMEFRST                     P 197-269         73     X       X       X       .       
+  HISTID                       P 270-305         36     .       .       .       X       
 
 Variable Availability Key:
 All Years X - available in this sample

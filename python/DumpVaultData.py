@@ -22,20 +22,11 @@ import os
 import sqlite3
 from datetime import datetime
 
-from _get_bpl import get_bpl
 from _get_bpld import get_bpld
 from _get_city import get_city
-from _get_race import get_race
-from _get_raced import get_raced
-from _get_relate import get_relate
-from _get_related import get_related
 from _get_sex import get_sex
 from _get_stateicp import get_stateicp
-from _get_versionhist import get_versionhist
-
-
-# Uncomment this when you have the county getter ready:
-# from _get_county import get_county
+from county_lookup import CountyByCode
 
 
 # ---------------------------------------------------------------------------
@@ -59,12 +50,19 @@ def col_exists(columns, name):
 # SEARCH FUNCTION
 # ---------------------------------------------------------------------------
 
-def search_by_name(db_path, last_name_prefix, first_name="", output_file="tmp.txt"):
+def search_by_name(db_path, last_name_prefix, county_lookup, first_name="", output_file="tmp.txt"):
     """
     Searches the database using wildcards to catch spelling variations.
     Translates numeric codes through getter modules.
     Adapts the SELECT list to whatever columns the database actually has.
     Writes results to output_file and prints to console.
+
+    Args:
+        db_path:          Full path to the MasterVault SQLite database
+        last_name_prefix: Surname to search (wildcarded automatically)
+        county_lookup:    CountyByCode instance (loaded once in main)
+        first_name:       Optional first name prefix
+        output_file:      Path to the output text file
     """
 
     # Pull census year from the database filename e.g. MasterVault_1880.db -> 1880
@@ -92,21 +90,17 @@ def search_by_name(db_path, last_name_prefix, first_name="", output_file="tmp.tx
     # --- Build the SELECT list from columns that actually exist ---
     # These are the columns we WANT; we only ask for them if they're present.
     wanted = [
-        "serial", "pernum", "namefrst", "namelast",
-        "age", "sex", "race", "raced",
-        "relate",
-        "related",  # not in all years -- handled below
+        "year", "serial", "pernum",
+        "namefrst", "namelast",
+        "age", "birthyr", "sex", "raced", "related", "bpld",
         "stateicp", "countyicp", "city",
-        "bpl", "bpld",
-        "birthyr",
-        "versionhist",  # not in all years -- handled below
+        "momloc", "poploc", "nsibs", "nchild", "nfathers", "famsize",
     ]
 
     select_cols = [c for c in wanted if col_exists(columns, c)]
     select_sql = ", ".join(select_cols)
 
     wildcard_last = last_name_prefix.upper() + '%'
-
     base_query = f"SELECT {select_sql} FROM population WHERE namelast LIKE ?"
 
     if first_name:
@@ -120,78 +114,78 @@ def search_by_name(db_path, last_name_prefix, first_name="", output_file="tmp.tx
 
     with open(output_file, "a", encoding="utf-8") as f:
 
-        if results:
-            header = f"\n{'=' * 70}\n"
-            header += f"  {len(results)} result(s) for '{last_name_prefix}'"
-            header += f" in {os.path.basename(db_path)}\n"
-            header += f"{'=' * 70}\n"
-            f.write(header)
-            print(header)
-        else:
+        if not results:
             msg = f"No records found in {os.path.basename(db_path)}.\n"
             f.write(msg)
             print(msg)
             conn.close()
             return
 
-        0
-        for row in results:
+        header = (
+            f"\n{'=' * 70}\n"
+            f"  {len(results)} result(s) for '{last_name_prefix}'"
+            f" in {os.path.basename(db_path)}\n"
+            f"{'=' * 70}\n"
+        )
+        f.write(header)
+        print(header)
 
+        # -------------------------------------------------------------------
+        # Loop over every result row -- everything below is inside this loop
+        # -------------------------------------------------------------------
+        for row in results:
             # Build a dict so we can safely pull optional columns
             row_dict = dict(zip(select_cols, row))
 
+            year = row_dict.get("year", "")
             serial = row_dict.get("serial", "")
             pernum = row_dict.get("pernum", "")
             fname = row_dict.get("namefrst", "")
             lname = row_dict.get("namelast", "")
             age = row_dict.get("age", "")
-            sex = row_dict.get("sex", "")
-            race = row_dict.get("race", "")
-            raced = row_dict.get("raced", "")
-            relate = row_dict.get("relate", "")
-            related = row_dict.get("related", None)  # may not exist
+            birthyr = row_dict.get("birthyr", "")
+
+            momloc = row_dict.get("momloc", "")
+            poploc = row_dict.get("poploc", "")
+
             stateicp = row_dict.get("stateicp", "")
             countyicp = row_dict.get("countyicp", "")
             city = row_dict.get("city", "")
-            bpl = row_dict.get("bpl", "")
+
+            nfathers = row_dict.get("nfathers", "")
+            nchild = row_dict.get("nchild", "")
+            nsibs = row_dict.get("nsibs", "")
+            famsize = row_dict.get("famsize", "")
+
+            related = row_dict.get("related", "")
+            sex = row_dict.get("sex", "")
+            raced = row_dict.get("raced", "")
             bpld = row_dict.get("bpld", "")
-            birthyr = row_dict.get("birthyr", None)
-            versionhist = row_dict.get("versionhist", None)  # may not exist
 
-            # --- Calculated birth year ---
-            if birthyr:
-                byr = safe_int(birthyr)
-            else:
-                byr = cenyr - safe_int(age) if age else 0
-
-            # --- State name ---
+            # --- Translate codes to human-readable strings ---
             state_name = get_stateicp(stateicp)
-
-            # --- County (uncomment when getter is ready) ---
-            # county_name = get_county(state_name, countyicp)
-            county_name = f"County code {countyicp}"  # placeholder until getter exists
-
-            # --- Relation display -- show detail only if column exists ---
-            if related is not None:
-                relation_str = f"{get_relate(relate)}  /  {get_related(related)}"
-            else:
-                relation_str = get_relate(relate)
-
-            # --- Version display -- only if column exists ---
-            version_str = get_versionhist(versionhist) if versionhist is not None else "N/A"
+            county_name = county_lookup.get(stateicp, countyicp) or "(unknown county)"
+            city_name = get_city(city)
+            sex_str = get_sex(safe_int(sex))
+            bpld_str = get_bpld(safe_int(bpld))
 
             # --- Build human-readable block ---
             lines = [
                 f"",
-                f"  ID:          {cenyr_str}-{serial}-{pernum}",
+                f"  ID:          {year}-{serial}-{pernum}",
                 f"  Name:        {fname or '(none)'} {lname or '(none)'}",
-                f"  Born:        {byr if byr else '?'}  (age {age} in {cenyr_str})",
-                f"  Sex:         {get_sex(sex)}",
-                f"  Race:        {get_race(race)}  /  {get_raced(raced)}",
-                f"  Relation:    {relation_str}",
-                f"  Location:    {state_name} / {county_name} / {get_city(city)}",
-                f"  Birthplace:  {get_bpl(bpl)}  /  {get_bpld(bpld)}",
-                # f"  Version:     {version_str}",
+                f"  Born:        {birthyr}  (age {age} in {year})",
+                f"  Sex:         {sex_str}",
+                f"  Race:        {safe_int(raced)}",
+                f"  Relation:    {safe_int(related)}",
+                f"  Location:    {county_name} / {city_name}",
+                f"  Birthplace:  {bpld_str}",
+                f"  Mother loc:  {momloc}",
+                f"  Father loc:  {poploc}",
+                f"  Siblings:    {nsibs}",
+                f"  Children:    {nchild}",
+                f"  Fathers:     {nfathers}",
+                f"  Family size: {famsize}",
                 f"  {'-' * 60}",
             ]
 
@@ -199,8 +193,8 @@ def search_by_name(db_path, last_name_prefix, first_name="", output_file="tmp.tx
             print(block)
             f.write(block)
 
-        conn.close()
-        print(f"\n[ Done with {os.path.basename(db_path)} ]\n")
+    conn.close()
+    print(f"\n[ Done with {os.path.basename(db_path)} ]\n")
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +203,12 @@ def search_by_name(db_path, last_name_prefix, first_name="", output_file="tmp.tx
 
 if __name__ == '__main__':
 
-    target_surname = "SMITH"  # Change to % for everything, or a surname prefix
+    target_surname = ""  # Change to % for everything, or a surname prefix
+
+    # Load the county lookup ONCE here -- not inside the loop
+    county_lookup = CountyByCode(
+        r"E:\Users\Andy\PycharmProjects\Genealogy\JSON\county_by_codes.json"
+    )
 
     now = datetime.now()
     formatted_date = now.strftime("_%Y%m%d-%H%M%S")
@@ -222,7 +221,7 @@ if __name__ == '__main__':
         # r"D:\Data\Genealogy_Data\MasterVault_1860.db",
         # r"D:\Data\Genealogy_Data\MasterVault_1870.db",
         # r"D:\Data\Genealogy_Data\MasterVault_1880.db",
-        r"D:\Data\Genealogy_Data\MasterVault_1900.db",
+        r"D:\Data\Genealogy_Data\MasterVault_1850-1900.db",
         # r"D:\Data\Genealogy_Data\MasterVault_1910.db",
         # r"D:\Data\Genealogy_Data\MasterVault_1920.db",
         # r"D:\Data\Genealogy_Data\MasterVault_1930.db",
@@ -232,6 +231,9 @@ if __name__ == '__main__':
 
     print(f"Starting search through Vaults for surname: {target_surname}")
     for db in vaults:
-        search_by_name(db, last_name_prefix=target_surname, output_file=outfile)
+        search_by_name(db,
+                       last_name_prefix=target_surname,
+                       county_lookup=county_lookup,
+                       output_file=outfile)
 
     print(f"\n[ Analysis Complete. Check {outfile} for results. ]")

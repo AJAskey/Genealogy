@@ -11,11 +11,12 @@ Summary: Data Access Layer for RACE  codes.
 """
 import json
 
+
 # ---------------------------------------------------------------------------
 # 1. CACHE -- loaded once at import time
 # ---------------------------------------------------------------------------
-_map = {}  # code_string -> description
-_width = 1  # key width detected from JSON (e.g. 1, 2, 3, 4)
+_map   = {}          # code_string -> description
+_width = 1            # key width detected from JSON (e.g. 1, 2, 3, 4)
 
 _json_path = r"../JSON/race_codes.json"
 
@@ -33,7 +34,7 @@ except Exception as _e:
 # ---------------------------------------------------------------------------
 # 2. GETTER
 # ---------------------------------------------------------------------------
-def get_race(code):
+def get_race (code):
     """
     Returns the description for a RACE  code.
 
@@ -68,7 +69,7 @@ if __name__ == "__main__":
 
         print(f"    Testing all input formats for key={first_key!r} ({_map[first_key]}):")
         for t in test_inputs:
-            result = get_race(t)
+            result = get_race (t)
             print(f"      get_race ({t!r:>8}) -> {result}")
     else:
         print("    No data loaded -- check JSON path.")

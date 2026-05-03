@@ -40,7 +40,6 @@ TARGET_COLUMNS = [
     "VETSTAT", "VETSTATD"
 ]
 
-
 def setup_database(db_name):
     """
     Creates the population table and name index if they do not already exist.

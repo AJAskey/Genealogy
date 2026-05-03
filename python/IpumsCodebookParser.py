@@ -55,11 +55,17 @@ def set_target_vars(filepath):
 
     # iGnoR trivial TARGETS
     bad_tgts = ["COUNTYICP", "NFATHERS", "FAMUNIT", "FAMSIZE", "NCHILD", "NSIBS", "ELDCH", "YNGCH", "AGE",
-                "HISTID", "Description:", "1940", "Note:", "SERIAL", "YEAR"]
-
+                "HISTID", "Description:", "1940", "Note:", "SERIAL", "YEAR", "PERNUM", "NUMPREC", "HHWT", "PERWT",
+                "BIRTHYR","MOMLOC", "POPLOC", "SPLOC"
+                ]
+    lcnt = 0
     with (open(filepath, 'r', encoding="utf-8") as f):
         for line in f:
+
             line = line.strip()
+            lcnt += 1
+
+            print(lcnt, line)
 
             if line.startswith("Variable"):
                 find_vars = True
@@ -109,10 +115,12 @@ def parse_ipums_codebook(filepath, target_variable):
     with open(filepath, 'r', encoding='utf-8', errors='replace') as file:
         for line in file:
             line = line.strip()
+            lcnt += 1
 
-            lcnt = lcnt + 1
-            if lcnt < 40:
+            if lcnt < 60:
                 continue
+
+            print(lcnt, line)
 
             # Stop when we hit a blank line or a non-digit line after capture starts
             if is_capturing and (line == "" or not line[0].isdigit()):
