@@ -47,12 +47,12 @@ import psutil  # pip install psutil
 
 # 1. DEFINE YOUR MASTER LIST OF VARIABLES
 # We keep the core identifiers, names, and ages, plus EVERY target variable you parsed!
-TARGET_COLUMNS = ["YEAR",
-                  "SERIAL", "PERNUM", "NAMEFRST", "NAMELAST", "AGE", "BIRTHYR", "MOMLOC", "POPLOC",
-                  "STATEICP", "COUNTYICP", "CITY",
-                  "NFATHERS", "NCHILD", "NSIBS", "FAMSIZE",
-                  "RELATED", "SEX", "RACED", "BPLD"
-                  ]
+TARGET_COLUMNS = [
+    "YEAR", "SAMPLE", "SERIAL", "NUMPREC", "STATEICP", "COUNTYICP", "CITY",
+    "NFATHERS", "PERNUM", "FAMUNIT", "FAMSIZE", "MOMLOC", "POPLOC", "SPLOC", "NCHILD", "NSIBS", "ELDCH",
+    "YNGCH", "RELATED", "SEX", "AGE", "BIRTHYR", "RACED", "BPLD", "NAMELAST",
+    "NAMEFRST", "HISTID"
+]
 
 
 # ==============================================================================

@@ -30,11 +30,12 @@ import time
 # These map directly to IPUMS variable names.
 # SERIAL + PERNUM form the unique person key within a census year.
 TARGET_COLUMNS = [
-    "YEAR", "SAMPLE", "SERIAL", "NUMPREC", "HHWT", "CLUSTER", "STATEICP", "COUNTYICP", "CITY", "STRATA", "GQ",
-    "NFATHERS", "PERNUM", "PERWT", "FAMUNIT", "FAMSIZE", "MOMLOC", "POPLOC", "SPLOC", "NCHILD", "NSIBS", "ELDCH",
-    "YNGCH", "RELATE", "RELATED", "SEX", "AGE", "BIRTHYR", "RACE", "RACED", "BPL", "BPLD", "VERSIONHIST", "NAMELAST",
+    "YEAR", "SAMPLE", "SERIAL", "NUMPREC", "STATEICP", "COUNTYICP", "CITY",
+    "NFATHERS", "PERNUM", "FAMUNIT", "FAMSIZE", "MOMLOC", "POPLOC", "SPLOC", "NCHILD", "NSIBS", "ELDCH",
+    "YNGCH", "RELATE", "RELATED", "SEX", "AGE", "BIRTHYR", "RACED", "BPLD", "NAMELAST",
     "NAMEFRST", "HISTID"
 ]
+
 
 def setup_database(db_name):
     """
