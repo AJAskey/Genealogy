@@ -11,10 +11,10 @@ import statistics
 
 # Columns to extract from each CSV and store in the database.
 TARGET_COLUMNS = [
-    "YEAR", "SAMPLE", "SERIAL", "NUMPREC", "HHWT", "HHTYPE", "CLUSTER", "STATEICP", "COUNTYICP", "CITY", "STRATA", "GQ",
-    "NMOTHERS", "NFATHERS", "REEL", "PAGENO", "LINE", "MICROSEQ", "STREET", "PERNUM", "PERWT", "FAMUNIT", "FAMSIZE",
+    "YEAR", "SAMPLE", "SERIAL", "NUMPREC", "HHTYPE", "STATEICP", "COUNTYICP", "CITY",
+    "NMOTHERS", "NFATHERS","STREET", "PERNUM",  "FAMUNIT", "FAMSIZE",
     "MOMLOC", "POPLOC", "SPLOC", "NCHILD", "NSIBS", "ELDCH", "YNGCH", "RELATE", "RELATED", "SEX", "AGE", "BIRTHYR",
-    "RACE", "RACED", "BPL", "BPLD", "NAMELAST", "NAMEFRST", "HISTID"]
+    "RACE", "RACED", "BPL", "BPLD", "NAMELAST", "NAMEFRST", "HISTID", "REEL", "PAGENO", "LINE", "MICROSEQ"]
 
 
 def setup_database(db_name):
@@ -177,10 +177,7 @@ if __name__ == '__main__':
                     cpu_times_after=file_cpu_after,
                 )
                 # -----------------------------------------------------------------
-            except Exception:
-                pass
 
-            try:
                 if ingest_to_vault(csv_file, database_name):
                     print(f"Successfully processed {filename}")
                 else:
