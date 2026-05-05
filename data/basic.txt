@@ -1,4 +1,4 @@
-Description: Revision of (1900 genealogy with samples)
+Description: 1900 genealogy with samples
 Samples selected:
       1900 5%
             Note: 
@@ -28,37 +28,44 @@ Case Selection:               No
   SERIAL                       H  11-18           8     X       X       X       X       
   NUMPREC                      H  19-20           2     X       X       X       X       
   HHWT                         H  21-30          10     X       X       X       X       
-  CLUSTER                      H  31-43          13     X       X       X       .       
-  STATEICP                     H  44-45           2     X       X       X       X       
-  COUNTYICP                    H  46-49           4     X       X       X       X       
-  CITY                         H  50-53           4     X       X       X       X       
-  STRATA                       H  54-65          12     X       X       X       .       
-  GQ                           H  66              1     X       X       X       X       
-  NFATHERS                     H  67              1     X       X       X       X       
-  PERNUM                       P  68-71           4     X       X       X       X       
-  PERWT                        P  72-81          10     X       X       X       X       
-  FAMUNIT                      P  82-83           2     X       X       X       X       
-  FAMSIZE                      P  84-85           2     X       X       X       X       
-  MOMLOC                       P  86-87           2     X       X       X       X       
-  POPLOC                       P  88-89           2     X       X       X       X       
-  SPLOC                        P  90-91           2     X       X       X       X       
-  NCHILD                       P  92              1     X       X       X       X       
-  NSIBS                        P  93              1     X       X       X       X       
-  ELDCH                        P  94-95           2     X       X       X       X       
-  YNGCH                        P  96-97           2     X       X       X       X       
-  RELATE                       P  98-99           2     X       X       X       X       
-  RELATED                      P 100-103          4     X       X       X       X       
-  SEX                          P 104              1     X       X       X       X       
-  AGE                          P 105-107          3     X       X       X       X       
-  BIRTHYR                      P 108-111          4     X       X       X       X       
-  RACE                         P 112              1     X       X       X       X       
-  RACED                        P 113-115          3     X       X       X       X       
-  BPL                          P 116-118          3     X       X       X       X       
-  BPLD                         P 119-123          5     X       X       X       X       
-  VERSIONHIST                  P 124-125          2     .       .       .       X       
-  NAMELAST                     P 126-196         71     X       X       X       .       
-  NAMEFRST                     P 197-269         73     X       X       X       .       
-  HISTID                       P 270-305         36     .       .       .       X       
+  HHTYPE                       H  31              1     X       X       X       X       
+  CLUSTER                      H  32-44          13     X       X       X       .       
+  STATEICP                     H  45-46           2     X       X       X       X       
+  COUNTYICP                    H  47-50           4     X       X       X       X       
+  CITY                         H  51-54           4     X       X       X       X       
+  STRATA                       H  55-66          12     X       X       X       .       
+  GQ                           H  67              1     X       X       X       X       
+  NMOTHERS                     H  68              1     X       X       X       X       
+  NFATHERS                     H  69              1     X       X       X       X       
+  REEL                         H  70-73           4     X       X       X       .       
+  PAGENO                       H  74-77           4     X       X       X       .       
+  LINE                         H  78-80           3     X       X       X       .       
+  MICROSEQ                     H  81              1     X       X       X       .       
+  STREET                       H  82-163         82     X       X       X       .       
+  PERNUM                       P 164-167          4     X       X       X       X       
+  PERWT                        P 168-177         10     X       X       X       X       
+  FAMUNIT                      P 178-179          2     X       X       X       X       
+  FAMSIZE                      P 180-181          2     X       X       X       X       
+  MOMLOC                       P 182-183          2     X       X       X       X       
+  POPLOC                       P 184-185          2     X       X       X       X       
+  SPLOC                        P 186-187          2     X       X       X       X       
+  NCHILD                       P 188              1     X       X       X       X       
+  NSIBS                        P 189              1     X       X       X       X       
+  ELDCH                        P 190-191          2     X       X       X       X       
+  YNGCH                        P 192-193          2     X       X       X       X       
+  RELATE                       P 194-195          2     X       X       X       X       
+  RELATED                      P 196-199          4     X       X       X       X       
+  SEX                          P 200              1     X       X       X       X       
+  AGE                          P 201-203          3     X       X       X       X       
+  BIRTHYR                      P 204-207          4     X       X       X       X       
+  RACE                         P 208              1     X       X       X       X       
+  RACED                        P 209-211          3     X       X       X       X       
+  BPL                          P 212-214          3     X       X       X       X       
+  BPLD                         P 215-219          5     X       X       X       X       
+  VERSIONHIST                  P 220-221          2     .       .       .       X       
+  NAMELAST                     P 222-292         71     X       X       X       .       
+  NAMEFRST                     P 293-365         73     X       X       X       .       
+  HISTID                       P 366-401         36     .       .       .       X       
 
 Variable Availability Key:
 All Years X - available in this sample
@@ -264,6 +271,19 @@ SAMPLE              IPUMS sample identifier
 186001              1860 1%
 185002              1850 100% database
 185001              1850 1%
+
+HHTYPE              Household Type
+0                   N/A
+                    Family Households:
+1                   Married-couple family household
+2                   Male householder, no wife present
+3                   Female householder, no husband present
+                    Nonfamily Households:
+4                   Male householder, living alone
+5                   Male householder, not living alone
+6                   Female householder, living alone
+7                   Female householder, not living alone
+9                   HHTYPE could not be determined
 
 STATEICP            State (ICPSR code)
 01                  Connecticut
@@ -1798,6 +1818,18 @@ GQ                  Group quarters status
 4                   Other group quarters
 5                   Additional households under 2000 definition
 6                   Fragment
+
+NMOTHERS            Number of mothers in household
+0                   0 mothers or N/A
+1                   1
+2                   2
+3                   3
+4                   4
+5                   5
+6                   6
+7                   7
+8                   8
+9                   9
 
 NFATHERS            Number of fathers in household
 0                   0 fathers or N/A
