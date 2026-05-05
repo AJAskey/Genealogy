@@ -9,6 +9,7 @@ Summary: Data Access Layer for CITY  codes.
          automatically from the JSON, so no hardcoding needed.
 --------------------------------
 """
+
 import json
 
 
@@ -38,7 +39,7 @@ def get_city (code):
     """
     Returns the description for a CITY  code.
 
-    Accepts: integer 70, string "70", "070", or "0070" -- all equivalent.
+    Accepts: integer, string, or leading zeros removed.
     Returns: description string, or "Unknown (<code>)" if not found.
     """
     try:

@@ -1,5 +1,6 @@
 import csv
 import datetime
+import logging
 import os
 import re
 import sqlite3
@@ -9,12 +10,24 @@ import psutil
 
 import statistics
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(r'E:\Logs\Genealogy\DatabaseVault.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
 # Columns to extract from each CSV and store in the database.
 TARGET_COLUMNS = [
     "YEAR", "SAMPLE", "SERIAL", "NUMPREC", "HHTYPE", "STATEICP", "COUNTYICP", "CITY",
-    "NMOTHERS", "NFATHERS","STREET", "PERNUM",  "FAMUNIT", "FAMSIZE",
+    "NMOTHERS", "NFATHERS", "STREET", "PERNUM", "FAMUNIT", "FAMSIZE",
     "MOMLOC", "POPLOC", "SPLOC", "NCHILD", "NSIBS", "ELDCH", "YNGCH", "RELATE", "RELATED", "SEX", "AGE", "BIRTHYR",
-    "RACE", "RACED", "BPL", "BPLD", "NAMELAST", "NAMEFRST", "HISTID", "REEL", "PAGENO", "LINE", "MICROSEQ"]
+    "RACE", "RACED", "BPL", "BPLD", "NAMELAST", "NAMEFRST", "HISTID", "REEL", "PAGENO", "LINE", "MICROSEQ"
+]
 
 
 def setup_database(db_name):
@@ -22,6 +35,7 @@ def setup_database(db_name):
     Set up the SQLite database with the population table and index.
     """
     try:
+        logger.info(f"Starting database setup for {db_name}")
         conn = sqlite3.connect(db_name)
         cursor = conn.cursor()
 
@@ -39,10 +53,10 @@ def setup_database(db_name):
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_last_name ON population (namelast)")
 
         conn.commit()
-        conn.close()
+        logger.info(f"Database setup completed for {db_name}")
         return True
     except sqlite3.Error as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}")
         return False
 
 
@@ -55,6 +69,7 @@ def ingest_to_vault(input_csv, db_name):
         return False
 
     try:
+        logger.info(f"Starting ingestion of {input_csv}")
         conn = sqlite3.connect(db_name)
         cursor = conn.cursor()
 
@@ -77,8 +92,7 @@ def ingest_to_vault(input_csv, db_name):
             # Verify required columns are present
             missing_cols = [col for col in TARGET_COLUMNS if col not in reader.fieldnames]
             if missing_cols:
-                print(f"WARNING: Missing columns in {input_csv}: {missing_cols}")
-                # Continue but skip these columns
+                logger.warning(f"Missing columns in {input_csv}: {missing_cols}")
 
             for row in reader:
                 try:
@@ -90,7 +104,6 @@ def ingest_to_vault(input_csv, db_name):
                     # Prepare values for insertion
                     values = [composite_id]
                     for col in TARGET_COLUMNS:
-                        # Use empty string if column missing
                         value = row.get(col, '') if col in reader.fieldnames else ''
                         values.append(value.strip())
 
@@ -105,7 +118,7 @@ def ingest_to_vault(input_csv, db_name):
                         batch = []
 
                 except Exception as e:
-                    print(f"Error processing row: {e}")
+                    logger.error(f"Error processing row: {e}")
                     continue
 
             # Process remaining batch
@@ -114,97 +127,91 @@ def ingest_to_vault(input_csv, db_name):
                 conn.commit()
 
         conn.close()
-        end_time = time.time()
-
         elapsed = round((time.time() - start_time) / 60, 2)
-        print(f"\n  SUCCESS: {count:,} records loaded into {db_name}")
-        print(f"  Time elapsed: {elapsed} minutes.")
+        logger.info(f"\nSUCCESS: {count:,} records loaded into {db_name}")
+        logger.info(f"Time elapsed: {elapsed} minutes.")
         return True
 
     except FileNotFoundError:
-        print(f"ERROR: {input_csv} not found")
+        logger.error(f"File not found: {input_csv}")
         return False
     except csv.Error as e:
-        print(f"CSV error: {e}")
+        logger.error(f"CSV error: {e}")
         return False
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        logger.error(f"Unexpected error: {e}")
         return False
 
 
 if __name__ == '__main__':
     input_directory = r"E:\Census\IPUMS\Original"
 
-    # ---- SESSION-LEVEL start ------------------------------------------------
-    statistics.print_session_header()
+    # Session-level logging start
+    logger.info("Session started")
     session_wall_start = time.time()
     session_cpu_before = psutil.Process().cpu_times()
     session_stats_before = statistics.get_system_snapshot()
-    # -------------------------------------------------------------------------
 
-    # Process all CSV files in the directory
-    for filename in os.listdir(input_directory):
-        if filename.endswith(".csv"):
-            match = re.search(r'(\d{4})', filename)
+    try:
+        # Process all CSV files in the directory
+        for filename in os.listdir(input_directory):
+            if filename.endswith(".csv"):
+                match = re.search(r'(\d{4})', filename)
 
-            if not match:
-                print(f"Skipping {filename} - could not extract year from filename")
-                continue
+                if not match:
+                    logger.warning(f"Skipping {filename} - could not extract year from filename")
+                    continue
 
-            yr = match.group(1)
-            csv_file = os.path.join(input_directory, filename)
-            database_name = rf"D:\Data\Genealogy_Data\MasterVault_{yr}.db"
+                yr = match.group(1)
+                csv_file = os.path.join(input_directory, filename)
+                database_name = rf"D:\Data\Genealogy_Data\MasterVault_{yr}.db"
 
-            try:
-                # ---- PER-FILE start ---------------------------------------------
-                file_wall_start = time.time()
-                file_cpu_before = psutil.Process().cpu_times()
-                file_stats_before = statistics.get_system_snapshot()
-                # -----------------------------------------------------------------
+                try:
+                    # PER-FILE start
+                    logger.info(f"\n=== Processing {filename} ===")
+                    file_wall_start = time.time()
+                    file_cpu_before = psutil.Process().cpu_times()
+                    file_stats_before = statistics.get_system_snapshot()
 
-                print(f"\n=== Processing {filename} ===")
+                    if ingest_to_vault(csv_file, database_name):
+                        logger.info(f"Successfully processed {filename}")
+                    else:
+                        logger.error(f"Failed to process {filename}")
 
-                # ---- PER-FILE end -----------------------------------------------
-                file_wall_end = time.time()
-                file_cpu_after = psutil.Process().cpu_times()
-                file_stats_after = statistics.get_system_snapshot()
-                statistics.print_stats_report(
-                    label=f"File: {filename}",
-                    before=file_stats_before,
-                    after=file_stats_after,
-                    wall_seconds=file_wall_end - file_wall_start,
-                    cpu_times_before=file_cpu_before,
-                    cpu_times_after=file_cpu_after,
-                )
-                # -----------------------------------------------------------------
+                    # PER-FILE end
+                    file_wall_end = time.time()
+                    file_cpu_after = psutil.Process().cpu_times()
+                    file_stats_after = statistics.get_system_snapshot()
 
-                if ingest_to_vault(csv_file, database_name):
-                    print(f"Successfully processed {filename}")
-                else:
-                    print(f"Failed to process {filename}")
-            except Exception as e:
-                print(f"Error processing {filename}: {str(e)}")
-                continue
+                    # Print stats report
+                    statistics.print_stats_report(
+                        label=f"File: {filename}",
+                        before=file_stats_before,
+                        after=file_stats_after,
+                        wall_seconds=file_wall_end - file_wall_start,
+                        cpu_times_before=file_cpu_before,
+                        cpu_times_after=file_cpu_after,
+                    )
 
-            # ---- SESSION-LEVEL end --------------------------------------------------
-            session_wall_end = time.time()
+                except Exception as e:
+                    logger.error(f"Error processing {filename}: {str(e)}")
+                    continue
 
-            session_cpu_after = psutil.Process().cpu_times()
-            session_stats_after = statistics.get_system_snapshot()
-            statistics.print_stats_report(
-                label="FULL SESSION TOTAL",
-                before=session_stats_before,
-                after=session_stats_after,
-                wall_seconds=session_wall_end - session_wall_start,
-                cpu_times_before=session_cpu_before,
-                cpu_times_after=session_cpu_after,
-            )
-            print(f"  Session ended: {datetime.datetime.now().strftime('%Y-%m-%d  %H:%M:%S')}")
-            print()
-            # -------------------------------------------------------------------------
+        # Session-level logging end
+        session_wall_end = time.time()
+        session_cpu_after = psutil.Process().cpu_times()
+        session_stats_after = statistics.get_system_snapshot()
 
-    print(f"  Session ended: {datetime.datetime.now().strftime('%Y-%m-%d  %H:%M:%S')}")
-    print()
-    # -------------------------------------------------------------------------
+        statistics.print_stats_report(
+            label="FULL SESSION TOTAL",
+            before=session_stats_before,
+            after=session_stats_after,
+            wall_seconds=session_wall_end - session_wall_start,
+            cpu_times_before=session_cpu_before,
+            cpu_times_after=session_cpu_after,
+        )
+        logger.info(f"Session ended: {datetime.datetime.now().strftime('%Y-%m-%d  %H:%M:%S')}")
+    except Exception as e:
+        logger.error(f"Main error: {e}")
 
 print("\n=== All vaults complete ===")
