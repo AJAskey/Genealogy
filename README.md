@@ -1,4 +1,4 @@
-# Genealogy Pipeline — Project Notes
+ Genealogy Pipeline — Project Notes
 
 **Project:** IPUMS Census Data → GEDCOM Family Tree  
 **Repository:** https://github.com/AJAskey/Genealogy  
