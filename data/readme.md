@@ -1,3 +1,14 @@
+graph LR
+    A[Raw Data Source] --> B{Process Logic}
+    B --> C[Internal Database]
+    B --> D[User Dashboard]
+    
+    subgraph Core System
+    B
+    end
+
+    style B fill:#f9f,stroke:#333,stroke-width:4px
+
 # Census Truth Project
 
 A demographic database built on 100 years of US federal census records (1850-1950),
