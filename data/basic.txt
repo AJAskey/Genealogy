@@ -1,5 +1,40 @@
-Description: 1900 genealogy with samples
+Description: 1850-2005 genealogy samples only
 Samples selected:
+      1850 1%
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1860 1%
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1860 1% sample with black oversample
+            Note: 
+            Density of the full data file:  1.2%
+            Density of your extract: 1.2%
+
+      1870 1%
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1870 1% sample with black oversample
+            Note: 
+            Density of the full data file:  1.2%
+            Density of your extract: 1.2%
+
+      1880 1%
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1880 10%
+            Note: 
+            Density of the full data file:  10.0%
+            Density of your extract: 10.0%
+
       1900 5%
             Note: 
             Density of the full data file:  5.0%
@@ -15,57 +50,214 @@ Samples selected:
             Density of the full data file:  1.2%
             Density of your extract: 1.2%
 
-      1900 100% database
+      1910 1%
             Note: 
-            Density of the full data file:  100.0%
-            Density of your extract: 100.0%
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1910 1.4% sample with oversamples
+            Note: 
+            Density of the full data file:  1.4%
+            Density of your extract: 1.4%
+
+      1920 1%
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1930 1%
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1930 5%
+            Note: 
+            Density of the full data file:  5.0%
+            Density of your extract: 5.0%
+
+      1940 1%
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1950 1%
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1960 1%
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1960 5%
+            Note: 
+            Density of the full data file:  5.0%
+            Density of your extract: 5.0%
+
+      1970 Form 1 State
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1970 Form 2 State
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1970 Form 1 Metro
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1970 Form 1 Neighborhood
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1970 Form 2 Neighborhood
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1980 5%
+            Note: 
+            Density of the full data file:  5.0%
+            Density of your extract: 5.0%
+
+      1980 1%
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1980 Urban/Rural
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1980 Labor Market Area
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1980 Detailed metro/non-metro
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1990 5%
+            Note: 
+            Density of the full data file:  5.0%
+            Density of your extract: 5.0%
+
+      1990 1%
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1990 Unweighted 1%
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1990 Elderly
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      1990 Labor Market Area
+            Note: 
+            Density of the full data file:  0.5%
+            Density of your extract: 0.5%
+
+      2000 5%
+            Note: 
+            Density of the full data file:  5.0%
+            Density of your extract: 5.0%
+
+      2000 1% sample (old version)
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      2000 Unweighted 1%
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      2000 ACS
+            Note: Does not include persons in group quarters.
+            Density of the full data file:  0.13%
+            Density of your extract: 0.1%
+
+      2000 1%
+            Note: 
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
+
+      2001 ACS
+            Note: Does not include persons in group quarters.
+            Density of the full data file:  0.43%
+            Density of your extract: 0.4%
+
+      2002 ACS
+            Note: Does not include persons in group quarters.
+            Density of the full data file:  0.38%
+            Density of your extract: 0.4%
+
+      2003 ACS
+            Note: Does not include persons in group quarters.
+            Density of the full data file:  0.42%
+            Density of your extract: 0.4%
+
+      2004 ACS
+            Note: Does not include persons in group quarters.
+            Density of the full data file:  0.42%
+            Density of your extract: 0.4%
+
+      2005 ACS
+            Note: Does not include persons in group quarters.
+            Density of the full data file:  1.0%
+            Density of your extract: 1.0%
 
 File Type:                    rectangular
 Case Selection:               No
-  Variable                         Columns        Len   1900    1900    1900    1900    
-  YEAR                         H   1-4            4     X       X       X       X       
-  SAMPLE                       H   5-10           6     X       X       X       X       
-  SERIAL                       H  11-18           8     X       X       X       X       
-  NUMPREC                      H  19-20           2     X       X       X       X       
-  HHWT                         H  21-30          10     X       X       X       X       
-  HHTYPE                       H  31              1     X       X       X       X       
-  CLUSTER                      H  32-44          13     X       X       X       .       
-  STATEICP                     H  45-46           2     X       X       X       X       
-  COUNTYICP                    H  47-50           4     X       X       X       X       
-  CITY                         H  51-54           4     X       X       X       X       
-  STRATA                       H  55-66          12     X       X       X       .       
-  GQ                           H  67              1     X       X       X       X       
-  NMOTHERS                     H  68              1     X       X       X       X       
-  NFATHERS                     H  69              1     X       X       X       X       
-  REEL                         H  70-73           4     X       X       X       .       
-  PAGENO                       H  74-77           4     X       X       X       .       
-  LINE                         H  78-80           3     X       X       X       .       
-  MICROSEQ                     H  81              1     X       X       X       .       
-  STREET                       H  82-163         82     X       X       X       .       
-  PERNUM                       P 164-167          4     X       X       X       X       
-  PERWT                        P 168-177         10     X       X       X       X       
-  FAMUNIT                      P 178-179          2     X       X       X       X       
-  FAMSIZE                      P 180-181          2     X       X       X       X       
-  MOMLOC                       P 182-183          2     X       X       X       X       
-  POPLOC                       P 184-185          2     X       X       X       X       
-  SPLOC                        P 186-187          2     X       X       X       X       
-  NCHILD                       P 188              1     X       X       X       X       
-  NSIBS                        P 189              1     X       X       X       X       
-  ELDCH                        P 190-191          2     X       X       X       X       
-  YNGCH                        P 192-193          2     X       X       X       X       
-  RELATE                       P 194-195          2     X       X       X       X       
-  RELATED                      P 196-199          4     X       X       X       X       
-  SEX                          P 200              1     X       X       X       X       
-  AGE                          P 201-203          3     X       X       X       X       
-  BIRTHYR                      P 204-207          4     X       X       X       X       
-  RACE                         P 208              1     X       X       X       X       
-  RACED                        P 209-211          3     X       X       X       X       
-  BPL                          P 212-214          3     X       X       X       X       
-  BPLD                         P 215-219          5     X       X       X       X       
-  VERSIONHIST                  P 220-221          2     .       .       .       X       
-  NAMELAST                     P 222-292         71     X       X       X       .       
-  NAMEFRST                     P 293-365         73     X       X       X       .       
-  HISTID                       P 366-401         36     .       .       .       X       
+  Variable                         Columns        Len   1850    1860    1860    1870    1870    1880    1880    1900    1900    1900    1910    1910    1920    1930    1930    1940    1950    1960    1960    1970    1970    1970    1970    1970    1980    1980    1980    1980    1980    1990    1990    1990    1990    1990    2000    2000    2000    2000    2000    2001    2002    2003    2004    2005    
+  YEAR                         H   1-4            4     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  SAMPLE                       H   5-10           6     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  SERIAL                       H  11-18           8     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  CBSERIAL                     H  19-31          13     .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       .       X       
+  NUMPREC                      H  32-33           2     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  HHWT                         H  34-43          10     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  HHTYPE                       H  44              1     .       .       .       .       .       .       .       X       X       X       X       X       .       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  CLUSTER                      H  45-57          13     X       X       X       X       X       X       .       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  STATEICP                     H  58-59           2     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       .       .       X       X       X       X       .       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  COUNTYICP                    H  60-63           4     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       .       X       .       .       X       .       .       X       X       .       .       .       X       X       X       .       .       X       X       X       .       X       .       .       .       .       X       
+  CITY                         H  64-67           4     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       .       X       .       .       .       .       .       X       X       X       .       .       X       X       X       X       .       X       X       X       .       X       .       .       .       .       X       
+  STRATA                       H  68-79          12     X       X       X       X       X       X       .       X       X       X       X       X       X       X       X       X       X       X       .       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  GQ                           H  80              1     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  NMOTHERS                     H  81              1     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  NFATHERS                     H  82              1     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  PERNUM                       P  83-86           4     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  PERWT                        P  87-96          10     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  FAMUNIT                      P  97-98           2     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  FAMSIZE                      P  99-100          2     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  MOMLOC                       P 101-102          2     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  POPLOC                       P 103-104          2     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  SPLOC                        P 105-106          2     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  NCHILD                       P 107              1     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  NSIBS                        P 108              1     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  ELDCH                        P 109-110          2     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  YNGCH                        P 111-112          2     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  RELATE                       P 113-114          2     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  RELATED                      P 115-118          4     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  SEX                          P 119              1     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  AGE                          P 120-122          3     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  BIRTHYR                      P 123-126          4     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  RACE                         P 127              1     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  RACED                        P 128-130          3     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  BPL                          P 131-133          3     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
+  BPLD                         P 134-138          5     X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       X       
 
 Variable Availability Key:
 All Years X - available in this sample
@@ -3623,9 +3815,4 @@ BPLD                Birthplace [detailed version]
 95000               Other n.e.c.
 99700               Unknown
 99900               Missing/blank
-
-VERSIONHIST         Release version for historical full counts
-01                  Public release version 1
-02                  Public release version 2
-03                  Public release version 3
 

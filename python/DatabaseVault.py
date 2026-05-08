@@ -144,17 +144,17 @@ def ingest_to_vault(input_csv, db_name):
 
 
 if __name__ == '__main__':
-    input_directory = r"E:\Census\IPUMS\Original"
+    input_directory = r"D:\Data\Genealogy_Data\CSV"
 
     # Session-level logging start
     logger.info("Session started")
     session_wall_start = time.time()
     session_cpu_before = psutil.Process().cpu_times()
     session_stats_before = statistics.get_system_snapshot()
-
+    files =["",  "  "]
     try:
         # Process all CSV files in the directory
-        for filename in os.listdir(input_directory):
+        for filename in files:
             if filename.endswith(".csv"):
                 match = re.search(r'(\d{4})', filename)
 
