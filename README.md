@@ -8,7 +8,7 @@
 
 ## Project Goal
 
-Convert IPUMS USA census data (1850–1950) into a validated GEDCOM file
+Convert USA census data (1850–1950) into a validated GEDCOM file
 suitable for genealogy for sharing with family. The pipeline must
 handle ~281 million records across 10 census years, resolve unnamed
 individuals using scoring logic, and produce a family tree with proper
