@@ -2,32 +2,36 @@
 
 **Project:** IPUMS Census Data → GEDCOM Family Tree  
 **Repository:** https://github.com/AJAskey/Genealogy  
-**Last Updated:** April 2026
+**Last Updated:** May 2026
 
 ---
 
 ## Project Goal
 
 Convert IPUMS USA census data (1850–1950) into a validated GEDCOM file
-suitable for genealogy research and sharing with family. The pipeline must
+suitable for genealogy for sharing with family. The pipeline must
 handle ~281 million records across 10 census years, resolve unnamed
 individuals using scoring logic, and produce a family tree with proper
 source citations.
 
+Find all relatives of Captain Thomas Erskine/Askey (1727-1806) from 1850-1950 census data. There are many family trees created and the goal is find the 
+best existing tree. I have been working on this for over 20 years by hand and longed for the day computers could help. That day is here. 
+ This software can be cloned and used by others in similar family situations.
+![Thomas Askey.jpg](assets/fc507baa7441aae8868236b18e8a7f05e4a61429aa44c420bf720c0bd5858f1a.jpg)
 ---
 
 ## Current State (as of late April 2026)
 
 - Raw CSV files downloaded from IPUMS: 1850–1950, one file per census year
-- Files stored at: `E:\Storage\Census\IPUMS\Original\`
-- SQLite databases created (one per decade): `D:\Data\Genealogy_Data\`
+- Files stored at: `E:\Storage\Census\IPUMS\Original`
+- SQLite databases created (one per decade): `D:\Data\Genealogy_Data`
 - Ingest pipeline working: approximately 8 hours to process all years
 - DB Browser being used for data exploration
-- SERIAL ID confirmed present on every record
 
 **Known Data Issues:**
-- Approximately 25% of records are missing name data (illegible handwriting
-  in original census documents)
+- Approximately 75% of records are missing name data (illegible handwriting
+  in original census documents or held back by IPUMS to force payment to the 
+  commercial companies involved.)
 - Records with missing names are otherwise high quality — the gap is names only
 - MOMLOC and POPLOC fields in IPUMS already link parents to children within
   a household — check completeness before building custom matching logic
@@ -51,7 +55,7 @@ matching logic during CSV ingest. Reasons:
 ### Decision 2: Two-Tier Database Architecture
 
 | Database | Purpose |
-|---|---|
+| --- | --- |
 | Raw DB | Exact IPUMS import, never modified |
 | Clean DB | Resolved identities, Origin IDs, citations |
 
@@ -134,12 +138,12 @@ instead of IPUMS directly. The family tree structure is unaffected either way.
 ### Scoring Components (agreed across all AI advisors)
 
 | Component | Points | Notes |
-|---|---|---|
+| --- | --- | --- |
 | Age Consistency | 0–3 | Expected age ± tolerance across 10 years |
 | Household Structure | 0–5 | Household vector comparison (see below) |
 | Geography | 0–3 | Same county > same state > different state |
 | Name Match | 0–2 | When available: exact, phonetic (Soundex) |
-| **Total** | **0–13** | |
+| **Total** | **0–13** |  |
 
 Thresholds:
 - 10–13: Strong match — likely approve
@@ -237,8 +241,8 @@ writes. No locking issues. Add complexity only if performance requires it later.
 
 1. **IPUMS Data Use Agreement** — Question submitted to IPUMS regarding
    sharing derived GEDCOM with family. Awaiting response.
-   - Fallback: cite US Federal Census (National Archives) instead of IPUMS
-   - The family tree structure is unaffected either way
+  - Fallback: cite US Federal Census (National Archives) instead of IPUMS
+  - The family tree structure is unaffected either way
 
 2. **MOMLOC/POPLOC completeness** — Run audit query before building
    custom matching. May significantly reduce scope of work needed.
@@ -250,11 +254,11 @@ writes. No locking issues. Add complexity only if performance requires it later.
 
 ## File Locations (Local Machine)
 
-| Location                                        | Contents |
-|-------------------------------------------------|---|
-| `E:\Storage\Census\IPUMS\Original\`             | Raw CSV files from IPUMS |
-| `D:\Data\Genealogy_Data\`                       | SQLite databases (one per decade) |
-| `E:\Users\Andy\PycharmProjects\Genealogy\design\` | Design documents, AI responses |
+| Location | Contents |
+| --- | --- |
+| `E:\Storage\Census\IPUMS\Original` | Raw CSV files from IPUMS |
+| `D:\Data\Genealogy_Data` | SQLite databases (one per decade) |
+| `E:\Users\Andy\PycharmProjects\Genealogy\design` | Design documents, AI responses |
 | `E:\Users\Andy\PycharmProjects\Genealogy\python` | Python scripts
 | `E:\Users\Andy\PycharmProjects\Genealogy\JSON`   | JSON files associted with index from DB
 
@@ -275,4 +279,4 @@ Key unique contributions:
   household-level Origin ID distinction; citation tracking for IPUMS
   data use protection
 
-[See documentation](design/readme.md)
+[readme.md](./design/readme.md)
