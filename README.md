@@ -21,7 +21,7 @@ best existing tree. I have been working on this for over 20 years by hand and lo
 ![Thomas Askey.jpg](assets/fc507baa7441aae8868236b18e8a7f05e4a61429aa44c420bf720c0bd5858f1a.jpg)
 ---
 
-## Current State (as of late April 2026)
+## Current State (as of late May 2026)
 
 - Raw CSV files downloaded from IPUMS: 1850–1950, one file per census year
 - Files stored at: `E:\Storage\Census\IPUMS\Original`
@@ -64,12 +64,10 @@ The Raw DB is the vault. The Clean DB is the output. They never mix.
 
 ### Decision 3: Human Review Gate (Text File Buffer)
 
-Matching candidates will be written to human-readable TEXT FILES before
-anything is written to the Clean DB. Andy reviews and edits these files,
+Matching candidates will be written to human-readable TEXT FILES beforeanything is written to the Clean DB. Andy reviews and edits these files,
 then a second script reads the approved files and writes to the Clean DB.
 
-This eliminates all concurrency and write-contention concerns. It also
-provides a permanent audit trail of every matching decision made.
+This eliminates all concurrency and write-contention concerns. It also provides a permanent audit trail of every matching decision made.
 
 Text file format (proposed):
 
@@ -83,8 +81,7 @@ MATCH CANDIDATE - Score: 8/13
 
 ### Decision 4: Permanent Person ID (Origin ID / "St. Joe's ID")
 
-Every individual gets a unique integer ID that never changes, never gets
-reused, and encodes no data about the person. This is assigned once, at
+Every individual gets a unique integer ID that never changes, never gets reused, and encodes no data about the person. This is assigned once, at
 the moment a match is approved.
 
 - Use a simple sequential integer starting at 1
@@ -97,8 +94,7 @@ not the household level. Households split and merge across decades.
 
 ### Decision 5: Citation Tracking
 
-Every record in the Clean DB must have a citation row linking it to its
-source. This is both good genealogy practice and provides protection
+Every record in the Clean DB must have a citation row linking it to its source. This is both good genealogy practice and provides protection
 if IPUMS data use questions arise later.
 
 Citation table structure:
@@ -108,8 +104,7 @@ PersonID  | Source   | SourceDetail                   | CensusYear | SERIAL | PE
 100042    | Ancestry | Death Certificate, Cook Co. IL  | 1923       | --     | --
 ```
 
-If IPUMS data use agreement becomes a concern, citations can be switched
-to reference the primary source (US Federal Census, National Archives)
+If IPUMS data use agreement becomes a concern, citations can be switched to reference the primary source (US Federal Census, National Archives)
 instead of IPUMS directly. The family tree structure is unaffected either way.
 
 ---
@@ -151,22 +146,19 @@ Thresholds:
 - 7–9: Probable match — review carefully
 - Below 7: Reject
 
-**Always store the score** in the output file. Never make a hard match
-without a score. Some records will be genuinely unresolvable — that is OK.
+**Always store the score** in the output file. Never make a hard match without a score. Some records will be genuinely unresolvable — that is OK.
 
 ### Household Vector (ChatGPT recommendation — adopt this)
 
 Instead of just counting siblings, create a household signature:
 `[FatherAge, MotherAge, ChildAges-sorted]` → `[45, 42, 18, 16, 12, 8]`
 
-Compare vectors across decades using delta scoring. This is your strongest
-cross-census fingerprint because the whole family structure must match,
+Compare vectors across decades using delta scoring. This is your strongest cross-census fingerprint because the whole family structure must match,
 not just one person.
 
 ### Blocking Strategy (CoPilot recommendation — adopt this)
 
-NEVER compare everyone to everyone. That is combinatorial explosion.
-Narrow candidates first, then score:
+NEVER compare everyone to everyone. That is combinatorial explosion.  Narrow candidates first, then score:
 
 1. Block by: State + County + Birth Year range (± 2 years)
 2. Score only within those blocks
@@ -176,8 +168,7 @@ This is the difference between finishing in hours vs. weeks.
 
 ### Anchor Strategy
 
-Do not try to match everyone equally. Anchor on fathers first (most
-identifiable in historical data), then cascade to children via IPUMS
+Do not try to match everyone equally. Anchor on fathers first (most identifiable in historical data), then cascade to children via IPUMS
 POPLOC/MOMLOC pointers.
 
 ---
@@ -222,8 +213,7 @@ These may handle 60–70% of linking automatically.
 
 ### Threading / Concurrency
 
-Not needed right now. The human review gate (text file buffer) means
-Script 1 and Script 2 run at completely separate times. No concurrent
+Not needed right now. The human review gate (text file buffer) means Script 1 and Script 2 run at completely separate times. No concurrent
 writes. No locking issues. Add complexity only if performance requires it later.
 
 ---
@@ -240,16 +230,13 @@ writes. No locking issues. Add complexity only if performance requires it later.
 
 ## Open Questions
 
-1. **IPUMS Data Use Agreement** — Question submitted to IPUMS regarding
-   sharing derived GEDCOM with family. Awaiting response.
+1. **IPUMS Data Use Agreement** — Question submitted to IPUMS regarding    sharing derived GEDCOM with family. Awaiting response.
   - Fallback: cite US Federal Census (National Archives) instead of IPUMS
   - The family tree structure is unaffected either way
 
-2. **MOMLOC/POPLOC completeness** — Run audit query before building
-   custom matching. May significantly reduce scope of work needed.
+2. **MOMLOC/POPLOC completeness** — Run audit query before building    custom matching. May significantly reduce scope of work needed.
 
-3. **Confidence threshold tuning** — What score threshold triggers
-   auto-approve vs. manual review? Start conservative, loosen over time.
+3. **Confidence threshold tuning** — What score threshold triggers auto-approve vs. manual review? Start conservative, loosen over time.
 
 ---
 
@@ -267,8 +254,7 @@ writes. No locking issues. Add complexity only if performance requires it later.
 
 ## AI Advisor Notes
 
-Responses were collected from ChatGPT, Gemini, and CoPilot in addition
-to ongoing work with Claude. All four agreed on Option B (post-ingest),
+Responses were collected from ChatGPT, Gemini, and CoPilot in addition to ongoing work with Claude. All four agreed on Option B (post-ingest),
 the two-tier architecture, and against loading full CSVs into memory.
 
 Key unique contributions:
@@ -280,4 +266,3 @@ Key unique contributions:
   household-level Origin ID distinction; citation tracking for IPUMS
   data use protection
 
-[readme.md](./design/readme.md)
