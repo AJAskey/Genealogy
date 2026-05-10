@@ -17,9 +17,66 @@ Comments for G:
 """
 
 import datetime
+import logging
 import platform
 import time
 import psutil
+
+
+# ==============================================================================
+# LOGGING SETUP
+# ==============================================================================
+
+def setup_logging(log_dir=r"D:\Data\Genealogy_Data\Logs"):
+    """
+    Call this once at session start (from DatabaseVault_threaded.py __main__).
+
+    Creates two handlers:
+      1. StreamHandler  → console (same output you've always seen)
+      2. FileHandler    → timestamped .log file in log_dir
+
+    The log file is named like:
+        vault_2025-07-14_09-32-11.log
+
+    If log_dir doesn't exist it will be created automatically.
+    If something goes wrong creating the directory the log still goes to
+    the console — it won't crash the run.
+    """
+    import os
+
+    # Build a timestamped filename
+    ts = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_filename = f"vault_{ts}.log"
+
+    # Make sure the log folder exists
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+        log_path = os.path.join(log_dir, log_filename)
+    except Exception as e:
+        log_path = None
+        print(f"[WARNING] Could not create log directory '{log_dir}': {e}")
+        print("[WARNING] Logging to console only.")
+
+    # Root logger — INFO level so everything at INFO and above is captured
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    # Formatter: no "INFO:root:" prefix — just the message, same as print()
+    formatter = logging.Formatter("%(message)s")
+
+    # Console handler (replaces what print() was doing)
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+    # File handler
+    if log_path:
+        file_handler = logging.FileHandler(log_path, encoding="utf-8")
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+        logging.info(f"  Log file  : {log_path}")
+
+    return log_path
 
 
 # ==============================================================================
@@ -76,26 +133,25 @@ def get_system_snapshot():
 
 
 def print_session_header():
-
     """Print a banner at the very top with machine info and start time."""
-    print("=" * 65)
-    print("  DATABASE VAULT  —  SESSION START")
-    print("=" * 65)
-    print(f"  Started   : {datetime.datetime.now().strftime('%Y-%m-%d  %H:%M:%S')}")
-    print(f"  Machine   : {platform.node()}")
-    print(f"  OS        : {platform.system()} {platform.release()} ({platform.version()})")
-    print(f"  Python    : {platform.python_version()}")
-    print(f"  CPU cores : {psutil.cpu_count(logical=False)} physical  /  "
-          f"{psutil.cpu_count(logical=True)} logical")
+    logging.info("=" * 65)
+    logging.info("  DATABASE VAULT  —  SESSION START")
+    logging.info("=" * 65)
+    logging.info(f"  Started   : {datetime.datetime.now().strftime('%Y-%m-%d  %H:%M:%S')}")
+    logging.info(f"  Machine   : {platform.node()}")
+    logging.info(f"  OS        : {platform.system()} {platform.release()} ({platform.version()})")
+    logging.info(f"  Python    : {platform.python_version()}")
+    logging.info(f"  CPU cores : {psutil.cpu_count(logical=False)} physical  /  "
+                 f"{psutil.cpu_count(logical=True)} logical")
 
     mem = psutil.virtual_memory()
-    print(f"  Total RAM : {mem.total / (1024 ** 3):.1f} GB")
+    logging.info(f"  Total RAM : {mem.total / (1024 ** 3):.1f} GB")
 
     swap = psutil.swap_memory()
-    print(f"  Page file : {swap.total / (1024 ** 3):.1f} GB  (Windows swap / page file)")
-    print(f"  GPU note  : SQLite + Python CSV is CPU + disk only — no GPU involvement.")
-    print("=" * 65)
-    print()
+    logging.info(f"  Page file : {swap.total / (1024 ** 3):.1f} GB  (Windows swap / page file)")
+    logging.info(f"  GPU note  : SQLite + Python CSV is CPU + disk only — no GPU involvement.")
+    logging.info("=" * 65)
+    logging.info("")
 
 
 def print_stats_report(label, before, after, wall_seconds, cpu_times_before, cpu_times_after):
@@ -107,43 +163,43 @@ def print_stats_report(label, before, after, wall_seconds, cpu_times_before, cpu
 
     wall_min = wall_seconds / 60
 
-    print()
-    print("=" * 65)
-    print(f"  STATS REPORT  —  {label}")
-    print("=" * 65)
+    logging.info("")
+    logging.info("=" * 65)
+    logging.info(f"  STATS REPORT  —  {label}")
+    logging.info("=" * 65)
 
-    print(f"\n  {'TIMING':}")
-    print(f"    Wall clock elapsed : {wall_seconds:,.1f} sec  ({wall_min:.2f} min)")
-    print(f"    CPU user time      : {cpu_user:,.1f} sec")
-    print(f"    CPU system time    : {cpu_system:,.1f} sec")
-    print(f"    CPU total time     : {cpu_total:,.1f} sec")
-    print(f"    (CPU total > wall clock means multiple cores were used in parallel)")
+    logging.info(f"\n  {'TIMING':}")
+    logging.info(f"    Wall clock elapsed : {wall_seconds:,.1f} sec  ({wall_min:.2f} min)")
+    logging.info(f"    CPU user time      : {cpu_user:,.1f} sec")
+    logging.info(f"    CPU system time    : {cpu_system:,.1f} sec")
+    logging.info(f"    CPU total time     : {cpu_total:,.1f} sec")
+    logging.info(f"    (CPU total > wall clock means multiple cores were used in parallel)")
 
-    print(f"\n  {'CPU USAGE (during run)':}")
-    print(f"    Start  : {before['cpu_percent']:.1f}%")
-    print(f"    End    : {after['cpu_percent']:.1f}%")
+    logging.info(f"\n  {'CPU USAGE (during run)':}")
+    logging.info(f"    Start  : {before['cpu_percent']:.1f}%")
+    logging.info(f"    End    : {after['cpu_percent']:.1f}%")
 
-    print(f"\n  {'MEMORY  (RAM)':}")
-    print(f"    Start  used : {before['ram_used_gb']:.2f} GB  ({before['ram_percent']:.1f}%)")
-    print(f"    End    used : {after['ram_used_gb']:.2f} GB  ({after['ram_percent']:.1f}%)")
-    print(f"    Available   : {after['ram_available_gb']:.2f} GB remaining")
+    logging.info(f"\n  {'MEMORY  (RAM)':}")
+    logging.info(f"    Start  used : {before['ram_used_gb']:.2f} GB  ({before['ram_percent']:.1f}%)")
+    logging.info(f"    End    used : {after['ram_used_gb']:.2f} GB  ({after['ram_percent']:.1f}%)")
+    logging.info(f"    Available   : {after['ram_available_gb']:.2f} GB remaining")
 
-    print(f"\n  {'SWAP / PAGE FILE':}")
+    logging.info(f"\n  {'SWAP / PAGE FILE':}")
     if before['swap_total_gb'] > 0:
-        print(f"    Total       : {before['swap_total_gb']:.2f} GB")
-        print(f"    Start  used : {before['swap_used_gb']:.2f} GB  ({before['swap_percent']:.1f}%)")
-        print(f"    End    used : {after['swap_used_gb']:.2f} GB  ({after['swap_percent']:.1f}%)")
+        logging.info(f"    Total       : {before['swap_total_gb']:.2f} GB")
+        logging.info(f"    Start  used : {before['swap_used_gb']:.2f} GB  ({before['swap_percent']:.1f}%)")
+        logging.info(f"    End    used : {after['swap_used_gb']:.2f} GB  ({after['swap_percent']:.1f}%)")
     else:
-        print(f"    (No swap / page file configured)")
+        logging.info(f"    (No swap / page file configured)")
 
     if before['disk_d_total_gb'] is not None:
-        print(f"\n  {'DISK  (D: drive)':}")
-        print(f"    Total       : {before['disk_d_total_gb']:.1f} GB")
-        print(f"    Start  used : {before['disk_d_used_gb']:.1f} GB  ({before['disk_d_percent']:.1f}%)")
-        print(f"    End    used : {after['disk_d_used_gb']:.1f} GB  ({after['disk_d_percent']:.1f}%)")
+        logging.info(f"\n  {'DISK  (D: drive)':}")
+        logging.info(f"    Total       : {before['disk_d_total_gb']:.1f} GB")
+        logging.info(f"    Start  used : {before['disk_d_used_gb']:.1f} GB  ({before['disk_d_percent']:.1f}%)")
+        logging.info(f"    End    used : {after['disk_d_used_gb']:.1f} GB  ({after['disk_d_percent']:.1f}%)")
         delta_gb = after['disk_d_used_gb'] - before['disk_d_used_gb']
-        print(f"    Space added : {delta_gb:+.2f} GB  (new database data written this run)")
-        print(f"    Free now    : {after['disk_d_free_gb']:.1f} GB")
+        logging.info(f"    Space added : {delta_gb:+.2f} GB  (new database data written this run)")
+        logging.info(f"    Free now    : {after['disk_d_free_gb']:.1f} GB")
 
     # Disk I/O throughput
     if before.get('io_read_bytes') is not None and after.get('io_read_bytes') is not None:
@@ -154,25 +210,25 @@ def print_stats_report(label, before, after, wall_seconds, cpu_times_before, cpu
         elapsed    = after['snapshot_time']   - before['snapshot_time']
         read_mbps  = (read_gb  * 1024) / elapsed if elapsed else 0
         write_mbps = (write_gb * 1024) / elapsed if elapsed else 0
-        print(f"\n  DISK I/O  (system-wide, all drives combined)")
-        print(f"    Data read      : {read_gb:,.2f} GB  ({read_mbps:,.1f} MB/s avg)")
-        print(f"    Data written   : {write_gb:,.2f} GB  ({write_mbps:,.1f} MB/s avg)")
-        print(f"    Read ops       : {read_ops:,}")
-        print(f"    Write ops      : {write_ops:,}")
+        logging.info(f"\n  DISK I/O  (system-wide, all drives combined)")
+        logging.info(f"    Data read      : {read_gb:,.2f} GB  ({read_mbps:,.1f} MB/s avg)")
+        logging.info(f"    Data written   : {write_gb:,.2f} GB  ({write_mbps:,.1f} MB/s avg)")
+        logging.info(f"    Read ops       : {read_ops:,}")
+        logging.info(f"    Write ops      : {write_ops:,}")
 
-    print(f"\n  {'GPU':}")
-    print(f"    Not applicable — SQLite/CSV work is CPU + disk I/O only.")
-    print("=" * 65)
-    print()
+    logging.info(f"\n  {'GPU':}")
+    logging.info(f"    Not applicable — SQLite/CSV work is CPU + disk I/O only.")
+    logging.info("=" * 65)
+    logging.info("")
 
 
 if __name__ == '__main__':
-    # ---- SESSION-LEVEL start ------------------------------------------------
-    # Get current date and time
+    # ---- Quick self-test when run directly ----------------------------------
+    setup_logging()   # logs to console + file when run standalone
+
     now = datetime.datetime.now()
-    # Format and print just the clock time
     current_time = now.strftime("%H:%M:%S")
-    print(f"Current Time: {current_time}")
+    logging.info(f"Current Time: {current_time}")
 
     file_wall_start = time.time()
     file_cpu_before = psutil.Process().cpu_times()
@@ -187,10 +243,10 @@ if __name__ == '__main__':
     file_stats_after = get_system_snapshot()
 
     print_stats_report(
-                    label=f"File: filename",
-                    before=file_stats_before,
-                    after=file_stats_after,
-                    wall_seconds=file_wall_end - file_wall_start,
-                    cpu_times_before=file_cpu_before,
-                    cpu_times_after=file_cpu_after,
+        label=f"File: filename",
+        before=file_stats_before,
+        after=file_stats_after,
+        wall_seconds=file_wall_end - file_wall_start,
+        cpu_times_before=file_cpu_before,
+        cpu_times_after=file_cpu_after,
     )
