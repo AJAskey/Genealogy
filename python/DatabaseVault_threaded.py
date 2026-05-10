@@ -208,9 +208,14 @@ if __name__ == '__main__':
         default=MAX_WORKERS,
         help=f"Number of parallel threads (default: {MAX_WORKERS})"
     )
+    parser.add_argument(
+        "--files", "-f",
+        type=int,
+        default=None,
+        help="Max number of CSV files to process (default: all)"
+    )
     args = parser.parse_args()
     MAX_WORKERS = args.workers
-
     # ---- Set up logging FIRST so every line below goes to file + console ----
     vault_stats.setup_logging()
 
@@ -223,6 +228,10 @@ if __name__ == '__main__':
 
     # Collect every CSV in the input directory
     csv_files = [f for f in os.listdir(input_directory) if f.endswith(".csv")]
+
+    # --- NEW: cap the list if --files was specified ---
+    if args.files is not None:
+        csv_files = csv_files[:args.files]
 
     logging.info(f"\nFound {len(csv_files)} CSV file(s).  Launching up to {MAX_WORKERS} thread(s).\n")
 
