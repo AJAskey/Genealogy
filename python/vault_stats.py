@@ -58,6 +58,20 @@ def get_system_snapshot():
     except Exception:
         snapshot['disk_d_total_gb'] = None  # drive not present on this machine
 
+    # Disk I/O counters — cumulative bytes read/written since boot.
+    # We capture before & after so print_stats_report can show the delta.
+    try:
+        io = psutil.disk_io_counters(perdisk=False)   # system-wide totals
+        snapshot['io_read_bytes']  = io.read_bytes
+        snapshot['io_write_bytes'] = io.write_bytes
+        snapshot['io_read_count']  = io.read_count
+        snapshot['io_write_count'] = io.write_count
+    except Exception:
+        snapshot['io_read_bytes'] = None
+
+    # Snapshot wall time so throughput (MB/s) can be calculated
+    snapshot['snapshot_time'] = time.time()
+
     return snapshot
 
 
@@ -130,6 +144,21 @@ def print_stats_report(label, before, after, wall_seconds, cpu_times_before, cpu
         delta_gb = after['disk_d_used_gb'] - before['disk_d_used_gb']
         print(f"    Space added : {delta_gb:+.2f} GB  (new database data written this run)")
         print(f"    Free now    : {after['disk_d_free_gb']:.1f} GB")
+
+    # Disk I/O throughput
+    if before.get('io_read_bytes') is not None and after.get('io_read_bytes') is not None:
+        read_gb    = (after['io_read_bytes']  - before['io_read_bytes'])  / (1024 ** 3)
+        write_gb   = (after['io_write_bytes'] - before['io_write_bytes']) / (1024 ** 3)
+        read_ops   =  after['io_read_count']  - before['io_read_count']
+        write_ops  =  after['io_write_count'] - before['io_write_count']
+        elapsed    = after['snapshot_time']   - before['snapshot_time']
+        read_mbps  = (read_gb  * 1024) / elapsed if elapsed else 0
+        write_mbps = (write_gb * 1024) / elapsed if elapsed else 0
+        print(f"\n  DISK I/O  (system-wide, all drives combined)")
+        print(f"    Data read      : {read_gb:,.2f} GB  ({read_mbps:,.1f} MB/s avg)")
+        print(f"    Data written   : {write_gb:,.2f} GB  ({write_mbps:,.1f} MB/s avg)")
+        print(f"    Read ops       : {read_ops:,}")
+        print(f"    Write ops      : {write_ops:,}")
 
     print(f"\n  {'GPU':}")
     print(f"    Not applicable — SQLite/CSV work is CPU + disk I/O only.")
