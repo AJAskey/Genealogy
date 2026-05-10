@@ -2,27 +2,23 @@
 -----------------------------------
 File: vault_stats.py
 
-Summary:   System performance monitoring helpers for DatabaseVault.
-           Captures CPU, RAM, swap, and disk snapshots before/after
-           each file import and prints a formatted report.
+Summary:
 
-Design:    Stateless helper functions — no classes, no global state.
-           Call get_system_snapshot() before and after a run, then
-           pass both snapshots to print_stats_report().
+Design:
 
-Inputs:    psutil system metrics (live, at call time)
+Inputs:
 
-Outputs:   Printed reports to stdout / log
+Outputs:
 
-Comments:  Renamed from statistics.py to avoid shadowing Python's
-           built-in statistics module.
+Comments for G:
+
 --------------------------------
+
 """
 
 import datetime
 import platform
 import time
-
 import psutil
 
 
@@ -66,6 +62,7 @@ def get_system_snapshot():
 
 
 def print_session_header():
+
     """Print a banner at the very top with machine info and start time."""
     print("=" * 65)
     print("  DATABASE VAULT  —  SESSION START")
@@ -141,25 +138,30 @@ def print_stats_report(label, before, after, wall_seconds, cpu_times_before, cpu
 
 
 if __name__ == '__main__':
-    # Quick self-test: take a snapshot, print the header and a report
+    # ---- SESSION-LEVEL start ------------------------------------------------
+    # Get current date and time
     now = datetime.datetime.now()
-    print(f"Current Time: {now.strftime('%H:%M:%S')}")
+    # Format and print just the clock time
+    current_time = now.strftime("%H:%M:%S")
+    print(f"Current Time: {current_time}")
 
-    wall_start = time.time()
-    cpu_before = psutil.Process().cpu_times()
-    stats_before = get_system_snapshot()
+    file_wall_start = time.time()
+    file_cpu_before = psutil.Process().cpu_times()
+    file_stats_before = get_system_snapshot()
 
     print_session_header()
+    session_wall_start = time.time()
+    session_cpu_before = psutil.Process().cpu_times()
 
-    wall_end = time.time()
-    cpu_after = psutil.Process().cpu_times()
-    stats_after = get_system_snapshot()
+    file_wall_end = time.time()
+    file_cpu_after = psutil.Process().cpu_times()
+    file_stats_after = get_system_snapshot()
 
     print_stats_report(
-        label="Self-test",
-        before=stats_before,
-        after=stats_after,
-        wall_seconds=wall_end - wall_start,
-        cpu_times_before=cpu_before,
-        cpu_times_after=cpu_after,
+                    label=f"File: filename",
+                    before=file_stats_before,
+                    after=file_stats_after,
+                    wall_seconds=file_wall_end - file_wall_start,
+                    cpu_times_before=file_cpu_before,
+                    cpu_times_after=file_cpu_after,
     )
