@@ -180,11 +180,11 @@ def process_file(filename, input_directory):
         cpu_times_after=cpu_after,
     )
 
-    dtime = wall_end - wall_start
+    dtime = (wall_end - wall_start) * 1000
     rec_per_sec = record_count / dtime
-    logging.info(f"record_count : {record_count}")
-    logging.info(f"dtime        : {dtime}")
-    logging.info(f"recPerSec    : {rec_per_sec}")
+    logging.info(f"   record_count        : {record_count}")
+    logging.info(f"   dtime milliseconds  : {dtime}")
+    logging.info(f"   Rec per MS          : {rec_per_sec}\n")
 
     return {
         "filename": filename,
@@ -224,7 +224,7 @@ if __name__ == '__main__':
     session_cpu_before = psutil.Process().cpu_times()
     session_snap_before = vault_stats.get_system_snapshot()
 
-    input_directory = r"D:\Data\Genealogy_Data\CSV"
+    input_directory = r"c:\Data\CSV"
 
     # Collect every CSV in the input directory
     csv_files = [f for f in os.listdir(input_directory) if f.endswith(".csv")]
@@ -233,6 +233,7 @@ if __name__ == '__main__':
     if args.files is not None:
         csv_files = csv_files[:args.files]
 
+    logging.info(f"input_directory  {input_directory} \n")
     logging.info(f"\nFound {len(csv_files)} CSV file(s).  Launching up to {MAX_WORKERS} thread(s).\n")
 
     results = []
@@ -263,11 +264,14 @@ if __name__ == '__main__':
     logging.info("\n" + "=" * 60)
     logging.info(f"  THREAD SUMMARY   (MAX_WORKERS={MAX_WORKERS}, BATCH_SIZE={BATCH_SIZE:,})")
     logging.info("=" * 60)
-    logging.info(f"  {'Year':<8}  {'Records':>12}  {'Minutes':>8}  {'File'}")
+    logging.info(f"  {'Year':<8}  {'Records':>12}  {'Minutes':>8} {'Rec_per_MS':>11}  {'File'}")
     logging.info(f"  {'-' * 8}  {'-' * 12}  {'-' * 8}  {'-' * 30}")
 
     for r in sorted(results, key=lambda x: x["year"]):
-        logging.info(f"  {r['year']:<8}  {r['records']:>12,}  {r['elapsed_min']:>8.2f}  {r['filename']}")
+        ms = r["elapsed_min"] * 60_000.0
+        rec_per_ms = r["records"] / ms if ms > 0 else 0.0
+        logging.info(
+            f"  {r['year']:<8}  {r['records']:>12,}  {r['elapsed_min']:>8.2f}  {rec_per_ms:>10.2f}  {r['filename']}")
 
     total_records = sum(r["records"] for r in results)
     session_wall_end = time.time()
@@ -284,7 +288,11 @@ if __name__ == '__main__':
     )
 
     total_wall_min = round((session_wall_end - session_wall_start) / 60, 2)
+    ms = total_wall_min * 60_000.0
+    rep_ms = total_records / ms if ms > 0 else 0.0
     logging.info(f"\n  Total records across all files : {total_records:,}")
-    logging.info(f"  Total wall-clock time          : {total_wall_min} minutes")
-    logging.info(f"  Session ended: {datetime.datetime.now().strftime('%Y-%m-%d  %H:%M:%S')}")
-    logging.info("")
+    logging.info(f"  Records per millisecond        : {rep_ms}")
+    logging.info(f"  Total wall-clock time          : {total_wall_min} minutes -> {ms} milliseconds")
+
+logging.info(f"  Session ended: {datetime.datetime.now().strftime('%Y-%m-%d  %H:%M:%S')}")
+logging.info("")

@@ -105,6 +105,16 @@ def get_system_snapshot():
     snapshot['swap_used_gb'] = swap.used / (1024 ** 3)
     snapshot['swap_percent'] = swap.percent
 
+    # Disk for the C: drive where the databases live
+    try:
+        disk = psutil.disk_usage(r'C:\\')
+        snapshot['disk_c_total_gb'] = disk.total / (1024 ** 3)
+        snapshot['disk_c_used_gb'] = disk.used / (1024 ** 3)
+        snapshot['disk_c_free_gb'] = disk.free / (1024 ** 3)
+        snapshot['disk_c_percent'] = disk.percent
+    except Exception:
+        snapshot['disk_c_total_gb'] = None  # drive not present on this machine
+
     # Disk for the D: drive where the databases live
     try:
         disk = psutil.disk_usage(r'D:\\')
@@ -114,6 +124,7 @@ def get_system_snapshot():
         snapshot['disk_d_percent'] = disk.percent
     except Exception:
         snapshot['disk_d_total_gb'] = None  # drive not present on this machine
+
 
     # Disk I/O counters — cumulative bytes read/written since boot.
     # We capture before & after so print_stats_report can show the delta.
@@ -191,6 +202,15 @@ def print_stats_report(label, before, after, wall_seconds, cpu_times_before, cpu
         logging.info(f"    End    used : {after['swap_used_gb']:.2f} GB  ({after['swap_percent']:.1f}%)")
     else:
         logging.info(f"    (No swap / page file configured)")
+
+    if before['disk_c_total_gb'] is not None:
+        logging.info(f"\n  {'DISK  (C: drive)':}")
+        logging.info(f"    Total       : {before['disk_c_total_gb']:.1f} GB")
+        logging.info(f"    Start  used : {before['disk_c_used_gb']:.1f} GB  ({before['disk_d_percent']:.1f}%)")
+        logging.info(f"    End    used : {after['disk_c_used_gb']:.1f} GB  ({after['disk_d_percent']:.1f}%)")
+        delta_gb = after['disk_d_used_gb'] - before['disk_c_used_gb']
+        logging.info(f"    Space added : {delta_gb:+.2f} GB  (new database data written this run)")
+        logging.info(f"    Free now    : {after['disk_c_free_gb']:.1f} GB")
 
     if before['disk_d_total_gb'] is not None:
         logging.info(f"\n  {'DISK  (D: drive)':}")
