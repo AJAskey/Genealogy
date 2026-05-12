@@ -1,0 +1,7 @@
+for f in *.csv; do 
+    echo "--- $f ---"; 
+    head -n 5 "$f"; 
+    echo "..."; 
+    tail -n 5 "$f"; 
+    echo "  "
+done

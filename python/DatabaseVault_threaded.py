@@ -224,7 +224,7 @@ if __name__ == '__main__':
     session_cpu_before = psutil.Process().cpu_times()
     session_snap_before = vault_stats.get_system_snapshot()
 
-    input_directory = r"c:\Data\CSV"
+    input_directory = r"E:\Census\IPUMS\Original"
 
     # Collect every CSV in the input directory
     csv_files = [f for f in os.listdir(input_directory) if f.endswith(".csv")]
