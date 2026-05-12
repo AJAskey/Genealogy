@@ -60,6 +60,9 @@ BATCH_SIZE = 500_000  # Rows buffered in memory before each SQLite commit.
 db_name1 = r"e:\Data\Genealogy_Data\MasterVault_"
 #
 input_directory = r"E:\Census\IPUMS\Original"
+#
+yr = ''
+#
 # ==============================================================================
 # COLUMNS  (unchanged from original)
 # ==============================================================================
@@ -158,8 +161,13 @@ def process_file(filename, input_directory):
     Called by the thread pool for each CSV file.
     Returns a dict with timing/stats so the main thread can print a summary.
     """
+    global yr
     file_path = os.path.join(input_directory, filename)
-    yr = filename.split('-')[1].split('.')[0]
+    if len(yr) < 2:
+        yr = filename.split('-')[1].split('.')[0]
+        if len(yr) < 2:
+            logging.error(f"Invalid filename format: {filename}")
+            return 0, 0
     db_name = db_name1 + yr + ".db"
 
     logging.info(f"\n--- [{filename}]  Thread starting → {db_name} ---")
