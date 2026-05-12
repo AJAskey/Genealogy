@@ -206,9 +206,9 @@ def print_stats_report(label, before, after, wall_seconds, cpu_times_before, cpu
     if before['disk_c_total_gb'] is not None:
         logging.info(f"\n  {'DISK  (C: drive)':}")
         logging.info(f"    Total       : {before['disk_c_total_gb']:.1f} GB")
-        logging.info(f"    Start  used : {before['disk_c_used_gb']:.1f} GB  ({before['disk_d_percent']:.1f}%)")
-        logging.info(f"    End    used : {after['disk_c_used_gb']:.1f} GB  ({after['disk_d_percent']:.1f}%)")
-        delta_gb = after['disk_d_used_gb'] - before['disk_c_used_gb']
+        logging.info(f"    Start  used : {before['disk_c_used_gb']:.1f} GB  ({before['disk_c_percent']:.1f}%)")
+        logging.info(f"    End    used : {after['disk_c_used_gb']:.1f} GB  ({after['disk_c_percent']:.1f}%)")
+        delta_gb = after['disk_c_used_gb'] - before['disk_c_used_gb']
         logging.info(f"    Space added : {delta_gb:+.2f} GB  (new database data written this run)")
         logging.info(f"    Free now    : {after['disk_c_free_gb']:.1f} GB")
 

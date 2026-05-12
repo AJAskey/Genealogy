@@ -56,8 +56,10 @@ BATCH_SIZE = 500_000  # Rows buffered in memory before each SQLite commit.
 # Larger = fewer commits = faster, but uses more RAM.
 # 500k is a solid default; try 250k if RAM is tight,
 # or 1_000_000 if you have plenty of headroom.
-
-
+#
+db_name1 = r"e:\Data\Genealogy_Data\MasterVault_"
+#
+input_directory = r"E:\Census\IPUMS\Original"
 # ==============================================================================
 # COLUMNS  (unchanged from original)
 # ==============================================================================
@@ -113,9 +115,11 @@ def ingest_to_vault(input_csv, db_name):
         reader = csv.DictReader(infile, delimiter=',')
 
         for row in reader:
+            count += 1
+
             serial = row.get('SERIAL', '').strip()
             pernum = row.get('PERNUM', '').strip()
-            composite_id = f"{serial}_{pernum}"
+            composite_id = f"{serial}_{pernum}_{count}"
 
             row_data = [composite_id]
             for col in TARGET_COLUMNS:
@@ -126,7 +130,6 @@ def ingest_to_vault(input_csv, db_name):
                     row_data.append("ERR456")
 
             batch.append(tuple(row_data))
-            count += 1
 
             if count % BATCH_SIZE == 0:
                 cursor.executemany(insert_query, batch)
@@ -157,7 +160,7 @@ def process_file(filename, input_directory):
     """
     file_path = os.path.join(input_directory, filename)
     yr = filename.split('-')[1].split('.')[0]
-    db_name = r"D:\Data\Genealogy_Data\MasterVault_" + yr + ".db"
+    db_name = db_name1 + yr + ".db"
 
     logging.info(f"\n--- [{filename}]  Thread starting → {db_name} ---")
 
@@ -224,7 +227,6 @@ if __name__ == '__main__':
     session_cpu_before = psutil.Process().cpu_times()
     session_snap_before = vault_stats.get_system_snapshot()
 
-    input_directory = r"E:\Census\IPUMS\Original"
 
     # Collect every CSV in the input directory
     csv_files = [f for f in os.listdir(input_directory) if f.endswith(".csv")]
@@ -265,7 +267,7 @@ if __name__ == '__main__':
     logging.info(f"  THREAD SUMMARY   (MAX_WORKERS={MAX_WORKERS}, BATCH_SIZE={BATCH_SIZE:,})")
     logging.info("=" * 60)
     logging.info(f"  {'Year':<8}  {'Records':>12}  {'Minutes':>8} {'Rec_per_MS':>11}  {'File'}")
-    logging.info(f"  {'-' * 8}  {'-' * 12}  {'-' * 8}  {'-' * 30}")
+    logging.info(f"  {'-' * 8}  {'-' * 12}  {'-' * 8}  {'-' * 11}  {'-' * 15}")
 
     for r in sorted(results, key=lambda x: x["year"]):
         ms = r["elapsed_min"] * 60_000.0
