@@ -1,0 +1,2257 @@
+D:\Apps\Python\Python3\python.exe E:\Users\Andy\PycharmProjects\Genealogy\python\DatabaseVault_threaded.py -w 4 
+=================================================================
+  DATABASE VAULT  —  SESSION START
+=================================================================
+  Started   : 2026-05-10  03:11:19
+  Machine   : ELLA5
+  OS        : Windows 11 (10.0.26200)
+  Python    : 3.14.3
+  CPU cores : 24 physical  /  24 logical
+  Total RAM : 127.3 GB
+  Page file : 8.0 GB  (Windows swap / page file)
+  GPU note  : SQLite + Python CSV is CPU + disk only — no GPU involvement.
+=================================================================
+
+
+Found 10 CSV file(s).  Launching up to 4 thread(s).
+
+
+--- [census-1850.csv]  Thread starting → D:\Data\Genealogy_Data\MasterVault_1850.db ---
+
+--- [census-1860.csv]  Thread starting → D:\Data\Genealogy_Data\MasterVault_1860.db ---
+
+--- [census-1870.csv]  Thread starting → D:\Data\Genealogy_Data\MasterVault_1870.db ---
+
+--- [census-1880.csv]  Thread starting → D:\Data\Genealogy_Data\MasterVault_1880.db ---
+  [MasterVault_1850.db]  500,000 records  @  2026-05-10  03:11:33
+  [MasterVault_1860.db]  500,000 records  @  2026-05-10  03:11:35
+  [MasterVault_1870.db]  500,000 records  @  2026-05-10  03:11:37
+  [MasterVault_1880.db]  500,000 records  @  2026-05-10  03:11:39
+  [MasterVault_1850.db]  1,000,000 records  @  2026-05-10  03:11:43
+  [MasterVault_1860.db]  1,000,000 records  @  2026-05-10  03:11:45
+  [MasterVault_1870.db]  1,000,000 records  @  2026-05-10  03:11:48
+  [MasterVault_1850.db]  1,500,000 records  @  2026-05-10  03:11:51
+  [MasterVault_1880.db]  1,000,000 records  @  2026-05-10  03:11:53
+  [MasterVault_1860.db]  1,500,000 records  @  2026-05-10  03:11:56
+  [MasterVault_1870.db]  1,500,000 records  @  2026-05-10  03:11:58
+  [MasterVault_1850.db]  2,000,000 records  @  2026-05-10  03:12:01
+  [MasterVault_1860.db]  2,000,000 records  @  2026-05-10  03:12:04
+  [MasterVault_1870.db]  2,000,000 records  @  2026-05-10  03:12:06
+  [MasterVault_1880.db]  1,500,000 records  @  2026-05-10  03:12:09
+  [MasterVault_1850.db]  2,500,000 records  @  2026-05-10  03:12:11
+  [MasterVault_1860.db]  2,500,000 records  @  2026-05-10  03:12:14
+  [MasterVault_1870.db]  2,500,000 records  @  2026-05-10  03:12:17
+  [MasterVault_1850.db]  3,000,000 records  @  2026-05-10  03:12:20
+  [MasterVault_1880.db]  2,000,000 records  @  2026-05-10  03:12:23
+  [MasterVault_1860.db]  3,000,000 records  @  2026-05-10  03:12:25
+  [MasterVault_1870.db]  3,000,000 records  @  2026-05-10  03:12:27
+  [MasterVault_1850.db]  3,500,000 records  @  2026-05-10  03:12:30
+  [MasterVault_1860.db]  3,500,000 records  @  2026-05-10  03:12:33
+  [MasterVault_1870.db]  3,500,000 records  @  2026-05-10  03:12:36
+  [MasterVault_1850.db]  4,000,000 records  @  2026-05-10  03:12:38
+  [MasterVault_1880.db]  2,500,000 records  @  2026-05-10  03:12:41
+  [MasterVault_1860.db]  4,000,000 records  @  2026-05-10  03:12:44
+  [MasterVault_1870.db]  4,000,000 records  @  2026-05-10  03:12:46
+  [MasterVault_1850.db]  4,500,000 records  @  2026-05-10  03:12:49
+  [MasterVault_1860.db]  4,500,000 records  @  2026-05-10  03:12:52
+  [MasterVault_1870.db]  4,500,000 records  @  2026-05-10  03:12:55
+  [MasterVault_1850.db]  5,000,000 records  @  2026-05-10  03:12:57
+  [MasterVault_1880.db]  3,000,000 records  @  2026-05-10  03:13:00
+  [MasterVault_1860.db]  5,000,000 records  @  2026-05-10  03:13:03
+  [MasterVault_1870.db]  5,000,000 records  @  2026-05-10  03:13:05
+  [MasterVault_1850.db]  5,500,000 records  @  2026-05-10  03:13:08
+  [MasterVault_1860.db]  5,500,000 records  @  2026-05-10  03:13:12
+  [MasterVault_1870.db]  5,500,000 records  @  2026-05-10  03:13:14
+  [MasterVault_1850.db]  6,000,000 records  @  2026-05-10  03:13:16
+  [MasterVault_1880.db]  3,500,000 records  @  2026-05-10  03:13:18
+  [MasterVault_1860.db]  6,000,000 records  @  2026-05-10  03:13:22
+  [MasterVault_1870.db]  6,000,000 records  @  2026-05-10  03:13:24
+  [MasterVault_1850.db]  6,500,000 records  @  2026-05-10  03:13:27
+  [MasterVault_1860.db]  6,500,000 records  @  2026-05-10  03:13:31
+  [MasterVault_1870.db]  6,500,000 records  @  2026-05-10  03:13:33
+  [MasterVault_1850.db]  7,000,000 records  @  2026-05-10  03:13:35
+  [MasterVault_1880.db]  4,000,000 records  @  2026-05-10  03:13:38
+  [MasterVault_1860.db]  7,000,000 records  @  2026-05-10  03:13:41
+  [MasterVault_1870.db]  7,000,000 records  @  2026-05-10  03:13:43
+  [MasterVault_1850.db]  7,500,000 records  @  2026-05-10  03:13:46
+  [MasterVault_1860.db]  7,500,000 records  @  2026-05-10  03:13:50
+  [MasterVault_1870.db]  7,500,000 records  @  2026-05-10  03:13:52
+  [MasterVault_1850.db]  8,000,000 records  @  2026-05-10  03:13:55
+  [MasterVault_1880.db]  4,500,000 records  @  2026-05-10  03:13:55
+  [MasterVault_1860.db]  8,000,000 records  @  2026-05-10  03:14:01
+  [MasterVault_1870.db]  8,000,000 records  @  2026-05-10  03:14:03
+  [MasterVault_1850.db]  8,500,000 records  @  2026-05-10  03:14:05
+  [MasterVault_1860.db]  8,500,000 records  @  2026-05-10  03:14:10
+  [MasterVault_1870.db]  8,500,000 records  @  2026-05-10  03:14:11
+  [MasterVault_1880.db]  5,000,000 records  @  2026-05-10  03:14:14
+  [MasterVault_1850.db]  9,000,000 records  @  2026-05-10  03:14:14
+  [MasterVault_1870.db]  9,000,000 records  @  2026-05-10  03:14:20
+  [MasterVault_1860.db]  9,000,000 records  @  2026-05-10  03:14:20
+  [MasterVault_1850.db]  9,500,000 records  @  2026-05-10  03:14:24
+  [MasterVault_1870.db]  9,500,000 records  @  2026-05-10  03:14:29
+  [MasterVault_1860.db]  9,500,000 records  @  2026-05-10  03:14:30
+  [MasterVault_1850.db]  10,000,000 records  @  2026-05-10  03:14:33
+  [MasterVault_1880.db]  5,500,000 records  @  2026-05-10  03:14:33
+  [MasterVault_1870.db]  10,000,000 records  @  2026-05-10  03:14:39
+  [MasterVault_1860.db]  10,000,000 records  @  2026-05-10  03:14:41
+  [MasterVault_1850.db]  10,500,000 records  @  2026-05-10  03:14:44
+  [MasterVault_1870.db]  10,500,000 records  @  2026-05-10  03:14:48
+  [MasterVault_1860.db]  10,500,000 records  @  2026-05-10  03:14:48
+  [MasterVault_1850.db]  11,000,000 records  @  2026-05-10  03:14:52
+  [MasterVault_1880.db]  6,000,000 records  @  2026-05-10  03:14:52
+  [MasterVault_1870.db]  11,000,000 records  @  2026-05-10  03:14:58
+  [MasterVault_1860.db]  11,000,000 records  @  2026-05-10  03:15:00
+  [MasterVault_1850.db]  11,500,000 records  @  2026-05-10  03:15:03
+  [MasterVault_1870.db]  11,500,000 records  @  2026-05-10  03:15:07
+  [MasterVault_1860.db]  11,500,000 records  @  2026-05-10  03:15:09
+  [MasterVault_1880.db]  6,500,000 records  @  2026-05-10  03:15:11
+  [MasterVault_1850.db]  12,000,000 records  @  2026-05-10  03:15:13
+  [MasterVault_1870.db]  12,000,000 records  @  2026-05-10  03:15:17
+  [MasterVault_1860.db]  12,000,000 records  @  2026-05-10  03:15:19
+  [MasterVault_1850.db]  12,500,000 records  @  2026-05-10  03:15:23
+  [MasterVault_1880.db]  7,000,000 records  @  2026-05-10  03:15:25
+  [MasterVault_1870.db]  12,500,000 records  @  2026-05-10  03:15:28
+  [MasterVault_1860.db]  12,500,000 records  @  2026-05-10  03:15:28
+  [MasterVault_1850.db]  13,000,000 records  @  2026-05-10  03:15:33
+  [MasterVault_1880.db]  7,500,000 records  @  2026-05-10  03:15:35
+  [MasterVault_1870.db]  13,000,000 records  @  2026-05-10  03:15:39
+  [MasterVault_1860.db]  13,000,000 records  @  2026-05-10  03:15:39
+  [MasterVault_1880.db]  8,000,000 records  @  2026-05-10  03:15:44
+  [MasterVault_1850.db]  13,500,000 records  @  2026-05-10  03:15:44
+  [MasterVault_1870.db]  13,500,000 records  @  2026-05-10  03:15:50
+  [MasterVault_1860.db]  13,500,000 records  @  2026-05-10  03:15:52
+  [MasterVault_1880.db]  8,500,000 records  @  2026-05-10  03:15:55
+  [MasterVault_1850.db]  14,000,000 records  @  2026-05-10  03:15:57
+  [MasterVault_1870.db]  14,000,000 records  @  2026-05-10  03:16:01
+  [MasterVault_1860.db]  14,000,000 records  @  2026-05-10  03:16:03
+  [MasterVault_1880.db]  9,000,000 records  @  2026-05-10  03:16:06
+  [MasterVault_1850.db]  14,500,000 records  @  2026-05-10  03:16:08
+  [MasterVault_1870.db]  14,500,000 records  @  2026-05-10  03:16:12
+  [MasterVault_1860.db]  14,500,000 records  @  2026-05-10  03:16:14
+  [MasterVault_1880.db]  9,500,000 records  @  2026-05-10  03:16:16
+  [MasterVault_1850.db]  15,000,000 records  @  2026-05-10  03:16:19
+  [MasterVault_1870.db]  15,000,000 records  @  2026-05-10  03:16:23
+  [MasterVault_1860.db]  15,000,000 records  @  2026-05-10  03:16:25
+  [MasterVault_1880.db]  10,000,000 records  @  2026-05-10  03:16:27
+  [MasterVault_1850.db]  15,500,000 records  @  2026-05-10  03:16:30
+  [MasterVault_1880.db]  10,500,000 records  @  2026-05-10  03:16:34  [MasterVault_1870.db]  15,500,000 records  @  2026-05-10  03:16:34
+
+  [MasterVault_1860.db]  15,500,000 records  @  2026-05-10  03:16:38
+  [MasterVault_1850.db]  16,000,000 records  @  2026-05-10  03:16:41
+  [MasterVault_1880.db]  11,000,000 records  @  2026-05-10  03:16:45
+  [MasterVault_1870.db]  16,000,000 records  @  2026-05-10  03:16:47
+  [MasterVault_1860.db]  16,000,000 records  @  2026-05-10  03:16:49
+  [MasterVault_1850.db]  16,500,000 records  @  2026-05-10  03:16:52
+  [MasterVault_1880.db]  11,500,000 records  @  2026-05-10  03:16:55
+  [MasterVault_1870.db]  16,500,000 records  @  2026-05-10  03:16:58
+  [MasterVault_1860.db]  16,500,000 records  @  2026-05-10  03:17:00
+  [MasterVault_1850.db]  17,000,000 records  @  2026-05-10  03:17:03
+  [MasterVault_1880.db]  12,000,000 records  @  2026-05-10  03:17:06
+  [MasterVault_1870.db]  17,000,000 records  @  2026-05-10  03:17:09
+  [MasterVault_1860.db]  17,000,000 records  @  2026-05-10  03:17:11
+  [MasterVault_1850.db]  17,500,000 records  @  2026-05-10  03:17:14
+  [MasterVault_1880.db]  12,500,000 records  @  2026-05-10  03:17:17
+  [MasterVault_1870.db]  17,500,000 records  @  2026-05-10  03:17:20
+  [MasterVault_1860.db]  17,500,000 records  @  2026-05-10  03:17:22
+  [MasterVault_1850.db]  18,000,000 records  @  2026-05-10  03:17:25
+  [MasterVault_1880.db]  13,000,000 records  @  2026-05-10  03:17:28
+  [MasterVault_1870.db]  18,000,000 records  @  2026-05-10  03:17:31
+  [MasterVault_1860.db]  18,000,000 records  @  2026-05-10  03:17:33
+  [MasterVault_1850.db]  18,500,000 records  @  2026-05-10  03:17:36
+  [MasterVault_1880.db]  13,500,000 records  @  2026-05-10  03:17:38
+  [MasterVault_1870.db]  18,500,000 records  @  2026-05-10  03:17:42
+  [MasterVault_1860.db]  18,500,000 records  @  2026-05-10  03:17:44
+  [MasterVault_1850.db]  19,000,000 records  @  2026-05-10  03:17:47
+  [MasterVault_1880.db]  14,000,000 records  @  2026-05-10  03:17:49
+  [MasterVault_1870.db]  19,000,000 records  @  2026-05-10  03:17:53
+  [MasterVault_1860.db]  19,000,000 records  @  2026-05-10  03:17:55
+  [MasterVault_1850.db]  19,500,000 records  @  2026-05-10  03:17:58
+  [MasterVault_1880.db]  14,500,000 records  @  2026-05-10  03:18:00
+  [MasterVault_1870.db]  19,500,000 records  @  2026-05-10  03:18:04
+  [MasterVault_1860.db]  19,500,000 records  @  2026-05-10  03:18:06
+  [MasterVault_1850.db]  20,000,000 records  @  2026-05-10  03:18:08
+  [MasterVault_1880.db]  15,000,000 records  @  2026-05-10  03:18:10
+  [MasterVault_1850.db]  DONE — 20,179,231 records in 6.85 min.
+  [MasterVault_1870.db]  20,000,000 records  @  2026-05-10  03:18:13
+
+=================================================================
+  STATS REPORT  —  File: census-1850.csv
+=================================================================
+
+  TIMING
+    Wall clock elapsed : 412.2 sec  (6.87 min)
+    CPU user time      : 742.6 sec
+    CPU system time    : 67.9 sec
+    CPU total time     : 810.5 sec
+    (CPU total > wall clock means multiple cores were used in parallel)
+
+  CPU USAGE (during run)
+    Start  : 2.9%
+    End    : 11.1%
+
+  MEMORY  (RAM)
+    Start  used : 22.92 GB  (18.0%)
+    End    used : 24.84 GB  (19.5%)
+    Available   : 102.43 GB remaining
+
+  SWAP / PAGE FILE
+    Total       : 8.00 GB
+    Start  used : 0.08 GB  (1.0%)
+    End    used : 0.08 GB  (1.0%)
+
+  DISK  (D: drive)
+    Total       : 3726.0 GB
+    Start  used : 328.7 GB  (8.8%)
+    End    used : 340.1 GB  (9.1%)
+    Space added : +11.35 GB  (new database data written this run)
+    Free now    : 3385.9 GB
+
+  DISK I/O  (system-wide, all drives combined)
+    Data read      : 11.23 GB  (27.9 MB/s avg)
+    Data written   : 13.32 GB  (33.1 MB/s avg)
+    Read ops       : 98,791
+    Write ops      : 323,937
+
+  GPU
+    Not applicable — SQLite/CSV work is CPU + disk I/O only.
+=================================================================
+
+record_count :  20179231
+dtime        :  412.2217743396759
+recPerSec    :  48952.3655860354
+
+--- [census-1900.csv]  Thread starting → D:\Data\Genealogy_Data\MasterVault_1900.db ---
+  [MasterVault_1860.db]  20,000,000 records  @  2026-05-10  03:18:17
+  [MasterVault_1880.db]  15,500,000 records  @  2026-05-10  03:18:21
+  [MasterVault_1870.db]  20,500,000 records  @  2026-05-10  03:18:24
+  [MasterVault_1860.db]  20,500,000 records  @  2026-05-10  03:18:26
+  [MasterVault_1900.db]  500,000 records  @  2026-05-10  03:18:29
+  [MasterVault_1880.db]  16,000,000 records  @  2026-05-10  03:18:32
+  [MasterVault_1870.db]  21,000,000 records  @  2026-05-10  03:18:35
+  [MasterVault_1860.db]  21,000,000 records  @  2026-05-10  03:18:37
+  [MasterVault_1880.db]  16,500,000 records  @  2026-05-10  03:18:40
+  [MasterVault_1900.db]  1,000,000 records  @  2026-05-10  03:18:43
+  [MasterVault_1870.db]  21,500,000 records  @  2026-05-10  03:18:46
+  [MasterVault_1860.db]  21,500,000 records  @  2026-05-10  03:18:48
+  [MasterVault_1880.db]  17,000,000 records  @  2026-05-10  03:18:51
+  [MasterVault_1870.db]  22,000,000 records  @  2026-05-10  03:18:54
+  [MasterVault_1860.db]  22,000,000 records  @  2026-05-10  03:18:56
+  [MasterVault_1880.db]  17,500,000 records  @  2026-05-10  03:19:00
+  [MasterVault_1900.db]  1,500,000 records  @  2026-05-10  03:19:02
+  [MasterVault_1870.db]  22,500,000 records  @  2026-05-10  03:19:05
+  [MasterVault_1860.db]  22,500,000 records  @  2026-05-10  03:19:08
+  [MasterVault_1880.db]  18,000,000 records  @  2026-05-10  03:19:11
+  [MasterVault_1870.db]  23,000,000 records  @  2026-05-10  03:19:15
+  [MasterVault_1860.db]  23,000,000 records  @  2026-05-10  03:19:17
+  [MasterVault_1900.db]  2,000,000 records  @  2026-05-10  03:19:20
+  [MasterVault_1880.db]  18,500,000 records  @  2026-05-10  03:19:22
+  [MasterVault_1870.db]  23,500,000 records  @  2026-05-10  03:19:26
+  [MasterVault_1860.db]  23,500,000 records  @  2026-05-10  03:19:28
+  [MasterVault_1880.db]  19,000,000 records  @  2026-05-10  03:19:31
+  [MasterVault_1870.db]  24,000,000 records  @  2026-05-10  03:19:35
+  [MasterVault_1860.db]  24,000,000 records  @  2026-05-10  03:19:37
+  [MasterVault_1900.db]  2,500,000 records  @  2026-05-10  03:19:39
+  [MasterVault_1880.db]  19,500,000 records  @  2026-05-10  03:19:42
+  [MasterVault_1870.db]  24,500,000 records  @  2026-05-10  03:19:46
+  [MasterVault_1860.db]  24,500,000 records  @  2026-05-10  03:19:48
+  [MasterVault_1880.db]  20,000,000 records  @  2026-05-10  03:19:51
+  [MasterVault_1870.db]  25,000,000 records  @  2026-05-10  03:19:54
+  [MasterVault_1900.db]  3,000,000 records  @  2026-05-10  03:19:56
+  [MasterVault_1860.db]  25,000,000 records  @  2026-05-10  03:19:56
+  [MasterVault_1880.db]  20,500,000 records  @  2026-05-10  03:20:01
+  [MasterVault_1870.db]  25,500,000 records  @  2026-05-10  03:20:05
+  [MasterVault_1860.db]  25,500,000 records  @  2026-05-10  03:20:07
+  [MasterVault_1880.db]  21,000,000 records  @  2026-05-10  03:20:10
+  [MasterVault_1900.db]  3,500,000 records  @  2026-05-10  03:20:13  [MasterVault_1870.db]  26,000,000 records  @  2026-05-10  03:20:13
+
+  [MasterVault_1860.db]  26,000,000 records  @  2026-05-10  03:20:18
+  [MasterVault_1880.db]  21,500,000 records  @  2026-05-10  03:20:21
+  [MasterVault_1870.db]  26,500,000 records  @  2026-05-10  03:20:24
+  [MasterVault_1860.db]  26,500,000 records  @  2026-05-10  03:20:26
+  [MasterVault_1880.db]  22,000,000 records  @  2026-05-10  03:20:29
+  [MasterVault_1870.db]  27,000,000 records  @  2026-05-10  03:20:33
+  [MasterVault_1900.db]  4,000,000 records  @  2026-05-10  03:20:33
+  [MasterVault_1860.db]  27,000,000 records  @  2026-05-10  03:20:36
+  [MasterVault_1880.db]  22,500,000 records  @  2026-05-10  03:20:40
+  [MasterVault_1870.db]  27,500,000 records  @  2026-05-10  03:20:43
+  [MasterVault_1860.db]  27,500,000 records  @  2026-05-10  03:20:45
+  [MasterVault_1880.db]  23,000,000 records  @  2026-05-10  03:20:48
+  [MasterVault_1870.db]  28,000,000 records  @  2026-05-10  03:20:52
+  [MasterVault_1860.db]  28,000,000 records  @  2026-05-10  03:20:54
+  [MasterVault_1860.db]  DONE — 28,006,160 records in 9.55 min.
+  [MasterVault_1880.db]  23,500,000 records  @  2026-05-10  03:20:55
+  [MasterVault_1900.db]  4,500,000 records  @  2026-05-10  03:20:55
+
+=================================================================
+  STATS REPORT  —  File: census-1860.csv
+=================================================================
+
+  TIMING
+    Wall clock elapsed : 574.0 sec  (9.57 min)
+    CPU user time      : 1,024.1 sec
+    CPU system time    : 103.3 sec
+    CPU total time     : 1,127.3 sec
+    (CPU total > wall clock means multiple cores were used in parallel)
+
+  CPU USAGE (during run)
+    Start  : 2.9%
+    End    : 10.6%
+
+  MEMORY  (RAM)
+    Start  used : 22.92 GB  (18.0%)
+    End    used : 24.28 GB  (19.1%)
+    Available   : 102.99 GB remaining
+
+  SWAP / PAGE FILE
+    Total       : 8.00 GB
+    Start  used : 0.08 GB  (1.0%)
+    End    used : 0.15 GB  (1.9%)
+
+  DISK  (D: drive)
+    Total       : 3726.0 GB
+    Start  used : 328.7 GB  (8.8%)
+    End    used : 344.8 GB  (9.3%)
+    Space added : +16.03 GB  (new database data written this run)
+    Free now    : 3381.3 GB
+
+  DISK I/O  (system-wide, all drives combined)
+    Data read      : 15.87 GB  (28.3 MB/s avg)
+    Data written   : 19.33 GB  (34.5 MB/s avg)
+    Read ops       : 149,069
+    Write ops      : 483,494
+
+  GPU
+    Not applicable — SQLite/CSV work is CPU + disk I/O only.
+=================================================================
+
+record_count :  28006160
+dtime        :  573.9641897678375
+recPerSec    :  48794.263647925836
+
+--- [census-1910.csv]  Thread starting → D:\Data\Genealogy_Data\MasterVault_1910.db ---
+  [MasterVault_1870.db]  28,500,000 records  @  2026-05-10  03:21:02
+  [MasterVault_1880.db]  24,000,000 records  @  2026-05-10  03:21:06
+  [MasterVault_1900.db]  5,000,000 records  @  2026-05-10  03:21:09
+  [MasterVault_1910.db]  500,000 records  @  2026-05-10  03:21:10
+  [MasterVault_1870.db]  29,000,000 records  @  2026-05-10  03:21:14
+  [MasterVault_1880.db]  24,500,000 records  @  2026-05-10  03:21:17
+  [MasterVault_1870.db]  29,500,000 records  @  2026-05-10  03:21:20
+  [MasterVault_1900.db]  5,500,000 records  @  2026-05-10  03:21:21
+  [MasterVault_1880.db]  25,000,000 records  @  2026-05-10  03:21:25
+  [MasterVault_1910.db]  1,000,000 records  @  2026-05-10  03:21:26
+  [MasterVault_1870.db]  30,000,000 records  @  2026-05-10  03:21:32
+  [MasterVault_1910.db]  1,500,000 records  @  2026-05-10  03:21:34
+  [MasterVault_1900.db]  6,000,000 records  @  2026-05-10  03:21:34
+  [MasterVault_1880.db]  25,500,000 records  @  2026-05-10  03:21:39
+  [MasterVault_1870.db]  30,500,000 records  @  2026-05-10  03:21:43
+  [MasterVault_1900.db]  6,500,000 records  @  2026-05-10  03:21:45
+  [MasterVault_1910.db]  2,000,000 records  @  2026-05-10  03:21:47
+  [MasterVault_1880.db]  26,000,000 records  @  2026-05-10  03:21:50
+  [MasterVault_1870.db]  31,000,000 records  @  2026-05-10  03:21:54
+  [MasterVault_1900.db]  7,000,000 records  @  2026-05-10  03:21:56
+  [MasterVault_1880.db]  26,500,000 records  @  2026-05-10  03:21:59
+  [MasterVault_1910.db]  2,500,000 records  @  2026-05-10  03:22:01
+  [MasterVault_1870.db]  31,500,000 records  @  2026-05-10  03:22:04
+  [MasterVault_1900.db]  7,500,000 records  @  2026-05-10  03:22:04
+  [MasterVault_1880.db]  27,000,000 records  @  2026-05-10  03:22:09
+  [MasterVault_1910.db]  3,000,000 records  @  2026-05-10  03:22:12
+  [MasterVault_1900.db]  8,000,000 records  @  2026-05-10  03:22:15
+  [MasterVault_1870.db]  32,000,000 records  @  2026-05-10  03:22:17
+  [MasterVault_1880.db]  27,500,000 records  @  2026-05-10  03:22:20
+  [MasterVault_1910.db]  3,500,000 records  @  2026-05-10  03:22:23
+  [MasterVault_1900.db]  8,500,000 records  @  2026-05-10  03:22:26
+  [MasterVault_1870.db]  32,500,000 records  @  2026-05-10  03:22:28
+  [MasterVault_1880.db]  28,000,000 records  @  2026-05-10  03:22:31
+  [MasterVault_1910.db]  4,000,000 records  @  2026-05-10  03:22:35
+  [MasterVault_1900.db]  9,000,000 records  @  2026-05-10  03:22:35
+  [MasterVault_1870.db]  33,000,000 records  @  2026-05-10  03:22:39
+  [MasterVault_1880.db]  28,500,000 records  @  2026-05-10  03:22:42
+  [MasterVault_1900.db]  9,500,000 records  @  2026-05-10  03:22:45
+  [MasterVault_1910.db]  4,500,000 records  @  2026-05-10  03:22:47
+  [MasterVault_1870.db]  33,500,000 records  @  2026-05-10  03:22:50
+  [MasterVault_1880.db]  29,000,000 records  @  2026-05-10  03:22:53
+  [MasterVault_1900.db]  10,000,000 records  @  2026-05-10  03:22:56
+  [MasterVault_1910.db]  5,000,000 records  @  2026-05-10  03:22:58
+  [MasterVault_1870.db]  34,000,000 records  @  2026-05-10  03:23:01
+  [MasterVault_1880.db]  29,500,000 records  @  2026-05-10  03:23:04
+  [MasterVault_1900.db]  10,500,000 records  @  2026-05-10  03:23:07
+  [MasterVault_1910.db]  5,500,000 records  @  2026-05-10  03:23:09
+  [MasterVault_1870.db]  34,500,000 records  @  2026-05-10  03:23:12
+  [MasterVault_1880.db]  30,000,000 records  @  2026-05-10  03:23:15
+  [MasterVault_1900.db]  11,000,000 records  @  2026-05-10  03:23:18
+  [MasterVault_1910.db]  6,000,000 records  @  2026-05-10  03:23:20
+  [MasterVault_1870.db]  35,000,000 records  @  2026-05-10  03:23:23
+  [MasterVault_1880.db]  30,500,000 records  @  2026-05-10  03:23:26
+  [MasterVault_1900.db]  11,500,000 records  @  2026-05-10  03:23:29
+  [MasterVault_1910.db]  6,500,000 records  @  2026-05-10  03:23:31
+  [MasterVault_1870.db]  35,500,000 records  @  2026-05-10  03:23:34
+  [MasterVault_1880.db]  31,000,000 records  @  2026-05-10  03:23:37
+  [MasterVault_1900.db]  12,000,000 records  @  2026-05-10  03:23:40
+  [MasterVault_1910.db]  7,000,000 records  @  2026-05-10  03:23:42
+  [MasterVault_1870.db]  36,000,000 records  @  2026-05-10  03:23:45
+  [MasterVault_1880.db]  31,500,000 records  @  2026-05-10  03:23:48
+  [MasterVault_1900.db]  12,500,000 records  @  2026-05-10  03:23:51
+  [MasterVault_1910.db]  7,500,000 records  @  2026-05-10  03:23:53
+  [MasterVault_1870.db]  36,500,000 records  @  2026-05-10  03:23:56
+  [MasterVault_1880.db]  32,000,000 records  @  2026-05-10  03:23:59
+  [MasterVault_1900.db]  13,000,000 records  @  2026-05-10  03:24:02
+  [MasterVault_1910.db]  8,000,000 records  @  2026-05-10  03:24:04
+  [MasterVault_1870.db]  37,000,000 records  @  2026-05-10  03:24:07
+  [MasterVault_1880.db]  32,500,000 records  @  2026-05-10  03:24:10
+  [MasterVault_1900.db]  13,500,000 records  @  2026-05-10  03:24:13
+  [MasterVault_1910.db]  8,500,000 records  @  2026-05-10  03:24:15
+  [MasterVault_1870.db]  37,500,000 records  @  2026-05-10  03:24:18
+  [MasterVault_1880.db]  33,000,000 records  @  2026-05-10  03:24:21
+  [MasterVault_1900.db]  14,000,000 records  @  2026-05-10  03:24:24
+  [MasterVault_1910.db]  9,000,000 records  @  2026-05-10  03:24:26
+  [MasterVault_1870.db]  38,000,000 records  @  2026-05-10  03:24:29
+  [MasterVault_1880.db]  33,500,000 records  @  2026-05-10  03:24:32
+  [MasterVault_1900.db]  14,500,000 records  @  2026-05-10  03:24:35
+  [MasterVault_1910.db]  9,500,000 records  @  2026-05-10  03:24:37
+  [MasterVault_1870.db]  38,500,000 records  @  2026-05-10  03:24:40
+  [MasterVault_1880.db]  34,000,000 records  @  2026-05-10  03:24:43
+  [MasterVault_1900.db]  15,000,000 records  @  2026-05-10  03:24:45
+  [MasterVault_1910.db]  10,000,000 records  @  2026-05-10  03:24:48
+  [MasterVault_1870.db]  39,000,000 records  @  2026-05-10  03:24:51
+  [MasterVault_1880.db]  34,500,000 records  @  2026-05-10  03:24:53
+  [MasterVault_1900.db]  15,500,000 records  @  2026-05-10  03:24:56
+  [MasterVault_1910.db]  10,500,000 records  @  2026-05-10  03:24:58
+  [MasterVault_1870.db]  DONE — 39,342,291 records in 13.65 min.
+
+=================================================================
+  STATS REPORT  —  File: census-1870.csv
+=================================================================
+
+  TIMING
+    Wall clock elapsed : 819.9 sec  (13.67 min)
+    CPU user time      : 1,475.2 sec
+    CPU system time    : 135.5 sec
+    CPU total time     : 1,610.7 sec
+    (CPU total > wall clock means multiple cores were used in parallel)
+
+  CPU USAGE (during run)
+    Start  : 2.9%
+    End    : 14.2%
+
+  MEMORY  (RAM)
+    Start  used : 22.92 GB  (18.0%)
+    End    used : 25.67 GB  (20.2%)
+    Available   : 101.60 GB remaining
+
+  SWAP / PAGE FILE
+    Total       : 8.00 GB
+    Start  used : 0.08 GB  (1.0%)
+    End    used : 0.13 GB  (1.6%)
+
+  DISK  (D: drive)
+    Total       : 3726.0 GB
+    Start  used : 328.7 GB  (8.8%)
+    End    used : 351.3 GB  (9.4%)
+    Space added : +22.57 GB  (new database data written this run)
+    Free now    : 3374.7 GB
+
+  DISK I/O  (system-wide, all drives combined)
+    Data read      : 23.26 GB  (29.1 MB/s avg)
+    Data written   : 26.87 GB  (33.6 MB/s avg)
+    Read ops       : 215,425
+    Write ops      : 640,021
+
+  GPU
+    Not applicable — SQLite/CSV work is CPU + disk I/O only.
+=================================================================
+
+record_count :  39342291
+dtime        :  819.9232172966003
+recPerSec    :  47982.8966542952
+
+--- [census-1920.csv]  Thread starting → D:\Data\Genealogy_Data\MasterVault_1920.db ---
+  [MasterVault_1880.db]  35,000,000 records  @  2026-05-10  03:25:01
+  [MasterVault_1900.db]  16,000,000 records  @  2026-05-10  03:25:06
+  [MasterVault_1910.db]  11,000,000 records  @  2026-05-10  03:25:09
+  [MasterVault_1880.db]  35,500,000 records  @  2026-05-10  03:25:13
+  [MasterVault_1900.db]  16,500,000 records  @  2026-05-10  03:25:15
+  [MasterVault_1920.db]  500,000 records  @  2026-05-10  03:25:17
+  [MasterVault_1910.db]  11,500,000 records  @  2026-05-10  03:25:20
+  [MasterVault_1880.db]  36,000,000 records  @  2026-05-10  03:25:23
+  [MasterVault_1900.db]  17,000,000 records  @  2026-05-10  03:25:26
+  [MasterVault_1910.db]  12,000,000 records  @  2026-05-10  03:25:28
+  [MasterVault_1920.db]  1,000,000 records  @  2026-05-10  03:25:32
+  [MasterVault_1880.db]  36,500,000 records  @  2026-05-10  03:25:34
+  [MasterVault_1900.db]  17,500,000 records  @  2026-05-10  03:25:36
+  [MasterVault_1910.db]  12,500,000 records  @  2026-05-10  03:25:39
+  [MasterVault_1880.db]  37,000,000 records  @  2026-05-10  03:25:43
+  [MasterVault_1920.db]  1,500,000 records  @  2026-05-10  03:25:45
+  [MasterVault_1900.db]  18,000,000 records  @  2026-05-10  03:25:47
+  [MasterVault_1910.db]  13,000,000 records  @  2026-05-10  03:25:50
+  [MasterVault_1880.db]  37,500,000 records  @  2026-05-10  03:25:54
+  [MasterVault_1920.db]  2,000,000 records  @  2026-05-10  03:25:56
+  [MasterVault_1900.db]  18,500,000 records  @  2026-05-10  03:25:58
+  [MasterVault_1910.db]  13,500,000 records  @  2026-05-10  03:26:00
+  [MasterVault_1880.db]  38,000,000 records  @  2026-05-10  03:26:04
+  [MasterVault_1920.db]  2,500,000 records  @  2026-05-10  03:26:06
+  [MasterVault_1900.db]  19,000,000 records  @  2026-05-10  03:26:08
+  [MasterVault_1910.db]  14,000,000 records  @  2026-05-10  03:26:11
+  [MasterVault_1880.db]  38,500,000 records  @  2026-05-10  03:26:15
+  [MasterVault_1920.db]  3,000,000 records  @  2026-05-10  03:26:17
+  [MasterVault_1900.db]  19,500,000 records  @  2026-05-10  03:26:19
+  [MasterVault_1910.db]  14,500,000 records  @  2026-05-10  03:26:22
+  [MasterVault_1920.db]  3,500,000 records  @  2026-05-10  03:26:26
+  [MasterVault_1880.db]  39,000,000 records  @  2026-05-10  03:26:26
+  [MasterVault_1900.db]  20,000,000 records  @  2026-05-10  03:26:30
+  [MasterVault_1910.db]  15,000,000 records  @  2026-05-10  03:26:33
+  [MasterVault_1920.db]  4,000,000 records  @  2026-05-10  03:26:37
+  [MasterVault_1880.db]  39,500,000 records  @  2026-05-10  03:26:37
+  [MasterVault_1900.db]  20,500,000 records  @  2026-05-10  03:26:41
+  [MasterVault_1910.db]  15,500,000 records  @  2026-05-10  03:26:44
+  [MasterVault_1920.db]  4,500,000 records  @  2026-05-10  03:26:48
+  [MasterVault_1880.db]  40,000,000 records  @  2026-05-10  03:26:50
+  [MasterVault_1900.db]  21,000,000 records  @  2026-05-10  03:26:52
+  [MasterVault_1910.db]  16,000,000 records  @  2026-05-10  03:26:55
+  [MasterVault_1920.db]  5,000,000 records  @  2026-05-10  03:26:59
+  [MasterVault_1880.db]  40,500,000 records  @  2026-05-10  03:27:01
+  [MasterVault_1900.db]  21,500,000 records  @  2026-05-10  03:27:03
+  [MasterVault_1910.db]  16,500,000 records  @  2026-05-10  03:27:06
+  [MasterVault_1920.db]  5,500,000 records  @  2026-05-10  03:27:10
+  [MasterVault_1880.db]  41,000,000 records  @  2026-05-10  03:27:12
+  [MasterVault_1900.db]  22,000,000 records  @  2026-05-10  03:27:14
+  [MasterVault_1910.db]  17,000,000 records  @  2026-05-10  03:27:17
+  [MasterVault_1920.db]  6,000,000 records  @  2026-05-10  03:27:21
+  [MasterVault_1880.db]  41,500,000 records  @  2026-05-10  03:27:23
+  [MasterVault_1900.db]  22,500,000 records  @  2026-05-10  03:27:25
+  [MasterVault_1910.db]  17,500,000 records  @  2026-05-10  03:27:28
+  [MasterVault_1920.db]  6,500,000 records  @  2026-05-10  03:27:31
+  [MasterVault_1880.db]  42,000,000 records  @  2026-05-10  03:27:34
+  [MasterVault_1900.db]  23,000,000 records  @  2026-05-10  03:27:36
+  [MasterVault_1910.db]  18,000,000 records  @  2026-05-10  03:27:39
+  [MasterVault_1920.db]  7,000,000 records  @  2026-05-10  03:27:42
+  [MasterVault_1880.db]  42,500,000 records  @  2026-05-10  03:27:45
+  [MasterVault_1900.db]  23,500,000 records  @  2026-05-10  03:27:47
+  [MasterVault_1910.db]  18,500,000 records  @  2026-05-10  03:27:50
+  [MasterVault_1920.db]  7,500,000 records  @  2026-05-10  03:27:53
+  [MasterVault_1880.db]  43,000,000 records  @  2026-05-10  03:27:55
+  [MasterVault_1900.db]  24,000,000 records  @  2026-05-10  03:27:58
+  [MasterVault_1910.db]  19,000,000 records  @  2026-05-10  03:28:01
+  [MasterVault_1920.db]  8,000,000 records  @  2026-05-10  03:28:04
+  [MasterVault_1880.db]  43,500,000 records  @  2026-05-10  03:28:06
+  [MasterVault_1900.db]  24,500,000 records  @  2026-05-10  03:28:09
+  [MasterVault_1910.db]  19,500,000 records  @  2026-05-10  03:28:12
+  [MasterVault_1920.db]  8,500,000 records  @  2026-05-10  03:28:15
+  [MasterVault_1880.db]  44,000,000 records  @  2026-05-10  03:28:17
+  [MasterVault_1900.db]  25,000,000 records  @  2026-05-10  03:28:20
+  [MasterVault_1910.db]  20,000,000 records  @  2026-05-10  03:28:22
+  [MasterVault_1920.db]  9,000,000 records  @  2026-05-10  03:28:26
+  [MasterVault_1880.db]  44,500,000 records  @  2026-05-10  03:28:28
+  [MasterVault_1900.db]  25,500,000 records  @  2026-05-10  03:28:31
+  [MasterVault_1910.db]  20,500,000 records  @  2026-05-10  03:28:33
+  [MasterVault_1920.db]  9,500,000 records  @  2026-05-10  03:28:37
+  [MasterVault_1880.db]  45,000,000 records  @  2026-05-10  03:28:39
+  [MasterVault_1900.db]  26,000,000 records  @  2026-05-10  03:28:42
+  [MasterVault_1910.db]  21,000,000 records  @  2026-05-10  03:28:44
+  [MasterVault_1920.db]  10,000,000 records  @  2026-05-10  03:28:47
+  [MasterVault_1880.db]  45,500,000 records  @  2026-05-10  03:28:50
+  [MasterVault_1900.db]  26,500,000 records  @  2026-05-10  03:28:52
+  [MasterVault_1910.db]  21,500,000 records  @  2026-05-10  03:28:55
+  [MasterVault_1920.db]  10,500,000 records  @  2026-05-10  03:28:58
+  [MasterVault_1880.db]  46,000,000 records  @  2026-05-10  03:29:01
+  [MasterVault_1900.db]  27,000,000 records  @  2026-05-10  03:29:03
+  [MasterVault_1910.db]  22,000,000 records  @  2026-05-10  03:29:06
+  [MasterVault_1920.db]  11,000,000 records  @  2026-05-10  03:29:09
+  [MasterVault_1880.db]  46,500,000 records  @  2026-05-10  03:29:12
+  [MasterVault_1900.db]  27,500,000 records  @  2026-05-10  03:29:14
+  [MasterVault_1910.db]  22,500,000 records  @  2026-05-10  03:29:17
+  [MasterVault_1920.db]  11,500,000 records  @  2026-05-10  03:29:20
+  [MasterVault_1880.db]  47,000,000 records  @  2026-05-10  03:29:22
+  [MasterVault_1900.db]  28,000,000 records  @  2026-05-10  03:29:25
+  [MasterVault_1910.db]  23,000,000 records  @  2026-05-10  03:29:28
+  [MasterVault_1920.db]  12,000,000 records  @  2026-05-10  03:29:31
+  [MasterVault_1880.db]  47,500,000 records  @  2026-05-10  03:29:33
+  [MasterVault_1900.db]  28,500,000 records  @  2026-05-10  03:29:36
+  [MasterVault_1910.db]  23,500,000 records  @  2026-05-10  03:29:39
+  [MasterVault_1920.db]  12,500,000 records  @  2026-05-10  03:29:42
+  [MasterVault_1880.db]  48,000,000 records  @  2026-05-10  03:29:44
+  [MasterVault_1900.db]  29,000,000 records  @  2026-05-10  03:29:47
+  [MasterVault_1910.db]  24,000,000 records  @  2026-05-10  03:29:49
+  [MasterVault_1920.db]  13,000,000 records  @  2026-05-10  03:29:52
+  [MasterVault_1880.db]  48,500,000 records  @  2026-05-10  03:29:55
+  [MasterVault_1900.db]  29,500,000 records  @  2026-05-10  03:29:58
+  [MasterVault_1910.db]  24,500,000 records  @  2026-05-10  03:30:00
+  [MasterVault_1920.db]  13,500,000 records  @  2026-05-10  03:30:03
+  [MasterVault_1880.db]  49,000,000 records  @  2026-05-10  03:30:06
+  [MasterVault_1900.db]  30,000,000 records  @  2026-05-10  03:30:09
+  [MasterVault_1910.db]  25,000,000 records  @  2026-05-10  03:30:11
+  [MasterVault_1920.db]  14,000,000 records  @  2026-05-10  03:30:14
+  [MasterVault_1880.db]  49,500,000 records  @  2026-05-10  03:30:17
+  [MasterVault_1900.db]  30,500,000 records  @  2026-05-10  03:30:20
+  [MasterVault_1910.db]  25,500,000 records  @  2026-05-10  03:30:22
+  [MasterVault_1920.db]  14,500,000 records  @  2026-05-10  03:30:25
+  [MasterVault_1880.db]  50,000,000 records  @  2026-05-10  03:30:28
+  [MasterVault_1900.db]  31,000,000 records  @  2026-05-10  03:30:31
+  [MasterVault_1910.db]  26,000,000 records  @  2026-05-10  03:30:33
+  [MasterVault_1920.db]  15,000,000 records  @  2026-05-10  03:30:36
+  [MasterVault_1880.db]  50,500,000 records  @  2026-05-10  03:30:39
+  [MasterVault_1900.db]  31,500,000 records  @  2026-05-10  03:30:41
+  [MasterVault_1910.db]  26,500,000 records  @  2026-05-10  03:30:44
+  [MasterVault_1920.db]  15,500,000 records  @  2026-05-10  03:30:47
+  [MasterVault_1880.db]  51,000,000 records  @  2026-05-10  03:30:50
+  [MasterVault_1900.db]  32,000,000 records  @  2026-05-10  03:30:53
+  [MasterVault_1910.db]  27,000,000 records  @  2026-05-10  03:30:55
+  [MasterVault_1920.db]  16,000,000 records  @  2026-05-10  03:30:58
+  [MasterVault_1880.db]  51,500,000 records  @  2026-05-10  03:31:01
+  [MasterVault_1900.db]  32,500,000 records  @  2026-05-10  03:31:04
+  [MasterVault_1910.db]  27,500,000 records  @  2026-05-10  03:31:06
+  [MasterVault_1920.db]  16,500,000 records  @  2026-05-10  03:31:09
+  [MasterVault_1880.db]  52,000,000 records  @  2026-05-10  03:31:12
+  [MasterVault_1900.db]  33,000,000 records  @  2026-05-10  03:31:15
+  [MasterVault_1910.db]  28,000,000 records  @  2026-05-10  03:31:17
+  [MasterVault_1920.db]  17,000,000 records  @  2026-05-10  03:31:20
+  [MasterVault_1880.db]  52,500,000 records  @  2026-05-10  03:31:23
+  [MasterVault_1900.db]  33,500,000 records  @  2026-05-10  03:31:26
+  [MasterVault_1910.db]  28,500,000 records  @  2026-05-10  03:31:29
+  [MasterVault_1920.db]  17,500,000 records  @  2026-05-10  03:31:31
+  [MasterVault_1880.db]  53,000,000 records  @  2026-05-10  03:31:34
+  [MasterVault_1900.db]  34,000,000 records  @  2026-05-10  03:31:37
+  [MasterVault_1910.db]  29,000,000 records  @  2026-05-10  03:31:40
+  [MasterVault_1920.db]  18,000,000 records  @  2026-05-10  03:31:42
+  [MasterVault_1880.db]  53,500,000 records  @  2026-05-10  03:31:45
+  [MasterVault_1900.db]  34,500,000 records  @  2026-05-10  03:31:48
+  [MasterVault_1910.db]  29,500,000 records  @  2026-05-10  03:31:50
+  [MasterVault_1920.db]  18,500,000 records  @  2026-05-10  03:31:53
+  [MasterVault_1880.db]  54,000,000 records  @  2026-05-10  03:31:56
+  [MasterVault_1900.db]  35,000,000 records  @  2026-05-10  03:31:59
+  [MasterVault_1910.db]  30,000,000 records  @  2026-05-10  03:32:01
+  [MasterVault_1920.db]  19,000,000 records  @  2026-05-10  03:32:04
+  [MasterVault_1880.db]  54,500,000 records  @  2026-05-10  03:32:07
+  [MasterVault_1900.db]  35,500,000 records  @  2026-05-10  03:32:10
+  [MasterVault_1910.db]  30,500,000 records  @  2026-05-10  03:32:12
+  [MasterVault_1920.db]  19,500,000 records  @  2026-05-10  03:32:15
+  [MasterVault_1880.db]  55,000,000 records  @  2026-05-10  03:32:18
+  [MasterVault_1900.db]  36,000,000 records  @  2026-05-10  03:32:21
+  [MasterVault_1910.db]  31,000,000 records  @  2026-05-10  03:32:23
+  [MasterVault_1920.db]  20,000,000 records  @  2026-05-10  03:32:26
+  [MasterVault_1880.db]  55,500,000 records  @  2026-05-10  03:32:29
+  [MasterVault_1900.db]  36,500,000 records  @  2026-05-10  03:32:32
+  [MasterVault_1910.db]  31,500,000 records  @  2026-05-10  03:32:34
+  [MasterVault_1920.db]  20,500,000 records  @  2026-05-10  03:32:37
+  [MasterVault_1880.db]  56,000,000 records  @  2026-05-10  03:32:40
+  [MasterVault_1900.db]  37,000,000 records  @  2026-05-10  03:32:43
+  [MasterVault_1910.db]  32,000,000 records  @  2026-05-10  03:32:45
+  [MasterVault_1920.db]  21,000,000 records  @  2026-05-10  03:32:48
+  [MasterVault_1880.db]  56,500,000 records  @  2026-05-10  03:32:51
+  [MasterVault_1880.db]  DONE — 56,525,339 records in 21.5 min.
+  [MasterVault_1900.db]  37,500,000 records  @  2026-05-10  03:32:52
+
+=================================================================
+  STATS REPORT  —  File: census-1880.csv
+=================================================================
+
+  TIMING
+    Wall clock elapsed : 1,291.1 sec  (21.52 min)
+    CPU user time      : 2,360.6 sec
+    CPU system time    : 192.2 sec
+    CPU total time     : 2,552.8 sec
+    (CPU total > wall clock means multiple cores were used in parallel)
+
+  CPU USAGE (during run)
+    Start  : 2.9%
+    End    : 10.8%
+
+  MEMORY  (RAM)
+    Start  used : 22.92 GB  (18.0%)
+    End    used : 26.44 GB  (20.8%)
+    Available   : 100.83 GB remaining
+
+  SWAP / PAGE FILE
+    Total       : 8.00 GB
+    Start  used : 0.08 GB  (1.0%)
+    End    used : 0.13 GB  (1.6%)
+
+  DISK  (D: drive)
+    Total       : 3726.0 GB
+    Start  used : 328.7 GB  (8.8%)
+    End    used : 365.5 GB  (9.8%)
+    Space added : +36.74 GB  (new database data written this run)
+    Free now    : 3360.5 GB
+
+  DISK I/O  (system-wide, all drives combined)
+    Data read      : 35.55 GB  (28.2 MB/s avg)
+    Data written   : 41.98 GB  (33.3 MB/s avg)
+    Read ops       : 322,785
+    Write ops      : 768,967
+
+  GPU
+    Not applicable — SQLite/CSV work is CPU + disk I/O only.
+=================================================================
+
+record_count :  56525339
+dtime        :  1291.1351580619812
+recPerSec    :  43779.5676518062
+
+--- [census-1930.csv]  Thread starting → D:\Data\Genealogy_Data\MasterVault_1930.db ---
+  [MasterVault_1910.db]  32,500,000 records  @  2026-05-10  03:32:57
+  [MasterVault_1920.db]  21,500,000 records  @  2026-05-10  03:32:59
+  [MasterVault_1900.db]  38,000,000 records  @  2026-05-10  03:33:03
+  [MasterVault_1910.db]  33,000,000 records  @  2026-05-10  03:33:05
+  [MasterVault_1920.db]  22,000,000 records  @  2026-05-10  03:33:08
+  [MasterVault_1930.db]  500,000 records  @  2026-05-10  03:33:09
+  [MasterVault_1900.db]  38,500,000 records  @  2026-05-10  03:33:14
+  [MasterVault_1910.db]  33,500,000 records  @  2026-05-10  03:33:16
+  [MasterVault_1920.db]  22,500,000 records  @  2026-05-10  03:33:18
+  [MasterVault_1930.db]  1,000,000 records  @  2026-05-10  03:33:23
+  [MasterVault_1900.db]  39,000,000 records  @  2026-05-10  03:33:23
+  [MasterVault_1910.db]  34,000,000 records  @  2026-05-10  03:33:27
+  [MasterVault_1920.db]  23,000,000 records  @  2026-05-10  03:33:29
+  [MasterVault_1900.db]  39,500,000 records  @  2026-05-10  03:33:33
+  [MasterVault_1910.db]  34,500,000 records  @  2026-05-10  03:33:36
+  [MasterVault_1920.db]  23,500,000 records  @  2026-05-10  03:33:36
+  [MasterVault_1930.db]  1,500,000 records  @  2026-05-10  03:33:41
+  [MasterVault_1900.db]  40,000,000 records  @  2026-05-10  03:33:44
+  [MasterVault_1920.db]  24,000,000 records  @  2026-05-10  03:33:47
+  [MasterVault_1910.db]  35,000,000 records  @  2026-05-10  03:33:47
+  [MasterVault_1930.db]  2,000,000 records  @  2026-05-10  03:33:52
+  [MasterVault_1900.db]  40,500,000 records  @  2026-05-10  03:33:55
+  [MasterVault_1910.db]  35,500,000 records  @  2026-05-10  03:33:58
+  [MasterVault_1920.db]  24,500,000 records  @  2026-05-10  03:33:58
+  [MasterVault_1900.db]  41,000,000 records  @  2026-05-10  03:34:04
+  [MasterVault_1920.db]  25,000,000 records  @  2026-05-10  03:34:06
+  [MasterVault_1910.db]  36,000,000 records  @  2026-05-10  03:34:07
+  [MasterVault_1930.db]  2,500,000 records  @  2026-05-10  03:34:07
+  [MasterVault_1900.db]  41,500,000 records  @  2026-05-10  03:34:15
+  [MasterVault_1920.db]  25,500,000 records  @  2026-05-10  03:34:17
+  [MasterVault_1910.db]  36,500,000 records  @  2026-05-10  03:34:19
+  [MasterVault_1900.db]  42,000,000 records  @  2026-05-10  03:34:23
+  [MasterVault_1930.db]  3,000,000 records  @  2026-05-10  03:34:26
+  [MasterVault_1920.db]  26,000,000 records  @  2026-05-10  03:34:28
+  [MasterVault_1910.db]  37,000,000 records  @  2026-05-10  03:34:30
+  [MasterVault_1900.db]  42,500,000 records  @  2026-05-10  03:34:34
+  [MasterVault_1920.db]  26,500,000 records  @  2026-05-10  03:34:37
+  [MasterVault_1910.db]  37,500,000 records  @  2026-05-10  03:34:38
+  [MasterVault_1900.db]  43,000,000 records  @  2026-05-10  03:34:42
+  [MasterVault_1930.db]  3,500,000 records  @  2026-05-10  03:34:45
+  [MasterVault_1920.db]  27,000,000 records  @  2026-05-10  03:34:47
+  [MasterVault_1910.db]  38,000,000 records  @  2026-05-10  03:34:48
+  [MasterVault_1900.db]  43,500,000 records  @  2026-05-10  03:34:53
+  [MasterVault_1920.db]  27,500,000 records  @  2026-05-10  03:34:56
+  [MasterVault_1910.db]  38,500,000 records  @  2026-05-10  03:34:56
+  [MasterVault_1900.db]  44,000,000 records  @  2026-05-10  03:35:01
+  [MasterVault_1930.db]  4,000,000 records  @  2026-05-10  03:35:04
+  [MasterVault_1920.db]  28,000,000 records  @  2026-05-10  03:35:06
+  [MasterVault_1910.db]  39,000,000 records  @  2026-05-10  03:35:06
+  [MasterVault_1900.db]  44,500,000 records  @  2026-05-10  03:35:12
+  [MasterVault_1920.db]  28,500,000 records  @  2026-05-10  03:35:15
+  [MasterVault_1910.db]  39,500,000 records  @  2026-05-10  03:35:15
+  [MasterVault_1900.db]  45,000,000 records  @  2026-05-10  03:35:20
+  [MasterVault_1930.db]  4,500,000 records  @  2026-05-10  03:35:23
+  [MasterVault_1910.db]  40,000,000 records  @  2026-05-10  03:35:25
+  [MasterVault_1920.db]  29,000,000 records  @  2026-05-10  03:35:26
+  [MasterVault_1900.db]  45,500,000 records  @  2026-05-10  03:35:31
+  [MasterVault_1910.db]  40,500,000 records  @  2026-05-10  03:35:34
+  [MasterVault_1920.db]  29,500,000 records  @  2026-05-10  03:35:34
+  [MasterVault_1900.db]  46,000,000 records  @  2026-05-10  03:35:40
+  [MasterVault_1920.db]  30,000,000 records  @  2026-05-10  03:35:43
+  [MasterVault_1910.db]  41,000,000 records  @  2026-05-10  03:35:43
+  [MasterVault_1930.db]  5,000,000 records  @  2026-05-10  03:35:43
+  [MasterVault_1900.db]  46,500,000 records  @  2026-05-10  03:35:50
+  [MasterVault_1910.db]  41,500,000 records  @  2026-05-10  03:35:54
+  [MasterVault_1920.db]  30,500,000 records  @  2026-05-10  03:35:54
+  [MasterVault_1900.db]  47,000,000 records  @  2026-05-10  03:35:59
+  [MasterVault_1920.db]  31,000,000 records  @  2026-05-10  03:36:02
+  [MasterVault_1910.db]  42,000,000 records  @  2026-05-10  03:36:02
+  [MasterVault_1930.db]  5,500,000 records  @  2026-05-10  03:36:06
+  [MasterVault_1900.db]  47,500,000 records  @  2026-05-10  03:36:09
+  [MasterVault_1920.db]  31,500,000 records  @  2026-05-10  03:36:12
+  [MasterVault_1910.db]  42,500,000 records  @  2026-05-10  03:36:12
+  [MasterVault_1900.db]  48,000,000 records  @  2026-05-10  03:36:18
+  [MasterVault_1920.db]  32,000,000 records  @  2026-05-10  03:36:21
+  [MasterVault_1910.db]  43,000,000 records  @  2026-05-10  03:36:23
+  [MasterVault_1930.db]  6,000,000 records  @  2026-05-10  03:36:26
+  [MasterVault_1900.db]  48,500,000 records  @  2026-05-10  03:36:29
+  [MasterVault_1920.db]  32,500,000 records  @  2026-05-10  03:36:31
+  [MasterVault_1910.db]  43,500,000 records  @  2026-05-10  03:36:33
+  [MasterVault_1900.db]  49,000,000 records  @  2026-05-10  03:36:37
+  [MasterVault_1920.db]  33,000,000 records  @  2026-05-10  03:36:40
+  [MasterVault_1910.db]  44,000,000 records  @  2026-05-10  03:36:41
+  [MasterVault_1930.db]  6,500,000 records  @  2026-05-10  03:36:45
+  [MasterVault_1900.db]  49,500,000 records  @  2026-05-10  03:36:48
+  [MasterVault_1920.db]  33,500,000 records  @  2026-05-10  03:36:50
+  [MasterVault_1910.db]  44,500,000 records  @  2026-05-10  03:36:52
+  [MasterVault_1920.db]  34,000,000 records  @  2026-05-10  03:36:57
+  [MasterVault_1900.db]  50,000,000 records  @  2026-05-10  03:36:57
+  [MasterVault_1910.db]  45,000,000 records  @  2026-05-10  03:37:01
+  [MasterVault_1930.db]  7,000,000 records  @  2026-05-10  03:37:05
+  [MasterVault_1920.db]  34,500,000 records  @  2026-05-10  03:37:07
+  [MasterVault_1900.db]  50,500,000 records  @  2026-05-10  03:37:07
+  [MasterVault_1910.db]  45,500,000 records  @  2026-05-10  03:37:09
+  [MasterVault_1900.db]  51,000,000 records  @  2026-05-10  03:37:16
+  [MasterVault_1910.db]  46,000,000 records  @  2026-05-10  03:37:16
+  [MasterVault_1920.db]  35,000,000 records  @  2026-05-10  03:37:16
+  [MasterVault_1930.db]  7,500,000 records  @  2026-05-10  03:37:24
+  [MasterVault_1900.db]  51,500,000 records  @  2026-05-10  03:37:24
+  [MasterVault_1910.db]  46,500,000 records  @  2026-05-10  03:37:24
+  [MasterVault_1920.db]  35,500,000 records  @  2026-05-10  03:37:24
+  [MasterVault_1920.db]  36,000,000 records  @  2026-05-10  03:37:35
+  [MasterVault_1900.db]  52,000,000 records  @  2026-05-10  03:37:35  [MasterVault_1930.db]  8,000,000 records  @  2026-05-10  03:37:35
+
+  [MasterVault_1910.db]  47,000,000 records  @  2026-05-10  03:37:35
+  [MasterVault_1930.db]  8,500,000 records  @  2026-05-10  03:37:46
+  [MasterVault_1900.db]  52,500,000 records  @  2026-05-10  03:37:48  [MasterVault_1910.db]  47,500,000 records  @  2026-05-10  03:37:48
+  [MasterVault_1920.db]  36,500,000 records  @  2026-05-10  03:37:48
+
+  [MasterVault_1930.db]  9,000,000 records  @  2026-05-10  03:37:56
+  [MasterVault_1900.db]  53,000,000 records  @  2026-05-10  03:37:59
+  [MasterVault_1920.db]  37,000,000 records  @  2026-05-10  03:37:59
+  [MasterVault_1910.db]  48,000,000 records  @  2026-05-10  03:37:59
+  [MasterVault_1930.db]  9,500,000 records  @  2026-05-10  03:38:07
+  [MasterVault_1900.db]  53,500,000 records  @  2026-05-10  03:38:10
+  [MasterVault_1910.db]  48,500,000 records  @  2026-05-10  03:38:11
+  [MasterVault_1920.db]  37,500,000 records  @  2026-05-10  03:38:11
+  [MasterVault_1930.db]  10,000,000 records  @  2026-05-10  03:38:18
+  [MasterVault_1920.db]  38,000,000 records  @  2026-05-10  03:38:22
+  [MasterVault_1910.db]  49,000,000 records  @  2026-05-10  03:38:22  [MasterVault_1900.db]  54,000,000 records  @  2026-05-10  03:38:22
+
+  [MasterVault_1930.db]  10,500,000 records  @  2026-05-10  03:38:28
+  [MasterVault_1900.db]  54,500,000 records  @  2026-05-10  03:38:33
+  [MasterVault_1920.db]  38,500,000 records  @  2026-05-10  03:38:33
+  [MasterVault_1910.db]  49,500,000 records  @  2026-05-10  03:38:33
+  [MasterVault_1930.db]  11,000,000 records  @  2026-05-10  03:38:39
+  [MasterVault_1900.db]  55,000,000 records  @  2026-05-10  03:38:44
+  [MasterVault_1910.db]  50,000,000 records  @  2026-05-10  03:38:45
+  [MasterVault_1920.db]  39,000,000 records  @  2026-05-10  03:38:45
+  [MasterVault_1930.db]  11,500,000 records  @  2026-05-10  03:38:50
+  [MasterVault_1930.db]  12,000,000 records  @  2026-05-10  03:38:55
+  [MasterVault_1910.db]  50,500,000 records  @  2026-05-10  03:38:58  [MasterVault_1900.db]  55,500,000 records  @  2026-05-10  03:38:57
+  [MasterVault_1920.db]  39,500,000 records  @  2026-05-10  03:38:58
+
+  [MasterVault_1930.db]  12,500,000 records  @  2026-05-10  03:39:06
+  [MasterVault_1920.db]  40,000,000 records  @  2026-05-10  03:39:09
+  [MasterVault_1910.db]  51,000,000 records  @  2026-05-10  03:39:09
+  [MasterVault_1900.db]  56,000,000 records  @  2026-05-10  03:39:09
+  [MasterVault_1930.db]  13,000,000 records  @  2026-05-10  03:39:17
+  [MasterVault_1900.db]  56,500,000 records  @  2026-05-10  03:39:20
+  [MasterVault_1920.db]  40,500,000 records  @  2026-05-10  03:39:20
+  [MasterVault_1910.db]  51,500,000 records  @  2026-05-10  03:39:20
+  [MasterVault_1930.db]  13,500,000 records  @  2026-05-10  03:39:27
+  [MasterVault_1910.db]  52,000,000 records  @  2026-05-10  03:39:31  [MasterVault_1900.db]  57,000,000 records  @  2026-05-10  03:39:31
+  [MasterVault_1920.db]  41,000,000 records  @  2026-05-10  03:39:31
+
+  [MasterVault_1930.db]  14,000,000 records  @  2026-05-10  03:39:38
+  [MasterVault_1900.db]  57,500,000 records  @  2026-05-10  03:39:42
+  [MasterVault_1920.db]  41,500,000 records  @  2026-05-10  03:39:42
+  [MasterVault_1910.db]  52,500,000 records  @  2026-05-10  03:39:43
+  [MasterVault_1930.db]  14,500,000 records  @  2026-05-10  03:39:49
+  [MasterVault_1910.db]  53,000,000 records  @  2026-05-10  03:39:53
+  [MasterVault_1900.db]  58,000,000 records  @  2026-05-10  03:39:53  [MasterVault_1920.db]  42,000,000 records  @  2026-05-10  03:39:54
+
+  [MasterVault_1930.db]  15,000,000 records  @  2026-05-10  03:40:00
+  [MasterVault_1900.db]  58,500,000 records  @  2026-05-10  03:40:04
+  [MasterVault_1910.db]  53,500,000 records  @  2026-05-10  03:40:04
+  [MasterVault_1920.db]  42,500,000 records  @  2026-05-10  03:40:04
+  [MasterVault_1930.db]  15,500,000 records  @  2026-05-10  03:40:11
+  [MasterVault_1910.db]  54,000,000 records  @  2026-05-10  03:40:15
+  [MasterVault_1920.db]  43,000,000 records  @  2026-05-10  03:40:15
+  [MasterVault_1900.db]  59,000,000 records  @  2026-05-10  03:40:15
+  [MasterVault_1930.db]  16,000,000 records  @  2026-05-10  03:40:21
+  [MasterVault_1900.db]  59,500,000 records  @  2026-05-10  03:40:26
+  [MasterVault_1920.db]  43,500,000 records  @  2026-05-10  03:40:26
+  [MasterVault_1910.db]  54,500,000 records  @  2026-05-10  03:40:26
+  [MasterVault_1930.db]  16,500,000 records  @  2026-05-10  03:40:32
+  [MasterVault_1900.db]  60,000,000 records  @  2026-05-10  03:40:37
+  [MasterVault_1920.db]  44,000,000 records  @  2026-05-10  03:40:37
+  [MasterVault_1910.db]  55,000,000 records  @  2026-05-10  03:40:37
+  [MasterVault_1930.db]  17,000,000 records  @  2026-05-10  03:40:43
+  [MasterVault_1920.db]  44,500,000 records  @  2026-05-10  03:40:48
+  [MasterVault_1910.db]  55,500,000 records  @  2026-05-10  03:40:48  [MasterVault_1900.db]  60,500,000 records  @  2026-05-10  03:40:48
+
+  [MasterVault_1930.db]  17,500,000 records  @  2026-05-10  03:40:54
+  [MasterVault_1910.db]  56,000,000 records  @  2026-05-10  03:40:58  [MasterVault_1920.db]  45,000,000 records  @  2026-05-10  03:40:59
+
+  [MasterVault_1900.db]  61,000,000 records  @  2026-05-10  03:40:59
+  [MasterVault_1930.db]  18,000,000 records  @  2026-05-10  03:41:04
+  [MasterVault_1900.db]  61,500,000 records  @  2026-05-10  03:41:09  [MasterVault_1910.db]  56,500,000 records  @  2026-05-10  03:41:09
+
+  [MasterVault_1920.db]  45,500,000 records  @  2026-05-10  03:41:10
+  [MasterVault_1930.db]  18,500,000 records  @  2026-05-10  03:41:15
+  [MasterVault_1900.db]  62,000,000 records  @  2026-05-10  03:41:20
+  [MasterVault_1910.db]  57,000,000 records  @  2026-05-10  03:41:20
+  [MasterVault_1920.db]  46,000,000 records  @  2026-05-10  03:41:20
+  [MasterVault_1930.db]  19,000,000 records  @  2026-05-10  03:41:26
+  [MasterVault_1920.db]  46,500,000 records  @  2026-05-10  03:41:31
+  [MasterVault_1900.db]  62,500,000 records  @  2026-05-10  03:41:31
+  [MasterVault_1910.db]  57,500,000 records  @  2026-05-10  03:41:31
+  [MasterVault_1930.db]  19,500,000 records  @  2026-05-10  03:41:36
+  [MasterVault_1930.db]  20,000,000 records  @  2026-05-10  03:41:42
+  [MasterVault_1900.db]  63,000,000 records  @  2026-05-10  03:41:42
+  [MasterVault_1910.db]  58,000,000 records  @  2026-05-10  03:41:42
+  [MasterVault_1920.db]  47,000,000 records  @  2026-05-10  03:41:42
+  [MasterVault_1930.db]  20,500,000 records  @  2026-05-10  03:41:53
+  [MasterVault_1920.db]  47,500,000 records  @  2026-05-10  03:41:53  [MasterVault_1900.db]  63,500,000 records  @  2026-05-10  03:41:53
+
+  [MasterVault_1910.db]  58,500,000 records  @  2026-05-10  03:41:53
+  [MasterVault_1930.db]  21,000,000 records  @  2026-05-10  03:42:04
+  [MasterVault_1900.db]  64,000,000 records  @  2026-05-10  03:42:04
+  [MasterVault_1920.db]  48,000,000 records  @  2026-05-10  03:42:04
+  [MasterVault_1910.db]  59,000,000 records  @  2026-05-10  03:42:04
+  [MasterVault_1900.db]  64,500,000 records  @  2026-05-10  03:42:15
+  [MasterVault_1910.db]  59,500,000 records  @  2026-05-10  03:42:15
+  [MasterVault_1930.db]  21,500,000 records  @  2026-05-10  03:42:15  [MasterVault_1920.db]  48,500,000 records  @  2026-05-10  03:42:15
+
+  [MasterVault_1930.db]  22,000,000 records  @  2026-05-10  03:42:26  [MasterVault_1920.db]  49,000,000 records  @  2026-05-10  03:42:26
+  [MasterVault_1910.db]  60,000,000 records  @  2026-05-10  03:42:26
+
+  [MasterVault_1900.db]  65,000,000 records  @  2026-05-10  03:42:26
+  [MasterVault_1930.db]  22,500,000 records  @  2026-05-10  03:42:37
+  [MasterVault_1920.db]  49,500,000 records  @  2026-05-10  03:42:37
+  [MasterVault_1910.db]  60,500,000 records  @  2026-05-10  03:42:37
+  [MasterVault_1900.db]  65,500,000 records  @  2026-05-10  03:42:37
+  [MasterVault_1900.db]  66,000,000 records  @  2026-05-10  03:42:48
+  [MasterVault_1910.db]  61,000,000 records  @  2026-05-10  03:42:48
+  [MasterVault_1930.db]  23,000,000 records  @  2026-05-10  03:42:48
+  [MasterVault_1920.db]  50,000,000 records  @  2026-05-10  03:42:48
+  [MasterVault_1910.db]  61,500,000 records  @  2026-05-10  03:42:59
+  [MasterVault_1920.db]  50,500,000 records  @  2026-05-10  03:42:59  [MasterVault_1900.db]  66,500,000 records  @  2026-05-10  03:42:59
+  [MasterVault_1930.db]  23,500,000 records  @  2026-05-10  03:42:59
+
+  [MasterVault_1910.db]  62,000,000 records  @  2026-05-10  03:43:10
+  [MasterVault_1900.db]  67,000,000 records  @  2026-05-10  03:43:10
+  [MasterVault_1920.db]  51,000,000 records  @  2026-05-10  03:43:10
+  [MasterVault_1930.db]  24,000,000 records  @  2026-05-10  03:43:10
+  [MasterVault_1900.db]  67,500,000 records  @  2026-05-10  03:43:21
+  [MasterVault_1930.db]  24,500,000 records  @  2026-05-10  03:43:21
+  [MasterVault_1920.db]  51,500,000 records  @  2026-05-10  03:43:21
+  [MasterVault_1910.db]  62,500,000 records  @  2026-05-10  03:43:21
+  [MasterVault_1900.db]  68,000,000 records  @  2026-05-10  03:43:32  [MasterVault_1910.db]  63,000,000 records  @  2026-05-10  03:43:32
+
+  [MasterVault_1920.db]  52,000,000 records  @  2026-05-10  03:43:32
+  [MasterVault_1930.db]  25,000,000 records  @  2026-05-10  03:43:32
+  [MasterVault_1910.db]  63,500,000 records  @  2026-05-10  03:43:43
+  [MasterVault_1930.db]  25,500,000 records  @  2026-05-10  03:43:43
+  [MasterVault_1900.db]  68,500,000 records  @  2026-05-10  03:43:43
+  [MasterVault_1920.db]  52,500,000 records  @  2026-05-10  03:43:43
+  [MasterVault_1930.db]  26,000,000 records  @  2026-05-10  03:43:54
+  [MasterVault_1920.db]  53,000,000 records  @  2026-05-10  03:43:54
+  [MasterVault_1910.db]  64,000,000 records  @  2026-05-10  03:43:54
+  [MasterVault_1900.db]  69,000,000 records  @  2026-05-10  03:43:54
+  [MasterVault_1900.db]  69,500,000 records  @  2026-05-10  03:44:05
+  [MasterVault_1930.db]  26,500,000 records  @  2026-05-10  03:44:05
+  [MasterVault_1910.db]  64,500,000 records  @  2026-05-10  03:44:05
+  [MasterVault_1920.db]  53,500,000 records  @  2026-05-10  03:44:05
+  [MasterVault_1900.db]  70,000,000 records  @  2026-05-10  03:44:16
+  [MasterVault_1920.db]  54,000,000 records  @  2026-05-10  03:44:16
+  [MasterVault_1910.db]  65,000,000 records  @  2026-05-10  03:44:16
+  [MasterVault_1930.db]  27,000,000 records  @  2026-05-10  03:44:16
+  [MasterVault_1900.db]  70,500,000 records  @  2026-05-10  03:44:27
+  [MasterVault_1920.db]  54,500,000 records  @  2026-05-10  03:44:27  [MasterVault_1930.db]  27,500,000 records  @  2026-05-10  03:44:28
+  [MasterVault_1910.db]  65,500,000 records  @  2026-05-10  03:44:28
+
+  [MasterVault_1900.db]  71,000,000 records  @  2026-05-10  03:44:38
+  [MasterVault_1920.db]  55,000,000 records  @  2026-05-10  03:44:38
+  [MasterVault_1930.db]  28,000,000 records  @  2026-05-10  03:44:38
+  [MasterVault_1910.db]  66,000,000 records  @  2026-05-10  03:44:38
+  [MasterVault_1930.db]  28,500,000 records  @  2026-05-10  03:44:49  [MasterVault_1900.db]  71,500,000 records  @  2026-05-10  03:44:49
+  [MasterVault_1920.db]  55,500,000 records  @  2026-05-10  03:44:49
+
+  [MasterVault_1910.db]  66,500,000 records  @  2026-05-10  03:44:49
+  [MasterVault_1910.db]  67,000,000 records  @  2026-05-10  03:45:00
+  [MasterVault_1900.db]  72,000,000 records  @  2026-05-10  03:45:00
+  [MasterVault_1920.db]  56,000,000 records  @  2026-05-10  03:45:00
+  [MasterVault_1930.db]  29,000,000 records  @  2026-05-10  03:45:00
+  [MasterVault_1910.db]  67,500,000 records  @  2026-05-10  03:45:11  [MasterVault_1900.db]  72,500,000 records  @  2026-05-10  03:45:11
+
+  [MasterVault_1930.db]  29,500,000 records  @  2026-05-10  03:45:11  [MasterVault_1920.db]  56,500,000 records  @  2026-05-10  03:45:11
+
+  [MasterVault_1930.db]  30,000,000 records  @  2026-05-10  03:45:22
+  [MasterVault_1900.db]  73,000,000 records  @  2026-05-10  03:45:22  [MasterVault_1920.db]  57,000,000 records  @  2026-05-10  03:45:22
+  [MasterVault_1910.db]  68,000,000 records  @  2026-05-10  03:45:22
+
+  [MasterVault_1910.db]  68,500,000 records  @  2026-05-10  03:45:33  [MasterVault_1930.db]  30,500,000 records  @  2026-05-10  03:45:33
+
+  [MasterVault_1900.db]  73,500,000 records  @  2026-05-10  03:45:33
+  [MasterVault_1920.db]  57,500,000 records  @  2026-05-10  03:45:33
+  [MasterVault_1930.db]  31,000,000 records  @  2026-05-10  03:45:44
+  [MasterVault_1920.db]  58,000,000 records  @  2026-05-10  03:45:44  [MasterVault_1900.db]  74,000,000 records  @  2026-05-10  03:45:44  [MasterVault_1910.db]  69,000,000 records  @  2026-05-10  03:45:44
+
+
+  [MasterVault_1900.db]  74,500,000 records  @  2026-05-10  03:45:55
+  [MasterVault_1930.db]  31,500,000 records  @  2026-05-10  03:45:55
+  [MasterVault_1920.db]  58,500,000 records  @  2026-05-10  03:45:55
+  [MasterVault_1910.db]  69,500,000 records  @  2026-05-10  03:45:55
+  [MasterVault_1900.db]  75,000,000 records  @  2026-05-10  03:46:06
+  [MasterVault_1920.db]  59,000,000 records  @  2026-05-10  03:46:06
+  [MasterVault_1930.db]  32,000,000 records  @  2026-05-10  03:46:06  [MasterVault_1910.db]  70,000,000 records  @  2026-05-10  03:46:06
+
+  [MasterVault_1900.db]  75,500,000 records  @  2026-05-10  03:46:17  [MasterVault_1920.db]  59,500,000 records  @  2026-05-10  03:46:17
+
+  [MasterVault_1910.db]  70,500,000 records  @  2026-05-10  03:46:17
+  [MasterVault_1930.db]  32,500,000 records  @  2026-05-10  03:46:17
+  [MasterVault_1920.db]  60,000,000 records  @  2026-05-10  03:46:28  [MasterVault_1930.db]  33,000,000 records  @  2026-05-10  03:46:28
+
+  [MasterVault_1910.db]  71,000,000 records  @  2026-05-10  03:46:28  [MasterVault_1900.db]  76,000,000 records  @  2026-05-10  03:46:28
+
+  [MasterVault_1930.db]  33,500,000 records  @  2026-05-10  03:46:39
+  [MasterVault_1920.db]  60,500,000 records  @  2026-05-10  03:46:39
+  [MasterVault_1910.db]  71,500,000 records  @  2026-05-10  03:46:39
+  [MasterVault_1900.db]  76,500,000 records  @  2026-05-10  03:46:39
+  [MasterVault_1930.db]  34,000,000 records  @  2026-05-10  03:46:50
+  [MasterVault_1910.db]  72,000,000 records  @  2026-05-10  03:46:50
+  [MasterVault_1900.db]  77,000,000 records  @  2026-05-10  03:46:50
+  [MasterVault_1920.db]  61,000,000 records  @  2026-05-10  03:46:50
+  [MasterVault_1920.db]  61,500,000 records  @  2026-05-10  03:47:01
+  [MasterVault_1930.db]  34,500,000 records  @  2026-05-10  03:47:01
+  [MasterVault_1900.db]  77,500,000 records  @  2026-05-10  03:47:01
+  [MasterVault_1910.db]  72,500,000 records  @  2026-05-10  03:47:01
+  [MasterVault_1910.db]  73,000,000 records  @  2026-05-10  03:47:12
+  [MasterVault_1930.db]  35,000,000 records  @  2026-05-10  03:47:12
+  [MasterVault_1900.db]  78,000,000 records  @  2026-05-10  03:47:12
+  [MasterVault_1920.db]  62,000,000 records  @  2026-05-10  03:47:12
+  [MasterVault_1910.db]  73,500,000 records  @  2026-05-10  03:47:23  [MasterVault_1900.db]  78,500,000 records  @  2026-05-10  03:47:23
+
+  [MasterVault_1930.db]  35,500,000 records  @  2026-05-10  03:47:23
+  [MasterVault_1920.db]  62,500,000 records  @  2026-05-10  03:47:23
+  [MasterVault_1930.db]  36,000,000 records  @  2026-05-10  03:47:34
+  [MasterVault_1900.db]  79,000,000 records  @  2026-05-10  03:47:34
+  [MasterVault_1910.db]  74,000,000 records  @  2026-05-10  03:47:34  [MasterVault_1920.db]  63,000,000 records  @  2026-05-10  03:47:34
+
+  [MasterVault_1900.db]  79,500,000 records  @  2026-05-10  03:47:45
+  [MasterVault_1920.db]  63,500,000 records  @  2026-05-10  03:47:45
+  [MasterVault_1930.db]  36,500,000 records  @  2026-05-10  03:47:45
+  [MasterVault_1910.db]  74,500,000 records  @  2026-05-10  03:47:45
+  [MasterVault_1930.db]  37,000,000 records  @  2026-05-10  03:47:56
+  [MasterVault_1910.db]  75,000,000 records  @  2026-05-10  03:47:56  [MasterVault_1920.db]  64,000,000 records  @  2026-05-10  03:47:56
+
+  [MasterVault_1900.db]  80,000,000 records  @  2026-05-10  03:47:56
+  [MasterVault_1920.db]  64,500,000 records  @  2026-05-10  03:48:07
+  [MasterVault_1910.db]  75,500,000 records  @  2026-05-10  03:48:07
+  [MasterVault_1930.db]  37,500,000 records  @  2026-05-10  03:48:07
+  [MasterVault_1900.db]  80,500,000 records  @  2026-05-10  03:48:07
+  [MasterVault_1930.db]  38,000,000 records  @  2026-05-10  03:48:18
+  [MasterVault_1910.db]  76,000,000 records  @  2026-05-10  03:48:18
+  [MasterVault_1920.db]  65,000,000 records  @  2026-05-10  03:48:18
+  [MasterVault_1900.db]  81,000,000 records  @  2026-05-10  03:48:18
+  [MasterVault_1900.db]  DONE — 81,283,304 records in 30.2 min.
+
+=================================================================
+  STATS REPORT  —  File: census-1900.csv
+=================================================================
+
+  TIMING
+    Wall clock elapsed : 1,813.3 sec  (30.22 min)  [MasterVault_1910.db]  76,500,000 records  @  2026-05-10  03:48:28
+  [MasterVault_1930.db]  38,500,000 records  @  2026-05-10  03:48:28
+  [MasterVault_1920.db]  65,500,000 records  @  2026-05-10  03:48:28
+
+    CPU user time      : 3,293.6 sec
+    CPU system time    : 269.8 sec
+    CPU total time     : 3,563.4 sec
+    (CPU total > wall clock means multiple cores were used in parallel)
+
+  CPU USAGE (during run)
+    Start  : 6.9%
+    End    : 13.0%
+
+  MEMORY  (RAM)
+    Start  used : 24.83 GB  (19.5%)
+    End    used : 25.55 GB  (20.1%)
+    Available   : 101.72 GB remaining
+
+  SWAP / PAGE FILE
+    Total       : 8.00 GB
+    Start  used : 0.08 GB  (1.0%)
+    End    used : 0.09 GB  (1.1%)
+
+  DISK  (D: drive)
+    Total       : 3726.0 GB
+    Start  used : 340.1 GB  (9.1%)
+    End    used : 392.9 GB  (10.5%)
+    Space added : +52.77 GB  (new database data written this run)
+    Free now    : 3333.2 GB
+
+  DISK I/O  (system-wide, all drives combined)
+    Data read      : 67.99 GB  (38.4 MB/s avg)
+    Data written   : 59.69 GB  (33.7 MB/s avg)
+    Read ops       : 1,309,874
+    Write ops      : 1,069,987
+
+  GPU
+    Not applicable — SQLite/CSV work is CPU + disk I/O only.
+=================================================================
+
+record_count :  81283304
+dtime        :  1813.2968034744263
+recPerSec    :  44826.25450188545
+
+--- [census-1940.csv]  Thread starting → D:\Data\Genealogy_Data\MasterVault_1940.db ---
+  [MasterVault_1940.db]  500,000 records  @  2026-05-10  03:48:38
+  [MasterVault_1930.db]  39,000,000 records  @  2026-05-10  03:48:40
+  [MasterVault_1910.db]  77,000,000 records  @  2026-05-10  03:48:40  [MasterVault_1920.db]  66,000,000 records  @  2026-05-10  03:48:41
+
+  [MasterVault_1940.db]  1,000,000 records  @  2026-05-10  03:48:49
+  [MasterVault_1910.db]  77,500,000 records  @  2026-05-10  03:48:51  [MasterVault_1930.db]  39,500,000 records  @  2026-05-10  03:48:51
+
+  [MasterVault_1920.db]  66,500,000 records  @  2026-05-10  03:48:51
+  [MasterVault_1940.db]  1,500,000 records  @  2026-05-10  03:48:59
+  [MasterVault_1910.db]  78,000,000 records  @  2026-05-10  03:49:02
+  [MasterVault_1930.db]  40,000,000 records  @  2026-05-10  03:49:02
+  [MasterVault_1920.db]  67,000,000 records  @  2026-05-10  03:49:02
+  [MasterVault_1940.db]  2,000,000 records  @  2026-05-10  03:49:09
+  [MasterVault_1930.db]  40,500,000 records  @  2026-05-10  03:49:13  [MasterVault_1910.db]  78,500,000 records  @  2026-05-10  03:49:13
+
+  [MasterVault_1920.db]  67,500,000 records  @  2026-05-10  03:49:13
+  [MasterVault_1940.db]  2,500,000 records  @  2026-05-10  03:49:20
+  [MasterVault_1930.db]  41,000,000 records  @  2026-05-10  03:49:23
+  [MasterVault_1910.db]  79,000,000 records  @  2026-05-10  03:49:23
+  [MasterVault_1920.db]  68,000,000 records  @  2026-05-10  03:49:24
+  [MasterVault_1940.db]  3,000,000 records  @  2026-05-10  03:49:30
+  [MasterVault_1920.db]  68,500,000 records  @  2026-05-10  03:49:34
+  [MasterVault_1910.db]  79,500,000 records  @  2026-05-10  03:49:34
+  [MasterVault_1930.db]  41,500,000 records  @  2026-05-10  03:49:34
+  [MasterVault_1940.db]  3,500,000 records  @  2026-05-10  03:49:40
+  [MasterVault_1910.db]  80,000,000 records  @  2026-05-10  03:49:45  [MasterVault_1920.db]  69,000,000 records  @  2026-05-10  03:49:45
+
+  [MasterVault_1930.db]  42,000,000 records  @  2026-05-10  03:49:45
+  [MasterVault_1940.db]  4,000,000 records  @  2026-05-10  03:49:51
+  [MasterVault_1930.db]  42,500,000 records  @  2026-05-10  03:49:55
+  [MasterVault_1910.db]  80,500,000 records  @  2026-05-10  03:49:56  [MasterVault_1920.db]  69,500,000 records  @  2026-05-10  03:49:55
+
+  [MasterVault_1940.db]  4,500,000 records  @  2026-05-10  03:50:02
+  [MasterVault_1930.db]  43,000,000 records  @  2026-05-10  03:50:06
+  [MasterVault_1910.db]  81,000,000 records  @  2026-05-10  03:50:06
+  [MasterVault_1920.db]  70,000,000 records  @  2026-05-10  03:50:06
+  [MasterVault_1940.db]  5,000,000 records  @  2026-05-10  03:50:12
+  [MasterVault_1930.db]  43,500,000 records  @  2026-05-10  03:50:17
+  [MasterVault_1920.db]  70,500,000 records  @  2026-05-10  03:50:17
+  [MasterVault_1910.db]  81,500,000 records  @  2026-05-10  03:50:17
+  [MasterVault_1940.db]  5,500,000 records  @  2026-05-10  03:50:23
+  [MasterVault_1930.db]  44,000,000 records  @  2026-05-10  03:50:27  [MasterVault_1910.db]  82,000,000 records  @  2026-05-10  03:50:27
+
+  [MasterVault_1920.db]  71,000,000 records  @  2026-05-10  03:50:28
+  [MasterVault_1940.db]  6,000,000 records  @  2026-05-10  03:50:33
+  [MasterVault_1910.db]  82,500,000 records  @  2026-05-10  03:50:38
+  [MasterVault_1920.db]  71,500,000 records  @  2026-05-10  03:50:38
+  [MasterVault_1930.db]  44,500,000 records  @  2026-05-10  03:50:38
+  [MasterVault_1940.db]  6,500,000 records  @  2026-05-10  03:50:44
+  [MasterVault_1930.db]  45,000,000 records  @  2026-05-10  03:50:49
+  [MasterVault_1920.db]  72,000,000 records  @  2026-05-10  03:50:49
+  [MasterVault_1910.db]  83,000,000 records  @  2026-05-10  03:50:49
+  [MasterVault_1940.db]  7,000,000 records  @  2026-05-10  03:50:54
+  [MasterVault_1930.db]  45,500,000 records  @  2026-05-10  03:50:59  [MasterVault_1920.db]  72,500,000 records  @  2026-05-10  03:50:59
+  [MasterVault_1910.db]  83,500,000 records  @  2026-05-10  03:51:00
+
+  [MasterVault_1940.db]  7,500,000 records  @  2026-05-10  03:51:05
+  [MasterVault_1930.db]  46,000,000 records  @  2026-05-10  03:51:10
+  [MasterVault_1910.db]  84,000,000 records  @  2026-05-10  03:51:10
+  [MasterVault_1920.db]  73,000,000 records  @  2026-05-10  03:51:10
+  [MasterVault_1940.db]  8,000,000 records  @  2026-05-10  03:51:15
+  [MasterVault_1930.db]  46,500,000 records  @  2026-05-10  03:51:21  [MasterVault_1920.db]  73,500,000 records  @  2026-05-10  03:51:21  [MasterVault_1910.db]  84,500,000 records  @  2026-05-10  03:51:21
+  [MasterVault_1940.db]  8,500,000 records  @  2026-05-10  03:51:21
+
+
+  [MasterVault_1920.db]  74,000,000 records  @  2026-05-10  03:51:32
+  [MasterVault_1940.db]  9,000,000 records  @  2026-05-10  03:51:32
+  [MasterVault_1910.db]  85,000,000 records  @  2026-05-10  03:51:32
+  [MasterVault_1930.db]  47,000,000 records  @  2026-05-10  03:51:32
+  [MasterVault_1940.db]  9,500,000 records  @  2026-05-10  03:51:43  [MasterVault_1920.db]  74,500,000 records  @  2026-05-10  03:51:43
+  [MasterVault_1910.db]  85,500,000 records  @  2026-05-10  03:51:43
+  [MasterVault_1930.db]  47,500,000 records  @  2026-05-10  03:51:43
+
+  [MasterVault_1930.db]  48,000,000 records  @  2026-05-10  03:51:53  [MasterVault_1920.db]  75,000,000 records  @  2026-05-10  03:51:54
+  [MasterVault_1940.db]  10,000,000 records  @  2026-05-10  03:51:54
+  [MasterVault_1910.db]  86,000,000 records  @  2026-05-10  03:51:54
+
+  [MasterVault_1940.db]  10,500,000 records  @  2026-05-10  03:52:05
+  [MasterVault_1920.db]  75,500,000 records  @  2026-05-10  03:52:05
+  [MasterVault_1930.db]  48,500,000 records  @  2026-05-10  03:52:04
+  [MasterVault_1910.db]  86,500,000 records  @  2026-05-10  03:52:05
+  [MasterVault_1920.db]  76,000,000 records  @  2026-05-10  03:52:16  [MasterVault_1910.db]  87,000,000 records  @  2026-05-10  03:52:16  [MasterVault_1930.db]  49,000,000 records  @  2026-05-10  03:52:16
+
+
+  [MasterVault_1940.db]  11,000,000 records  @  2026-05-10  03:52:16
+  [MasterVault_1940.db]  11,500,000 records  @  2026-05-10  03:52:27  [MasterVault_1920.db]  76,500,000 records  @  2026-05-10  03:52:26
+  [MasterVault_1910.db]  87,500,000 records  @  2026-05-10  03:52:27
+  [MasterVault_1930.db]  49,500,000 records  @  2026-05-10  03:52:27
+
+  [MasterVault_1920.db]  77,000,000 records  @  2026-05-10  03:52:37
+  [MasterVault_1940.db]  12,000,000 records  @  2026-05-10  03:52:37
+  [MasterVault_1930.db]  50,000,000 records  @  2026-05-10  03:52:38
+  [MasterVault_1910.db]  88,000,000 records  @  2026-05-10  03:52:38
+  [MasterVault_1910.db]  88,500,000 records  @  2026-05-10  03:52:48  [MasterVault_1940.db]  12,500,000 records  @  2026-05-10  03:52:48
+  [MasterVault_1930.db]  50,500,000 records  @  2026-05-10  03:52:49
+
+  [MasterVault_1920.db]  77,500,000 records  @  2026-05-10  03:52:49
+  [MasterVault_1930.db]  51,000,000 records  @  2026-05-10  03:52:59
+  [MasterVault_1910.db]  89,000,000 records  @  2026-05-10  03:52:59
+  [MasterVault_1940.db]  13,000,000 records  @  2026-05-10  03:53:00  [MasterVault_1920.db]  78,000,000 records  @  2026-05-10  03:52:59
+
+  [MasterVault_1920.db]  78,500,000 records  @  2026-05-10  03:53:10
+  [MasterVault_1930.db]  51,500,000 records  @  2026-05-10  03:53:10
+  [MasterVault_1940.db]  13,500,000 records  @  2026-05-10  03:53:10
+  [MasterVault_1910.db]  89,500,000 records  @  2026-05-10  03:53:11
+  [MasterVault_1920.db]  79,000,000 records  @  2026-05-10  03:53:21
+  [MasterVault_1910.db]  90,000,000 records  @  2026-05-10  03:53:21  [MasterVault_1930.db]  52,000,000 records  @  2026-05-10  03:53:21
+  [MasterVault_1940.db]  14,000,000 records  @  2026-05-10  03:53:22
+
+  [MasterVault_1910.db]  90,500,000 records  @  2026-05-10  03:53:32
+  [MasterVault_1940.db]  14,500,000 records  @  2026-05-10  03:53:32
+  [MasterVault_1930.db]  52,500,000 records  @  2026-05-10  03:53:32
+  [MasterVault_1920.db]  79,500,000 records  @  2026-05-10  03:53:33
+  [MasterVault_1930.db]  53,000,000 records  @  2026-05-10  03:53:43
+  [MasterVault_1940.db]  15,000,000 records  @  2026-05-10  03:53:43
+  [MasterVault_1920.db]  80,000,000 records  @  2026-05-10  03:53:43
+  [MasterVault_1910.db]  91,000,000 records  @  2026-05-10  03:53:43
+  [MasterVault_1940.db]  15,500,000 records  @  2026-05-10  03:53:54  [MasterVault_1930.db]  53,500,000 records  @  2026-05-10  03:53:54
+  [MasterVault_1910.db]  91,500,000 records  @  2026-05-10  03:53:54
+
+  [MasterVault_1920.db]  80,500,000 records  @  2026-05-10  03:53:55
+  [MasterVault_1930.db]  54,000,000 records  @  2026-05-10  03:54:06  [MasterVault_1920.db]  81,000,000 records  @  2026-05-10  03:54:06
+
+  [MasterVault_1940.db]  16,000,000 records  @  2026-05-10  03:54:06
+  [MasterVault_1910.db]  92,000,000 records  @  2026-05-10  03:54:11
+  [MasterVault_1920.db]  81,500,000 records  @  2026-05-10  03:54:17
+  [MasterVault_1930.db]  54,500,000 records  @  2026-05-10  03:54:17
+  [MasterVault_1940.db]  16,500,000 records  @  2026-05-10  03:54:17
+  [MasterVault_1910.db]  92,500,000 records  @  2026-05-10  03:54:22
+  [MasterVault_1940.db]  17,000,000 records  @  2026-05-10  03:54:28
+  [MasterVault_1920.db]  82,000,000 records  @  2026-05-10  03:54:28
+  [MasterVault_1930.db]  55,000,000 records  @  2026-05-10  03:54:28
+  [MasterVault_1910.db]  93,000,000 records  @  2026-05-10  03:54:34
+  [MasterVault_1920.db]  82,500,000 records  @  2026-05-10  03:54:39
+  [MasterVault_1940.db]  17,500,000 records  @  2026-05-10  03:54:39
+  [MasterVault_1930.db]  55,500,000 records  @  2026-05-10  03:54:39
+  [MasterVault_1910.db]  93,500,000 records  @  2026-05-10  03:54:45
+  [MasterVault_1940.db]  18,000,000 records  @  2026-05-10  03:54:50
+  [MasterVault_1930.db]  56,000,000 records  @  2026-05-10  03:54:50
+  [MasterVault_1920.db]  83,000,000 records  @  2026-05-10  03:54:50
+  [MasterVault_1910.db]  94,000,000 records  @  2026-05-10  03:54:56
+  [MasterVault_1930.db]  56,500,000 records  @  2026-05-10  03:55:01
+  [MasterVault_1940.db]  18,500,000 records  @  2026-05-10  03:55:01
+  [MasterVault_1920.db]  83,500,000 records  @  2026-05-10  03:55:01
+  [MasterVault_1910.db]  DONE — 94,470,240 records in 34.18 min.
+
+=================================================================
+  STATS REPORT  —  File: census-1910.csv
+=================================================================
+
+  TIMING
+    Wall clock elapsed : 2,052.0 sec  (34.20 min)
+    CPU user time      : 3,745.2 sec
+    CPU system time    : 285.8 sec
+    CPU total time     : 4,031.0 sec
+    (CPU total > wall clock means multiple cores were used in parallel)
+
+  CPU USAGE (during run)
+    Start  : 6.8%
+    End    : 17.4%
+
+  MEMORY  (RAM)
+    Start  used : 24.29 GB  (19.1%)
+    End    used : 26.63 GB  (20.9%)
+    Available   : 100.64 GB remaining
+
+  SWAP / PAGE FILE
+    Total       : 8.00 GB
+    Start  used : 0.15 GB  (1.9%)
+    End    used : 0.09 GB  (1.1%)
+
+  DISK  (D: drive)
+    Total       : 3726.0 GB
+    Start  used : 344.8 GB  (9.3%)
+    End    used : 405.2 GB  (10.9%)
+    Space added : +60.44 GB  (new database data written this run)
+    Free now    : 3320.8 GB
+
+  DISK I/O  (system-wide, all drives combined)
+    Data read      : 73.72 GB  (36.8 MB/s avg)
+    Data written   : 66.54 GB  (33.2 MB/s avg)
+    Read ops       : 1,354,788
+    Write ops      : 1,153,272
+
+  GPU
+    Not applicable — SQLite/CSV work is CPU + disk I/O only.
+=================================================================
+
+record_count :  94470240
+dtime        :  2052.027754545212
+recPerSec    :  46037.505969765654
+
+--- [census-1950.csv]  Thread starting → D:\Data\Genealogy_Data\MasterVault_1950.db ---
+  [MasterVault_1920.db]  84,000,000 records  @  2026-05-10  03:55:09
+  [MasterVault_1940.db]  19,000,000 records  @  2026-05-10  03:55:10
+  [MasterVault_1930.db]  57,000,000 records  @  2026-05-10  03:55:09
+  [MasterVault_1950.db]  500,000 records  @  2026-05-10  03:55:20
+  [MasterVault_1940.db]  19,500,000 records  @  2026-05-10  03:55:22
+  [MasterVault_1920.db]  84,500,000 records  @  2026-05-10  03:55:22
+  [MasterVault_1930.db]  57,500,000 records  @  2026-05-10  03:55:23
+  [MasterVault_1950.db]  1,000,000 records  @  2026-05-10  03:55:31
+  [MasterVault_1920.db]  85,000,000 records  @  2026-05-10  03:55:34
+  [MasterVault_1930.db]  58,000,000 records  @  2026-05-10  03:55:34  [MasterVault_1940.db]  20,000,000 records  @  2026-05-10  03:55:34
+
+  [MasterVault_1950.db]  1,500,000 records  @  2026-05-10  03:55:42
+  [MasterVault_1930.db]  58,500,000 records  @  2026-05-10  03:55:45  [MasterVault_1940.db]  20,500,000 records  @  2026-05-10  03:55:45  [MasterVault_1920.db]  85,500,000 records  @  2026-05-10  03:55:45
+
+
+  [MasterVault_1950.db]  2,000,000 records  @  2026-05-10  03:55:53
+  [MasterVault_1940.db]  21,000,000 records  @  2026-05-10  03:55:56  [MasterVault_1920.db]  86,000,000 records  @  2026-05-10  03:55:56
+  [MasterVault_1930.db]  59,000,000 records  @  2026-05-10  03:55:56
+
+  [MasterVault_1950.db]  2,500,000 records  @  2026-05-10  03:56:04
+  [MasterVault_1930.db]  59,500,000 records  @  2026-05-10  03:56:07
+  [MasterVault_1940.db]  21,500,000 records  @  2026-05-10  03:56:07
+  [MasterVault_1920.db]  86,500,000 records  @  2026-05-10  03:56:08
+  [MasterVault_1950.db]  3,000,000 records  @  2026-05-10  03:56:15
+  [MasterVault_1920.db]  87,000,000 records  @  2026-05-10  03:56:19
+  [MasterVault_1940.db]  22,000,000 records  @  2026-05-10  03:56:19
+  [MasterVault_1930.db]  60,000,000 records  @  2026-05-10  03:56:19
+  [MasterVault_1950.db]  3,500,000 records  @  2026-05-10  03:56:26
+  [MasterVault_1930.db]  60,500,000 records  @  2026-05-10  03:56:30  [MasterVault_1920.db]  87,500,000 records  @  2026-05-10  03:56:30
+
+  [MasterVault_1940.db]  22,500,000 records  @  2026-05-10  03:56:30
+  [MasterVault_1950.db]  4,000,000 records  @  2026-05-10  03:56:37
+  [MasterVault_1920.db]  88,000,000 records  @  2026-05-10  03:56:41
+  [MasterVault_1930.db]  61,000,000 records  @  2026-05-10  03:56:41
+  [MasterVault_1940.db]  23,000,000 records  @  2026-05-10  03:56:44
+  [MasterVault_1950.db]  4,500,000 records  @  2026-05-10  03:56:48
+  [MasterVault_1940.db]  23,500,000 records  @  2026-05-10  03:56:52
+  [MasterVault_1920.db]  88,500,000 records  @  2026-05-10  03:56:52
+  [MasterVault_1930.db]  61,500,000 records  @  2026-05-10  03:56:52
+  [MasterVault_1950.db]  5,000,000 records  @  2026-05-10  03:56:59
+  [MasterVault_1920.db]  89,000,000 records  @  2026-05-10  03:57:03
+  [MasterVault_1930.db]  62,000,000 records  @  2026-05-10  03:57:05
+  [MasterVault_1940.db]  24,000,000 records  @  2026-05-10  03:57:05
+  [MasterVault_1950.db]  5,500,000 records  @  2026-05-10  03:57:10
+  [MasterVault_1920.db]  89,500,000 records  @  2026-05-10  03:57:14
+  [MasterVault_1930.db]  62,500,000 records  @  2026-05-10  03:57:16
+  [MasterVault_1940.db]  24,500,000 records  @  2026-05-10  03:57:16
+  [MasterVault_1950.db]  6,000,000 records  @  2026-05-10  03:57:20
+  [MasterVault_1920.db]  90,000,000 records  @  2026-05-10  03:57:25
+  [MasterVault_1930.db]  63,000,000 records  @  2026-05-10  03:57:27
+  [MasterVault_1940.db]  25,000,000 records  @  2026-05-10  03:57:27
+  [MasterVault_1950.db]  6,500,000 records  @  2026-05-10  03:57:31
+  [MasterVault_1920.db]  90,500,000 records  @  2026-05-10  03:57:36
+  [MasterVault_1930.db]  63,500,000 records  @  2026-05-10  03:57:36
+  [MasterVault_1940.db]  25,500,000 records  @  2026-05-10  03:57:36
+  [MasterVault_1950.db]  7,000,000 records  @  2026-05-10  03:57:42
+  [MasterVault_1930.db]  64,000,000 records  @  2026-05-10  03:57:47
+  [MasterVault_1940.db]  26,000,000 records  @  2026-05-10  03:57:47
+  [MasterVault_1920.db]  91,000,000 records  @  2026-05-10  03:57:51
+  [MasterVault_1950.db]  7,500,000 records  @  2026-05-10  03:57:53
+  [MasterVault_1940.db]  26,500,000 records  @  2026-05-10  03:57:58
+  [MasterVault_1930.db]  64,500,000 records  @  2026-05-10  03:57:58
+  [MasterVault_1920.db]  91,500,000 records  @  2026-05-10  03:58:02
+  [MasterVault_1950.db]  8,000,000 records  @  2026-05-10  03:58:04
+  [MasterVault_1930.db]  65,000,000 records  @  2026-05-10  03:58:09
+  [MasterVault_1940.db]  27,000,000 records  @  2026-05-10  03:58:09
+  [MasterVault_1920.db]  92,000,000 records  @  2026-05-10  03:58:13
+  [MasterVault_1950.db]  8,500,000 records  @  2026-05-10  03:58:13
+  [MasterVault_1940.db]  27,500,000 records  @  2026-05-10  03:58:20
+  [MasterVault_1930.db]  65,500,000 records  @  2026-05-10  03:58:20
+  [MasterVault_1950.db]  9,000,000 records  @  2026-05-10  03:58:24
+  [MasterVault_1920.db]  92,500,000 records  @  2026-05-10  03:58:26
+  [MasterVault_1930.db]  66,000,000 records  @  2026-05-10  03:58:31
+  [MasterVault_1940.db]  28,000,000 records  @  2026-05-10  03:58:31
+  [MasterVault_1950.db]  9,500,000 records  @  2026-05-10  03:58:35
+  [MasterVault_1920.db]  93,000,000 records  @  2026-05-10  03:58:37
+  [MasterVault_1930.db]  66,500,000 records  @  2026-05-10  03:58:42
+  [MasterVault_1940.db]  28,500,000 records  @  2026-05-10  03:58:42
+  [MasterVault_1950.db]  10,000,000 records  @  2026-05-10  03:58:43
+  [MasterVault_1920.db]  93,500,000 records  @  2026-05-10  03:58:48
+  [MasterVault_1930.db]  67,000,000 records  @  2026-05-10  03:58:53  [MasterVault_1940.db]  29,000,000 records  @  2026-05-10  03:58:53
+
+  [MasterVault_1950.db]  10,500,000 records  @  2026-05-10  03:58:53
+  [MasterVault_1920.db]  94,000,000 records  @  2026-05-10  03:58:59
+  [MasterVault_1930.db]  67,500,000 records  @  2026-05-10  03:59:04
+  [MasterVault_1950.db]  11,000,000 records  @  2026-05-10  03:59:04
+  [MasterVault_1940.db]  29,500,000 records  @  2026-05-10  03:59:07
+  [MasterVault_1920.db]  94,500,000 records  @  2026-05-10  03:59:10
+  [MasterVault_1930.db]  68,000,000 records  @  2026-05-10  03:59:14
+  [MasterVault_1950.db]  11,500,000 records  @  2026-05-10  03:59:14
+  [MasterVault_1940.db]  30,000,000 records  @  2026-05-10  03:59:18
+  [MasterVault_1920.db]  95,000,000 records  @  2026-05-10  03:59:21
+  [MasterVault_1930.db]  68,500,000 records  @  2026-05-10  03:59:25
+  [MasterVault_1950.db]  12,000,000 records  @  2026-05-10  03:59:25
+  [MasterVault_1940.db]  30,500,000 records  @  2026-05-10  03:59:27
+  [MasterVault_1920.db]  95,500,000 records  @  2026-05-10  03:59:32
+  [MasterVault_1940.db]  31,000,000 records  @  2026-05-10  03:59:36
+  [MasterVault_1930.db]  69,000,000 records  @  2026-05-10  03:59:36
+  [MasterVault_1950.db]  12,500,000 records  @  2026-05-10  03:59:36
+  [MasterVault_1920.db]  96,000,000 records  @  2026-05-10  03:59:43
+  [MasterVault_1940.db]  31,500,000 records  @  2026-05-10  03:59:47
+  [MasterVault_1930.db]  69,500,000 records  @  2026-05-10  03:59:47
+  [MasterVault_1950.db]  13,000,000 records  @  2026-05-10  03:59:47
+  [MasterVault_1920.db]  96,500,000 records  @  2026-05-10  03:59:54
+  [MasterVault_1950.db]  13,500,000 records  @  2026-05-10  03:59:57
+  [MasterVault_1930.db]  70,000,000 records  @  2026-05-10  03:59:58
+  [MasterVault_1940.db]  32,000,000 records  @  2026-05-10  03:59:58
+  [MasterVault_1920.db]  97,000,000 records  @  2026-05-10  04:00:05
+  [MasterVault_1950.db]  14,000,000 records  @  2026-05-10  04:00:09
+  [MasterVault_1930.db]  70,500,000 records  @  2026-05-10  04:00:09
+  [MasterVault_1940.db]  32,500,000 records  @  2026-05-10  04:00:08
+  [MasterVault_1920.db]  97,500,000 records  @  2026-05-10  04:00:16
+  [MasterVault_1930.db]  71,000,000 records  @  2026-05-10  04:00:19  [MasterVault_1950.db]  14,500,000 records  @  2026-05-10  04:00:20
+
+  [MasterVault_1940.db]  33,000,000 records  @  2026-05-10  04:00:19
+  [MasterVault_1920.db]  98,000,000 records  @  2026-05-10  04:00:27
+  [MasterVault_1950.db]  15,000,000 records  @  2026-05-10  04:00:30
+  [MasterVault_1930.db]  71,500,000 records  @  2026-05-10  04:00:30  [MasterVault_1940.db]  33,500,000 records  @  2026-05-10  04:00:30
+
+  [MasterVault_1920.db]  98,500,000 records  @  2026-05-10  04:00:38
+  [MasterVault_1930.db]  72,000,000 records  @  2026-05-10  04:00:41
+  [MasterVault_1940.db]  34,000,000 records  @  2026-05-10  04:00:41
+  [MasterVault_1950.db]  15,500,000 records  @  2026-05-10  04:00:43
+  [MasterVault_1920.db]  99,000,000 records  @  2026-05-10  04:00:49
+  [MasterVault_1940.db]  34,500,000 records  @  2026-05-10  04:00:52
+  [MasterVault_1950.db]  16,000,000 records  @  2026-05-10  04:00:52  [MasterVault_1930.db]  72,500,000 records  @  2026-05-10  04:00:52
+
+  [MasterVault_1920.db]  99,500,000 records  @  2026-05-10  04:01:00
+  [MasterVault_1930.db]  73,000,000 records  @  2026-05-10  04:01:03
+  [MasterVault_1940.db]  35,000,000 records  @  2026-05-10  04:01:03
+  [MasterVault_1950.db]  16,500,000 records  @  2026-05-10  04:01:07
+  [MasterVault_1920.db]  100,000,000 records  @  2026-05-10  04:01:11
+  [MasterVault_1930.db]  73,500,000 records  @  2026-05-10  04:01:14
+  [MasterVault_1940.db]  35,500,000 records  @  2026-05-10  04:01:14
+  [MasterVault_1950.db]  17,000,000 records  @  2026-05-10  04:01:16
+  [MasterVault_1920.db]  100,500,000 records  @  2026-05-10  04:01:22
+  [MasterVault_1930.db]  74,000,000 records  @  2026-05-10  04:01:24
+  [MasterVault_1950.db]  17,500,000 records  @  2026-05-10  04:01:25
+  [MasterVault_1940.db]  36,000,000 records  @  2026-05-10  04:01:25
+  [MasterVault_1920.db]  101,000,000 records  @  2026-05-10  04:01:33
+  [MasterVault_1930.db]  74,500,000 records  @  2026-05-10  04:01:35
+  [MasterVault_1940.db]  36,500,000 records  @  2026-05-10  04:01:36  [MasterVault_1950.db]  18,000,000 records  @  2026-05-10  04:01:36
+
+  [MasterVault_1920.db]  101,500,000 records  @  2026-05-10  04:01:44
+  [MasterVault_1940.db]  37,000,000 records  @  2026-05-10  04:01:46
+  [MasterVault_1930.db]  75,000,000 records  @  2026-05-10  04:01:46
+  [MasterVault_1950.db]  18,500,000 records  @  2026-05-10  04:01:46
+  [MasterVault_1920.db]  102,000,000 records  @  2026-05-10  04:01:55
+  [MasterVault_1930.db]  75,500,000 records  @  2026-05-10  04:01:57
+  [MasterVault_1950.db]  19,000,000 records  @  2026-05-10  04:01:57
+  [MasterVault_1940.db]  37,500,000 records  @  2026-05-10  04:01:57
+  [MasterVault_1920.db]  102,500,000 records  @  2026-05-10  04:02:06
+  [MasterVault_1950.db]  19,500,000 records  @  2026-05-10  04:02:08
+  [MasterVault_1930.db]  76,000,000 records  @  2026-05-10  04:02:08
+  [MasterVault_1940.db]  38,000,000 records  @  2026-05-10  04:02:08
+  [MasterVault_1920.db]  103,000,000 records  @  2026-05-10  04:02:16
+  [MasterVault_1930.db]  76,500,000 records  @  2026-05-10  04:02:19
+  [MasterVault_1950.db]  20,000,000 records  @  2026-05-10  04:02:19
+  [MasterVault_1940.db]  38,500,000 records  @  2026-05-10  04:02:22
+  [MasterVault_1920.db]  103,500,000 records  @  2026-05-10  04:02:28
+  [MasterVault_1930.db]  77,000,000 records  @  2026-05-10  04:02:30
+  [MasterVault_1950.db]  20,500,000 records  @  2026-05-10  04:02:30
+  [MasterVault_1940.db]  39,000,000 records  @  2026-05-10  04:02:33
+  [MasterVault_1920.db]  104,000,000 records  @  2026-05-10  04:02:38
+  [MasterVault_1930.db]  77,500,000 records  @  2026-05-10  04:02:40
+  [MasterVault_1950.db]  21,000,000 records  @  2026-05-10  04:02:42
+  [MasterVault_1940.db]  39,500,000 records  @  2026-05-10  04:02:43
+  [MasterVault_1930.db]  78,000,000 records  @  2026-05-10  04:02:49
+  [MasterVault_1940.db]  40,000,000 records  @  2026-05-10  04:02:51
+  [MasterVault_1920.db]  104,500,000 records  @  2026-05-10  04:02:51
+  [MasterVault_1950.db]  21,500,000 records  @  2026-05-10  04:02:51
+  [MasterVault_1930.db]  78,500,000 records  @  2026-05-10  04:03:00
+  [MasterVault_1940.db]  40,500,000 records  @  2026-05-10  04:03:02
+  [MasterVault_1950.db]  22,000,000 records  @  2026-05-10  04:03:02
+  [MasterVault_1920.db]  105,000,000 records  @  2026-05-10  04:03:05
+  [MasterVault_1930.db]  79,000,000 records  @  2026-05-10  04:03:10
+  [MasterVault_1940.db]  41,000,000 records  @  2026-05-10  04:03:13
+  [MasterVault_1950.db]  22,500,000 records  @  2026-05-10  04:03:13
+  [MasterVault_1920.db]  105,500,000 records  @  2026-05-10  04:03:16
+  [MasterVault_1930.db]  79,500,000 records  @  2026-05-10  04:03:21
+  [MasterVault_1940.db]  41,500,000 records  @  2026-05-10  04:03:23
+  [MasterVault_1950.db]  23,000,000 records  @  2026-05-10  04:03:23
+  [MasterVault_1920.db]  106,000,000 records  @  2026-05-10  04:03:27
+  [MasterVault_1930.db]  80,000,000 records  @  2026-05-10  04:03:32
+  [MasterVault_1940.db]  42,000,000 records  @  2026-05-10  04:03:34
+  [MasterVault_1950.db]  23,500,000 records  @  2026-05-10  04:03:36
+  [MasterVault_1920.db]  106,500,000 records  @  2026-05-10  04:03:38
+  [MasterVault_1920.db]  DONE — 106,781,619 records in 38.65 min.
+  [MasterVault_1930.db]  80,500,000 records  @  2026-05-10  04:03:42
+
+=================================================================
+  STATS REPORT  —  File: census-1920.csv
+=================================================================
+
+  TIMING
+    Wall clock elapsed : 2,320.3 sec  (38.67 min)
+    CPU user time      : 4,242.5 sec
+    CPU system time    : 324.2 sec
+    CPU total time     : 4,566.6 sec
+    (CPU total > wall clock means multiple cores were used in parallel)
+
+  CPU USAGE (during run)
+    Start  : 9.6%
+    End    : 9.2%
+
+  MEMORY  (RAM)
+    Start  used : 25.61 GB  (20.1%)
+    End    used : 24.72 GB  (19.4%)
+    Available   : 102.55 GB remaining
+
+  SWAP / PAGE FILE
+    Total       : 8.00 GB
+    Start  used : 0.13 GB  (1.6%)
+    End    used : 0.09 GB  (1.1%)
+
+  DISK  (D: drive)
+    Total       : 3726.0 GB
+    Start  used : 351.3 GB  (9.4%)
+    End    used : 421.5 GB  (11.3%)
+    Space added : +70.14 GB  (new database data written this run)
+    Free now    : 3304.5 GB
+
+  DISK I/O  (system-wide, all drives combined)
+    Data read      : 79.63 GB  (35.1 MB/s avg)
+    Data written   : 76.10 GB  (33.6 MB/s avg)
+    Read ops       : 1,413,209
+    Write ops      : 1,265,666
+
+  GPU
+    Not applicable — SQLite/CSV work is CPU + disk I/O only.
+=================================================================
+
+record_count :  106781619
+dtime        :  2320.2501809597015
+recPerSec    :  46021.597100288986
+  [MasterVault_1940.db]  42,500,000 records  @  2026-05-10  04:03:44
+  [MasterVault_1950.db]  24,000,000 records  @  2026-05-10  04:03:45
+  [MasterVault_1930.db]  81,000,000 records  @  2026-05-10  04:03:49
+  [MasterVault_1940.db]  43,000,000 records  @  2026-05-10  04:03:51
+  [MasterVault_1950.db]  24,500,000 records  @  2026-05-10  04:03:53
+  [MasterVault_1930.db]  81,500,000 records  @  2026-05-10  04:03:57
+  [MasterVault_1940.db]  43,500,000 records  @  2026-05-10  04:03:59
+  [MasterVault_1950.db]  25,000,000 records  @  2026-05-10  04:04:01
+  [MasterVault_1930.db]  82,000,000 records  @  2026-05-10  04:04:04
+  [MasterVault_1940.db]  44,000,000 records  @  2026-05-10  04:04:06
+  [MasterVault_1950.db]  25,500,000 records  @  2026-05-10  04:04:08
+  [MasterVault_1930.db]  82,500,000 records  @  2026-05-10  04:04:12
+  [MasterVault_1940.db]  44,500,000 records  @  2026-05-10  04:04:14
+  [MasterVault_1950.db]  26,000,000 records  @  2026-05-10  04:04:16
+  [MasterVault_1930.db]  83,000,000 records  @  2026-05-10  04:04:19
+  [MasterVault_1940.db]  45,000,000 records  @  2026-05-10  04:04:21
+  [MasterVault_1950.db]  26,500,000 records  @  2026-05-10  04:04:23
+  [MasterVault_1930.db]  83,500,000 records  @  2026-05-10  04:04:27
+  [MasterVault_1940.db]  45,500,000 records  @  2026-05-10  04:04:29
+  [MasterVault_1950.db]  27,000,000 records  @  2026-05-10  04:04:31
+  [MasterVault_1930.db]  84,000,000 records  @  2026-05-10  04:04:34
+  [MasterVault_1940.db]  46,000,000 records  @  2026-05-10  04:04:37
+  [MasterVault_1950.db]  27,500,000 records  @  2026-05-10  04:04:39
+  [MasterVault_1930.db]  84,500,000 records  @  2026-05-10  04:04:42
+  [MasterVault_1940.db]  46,500,000 records  @  2026-05-10  04:04:44
+  [MasterVault_1950.db]  28,000,000 records  @  2026-05-10  04:04:46
+  [MasterVault_1930.db]  85,000,000 records  @  2026-05-10  04:04:49
+  [MasterVault_1940.db]  47,000,000 records  @  2026-05-10  04:04:52
+  [MasterVault_1950.db]  28,500,000 records  @  2026-05-10  04:04:54
+  [MasterVault_1930.db]  85,500,000 records  @  2026-05-10  04:04:57
+  [MasterVault_1940.db]  47,500,000 records  @  2026-05-10  04:04:59
+  [MasterVault_1950.db]  29,000,000 records  @  2026-05-10  04:05:01
+  [MasterVault_1930.db]  86,000,000 records  @  2026-05-10  04:05:04
+  [MasterVault_1940.db]  48,000,000 records  @  2026-05-10  04:05:07
+  [MasterVault_1950.db]  29,500,000 records  @  2026-05-10  04:05:09
+  [MasterVault_1930.db]  86,500,000 records  @  2026-05-10  04:05:12
+  [MasterVault_1940.db]  48,500,000 records  @  2026-05-10  04:05:14
+  [MasterVault_1950.db]  30,000,000 records  @  2026-05-10  04:05:16
+  [MasterVault_1930.db]  87,000,000 records  @  2026-05-10  04:05:19
+  [MasterVault_1940.db]  49,000,000 records  @  2026-05-10  04:05:22
+  [MasterVault_1950.db]  30,500,000 records  @  2026-05-10  04:05:24
+  [MasterVault_1930.db]  87,500,000 records  @  2026-05-10  04:05:27
+  [MasterVault_1940.db]  49,500,000 records  @  2026-05-10  04:05:29
+  [MasterVault_1950.db]  31,000,000 records  @  2026-05-10  04:05:31
+  [MasterVault_1930.db]  88,000,000 records  @  2026-05-10  04:05:34
+  [MasterVault_1940.db]  50,000,000 records  @  2026-05-10  04:05:37
+  [MasterVault_1950.db]  31,500,000 records  @  2026-05-10  04:05:39
+  [MasterVault_1930.db]  88,500,000 records  @  2026-05-10  04:05:42
+  [MasterVault_1940.db]  50,500,000 records  @  2026-05-10  04:05:44
+  [MasterVault_1950.db]  32,000,000 records  @  2026-05-10  04:05:46
+  [MasterVault_1930.db]  89,000,000 records  @  2026-05-10  04:05:49
+  [MasterVault_1940.db]  51,000,000 records  @  2026-05-10  04:05:52
+  [MasterVault_1950.db]  32,500,000 records  @  2026-05-10  04:05:54
+  [MasterVault_1930.db]  89,500,000 records  @  2026-05-10  04:05:57
+  [MasterVault_1940.db]  51,500,000 records  @  2026-05-10  04:06:00
+  [MasterVault_1950.db]  33,000,000 records  @  2026-05-10  04:06:01
+  [MasterVault_1930.db]  90,000,000 records  @  2026-05-10  04:06:04
+  [MasterVault_1940.db]  52,000,000 records  @  2026-05-10  04:06:07
+  [MasterVault_1950.db]  33,500,000 records  @  2026-05-10  04:06:09
+  [MasterVault_1930.db]  90,500,000 records  @  2026-05-10  04:06:12
+  [MasterVault_1940.db]  52,500,000 records  @  2026-05-10  04:06:15
+  [MasterVault_1950.db]  34,000,000 records  @  2026-05-10  04:06:17
+  [MasterVault_1930.db]  91,000,000 records  @  2026-05-10  04:06:19
+  [MasterVault_1940.db]  53,000,000 records  @  2026-05-10  04:06:22
+  [MasterVault_1950.db]  34,500,000 records  @  2026-05-10  04:06:24
+  [MasterVault_1930.db]  91,500,000 records  @  2026-05-10  04:06:27
+  [MasterVault_1940.db]  53,500,000 records  @  2026-05-10  04:06:30
+  [MasterVault_1950.db]  35,000,000 records  @  2026-05-10  04:06:32
+  [MasterVault_1930.db]  92,000,000 records  @  2026-05-10  04:06:34
+  [MasterVault_1940.db]  54,000,000 records  @  2026-05-10  04:06:37
+  [MasterVault_1950.db]  35,500,000 records  @  2026-05-10  04:06:39
+  [MasterVault_1930.db]  92,500,000 records  @  2026-05-10  04:06:42
+  [MasterVault_1940.db]  54,500,000 records  @  2026-05-10  04:06:45
+  [MasterVault_1950.db]  36,000,000 records  @  2026-05-10  04:06:47
+  [MasterVault_1930.db]  93,000,000 records  @  2026-05-10  04:06:49
+  [MasterVault_1940.db]  55,000,000 records  @  2026-05-10  04:06:52
+  [MasterVault_1950.db]  36,500,000 records  @  2026-05-10  04:06:54
+  [MasterVault_1930.db]  93,500,000 records  @  2026-05-10  04:06:57
+  [MasterVault_1940.db]  55,500,000 records  @  2026-05-10  04:07:00
+  [MasterVault_1950.db]  37,000,000 records  @  2026-05-10  04:07:02
+  [MasterVault_1930.db]  94,000,000 records  @  2026-05-10  04:07:04
+  [MasterVault_1940.db]  56,000,000 records  @  2026-05-10  04:07:07
+  [MasterVault_1950.db]  37,500,000 records  @  2026-05-10  04:07:09
+  [MasterVault_1930.db]  94,500,000 records  @  2026-05-10  04:07:12
+  [MasterVault_1940.db]  56,500,000 records  @  2026-05-10  04:07:15
+  [MasterVault_1950.db]  38,000,000 records  @  2026-05-10  04:07:17
+  [MasterVault_1930.db]  95,000,000 records  @  2026-05-10  04:07:19
+  [MasterVault_1940.db]  57,000,000 records  @  2026-05-10  04:07:22
+  [MasterVault_1950.db]  38,500,000 records  @  2026-05-10  04:07:24
+  [MasterVault_1930.db]  95,500,000 records  @  2026-05-10  04:07:27
+  [MasterVault_1940.db]  57,500,000 records  @  2026-05-10  04:07:30
+  [MasterVault_1950.db]  39,000,000 records  @  2026-05-10  04:07:32
+  [MasterVault_1930.db]  96,000,000 records  @  2026-05-10  04:07:34
+  [MasterVault_1940.db]  58,000,000 records  @  2026-05-10  04:07:37
+  [MasterVault_1950.db]  39,500,000 records  @  2026-05-10  04:07:39
+  [MasterVault_1930.db]  96,500,000 records  @  2026-05-10  04:07:42
+  [MasterVault_1940.db]  58,500,000 records  @  2026-05-10  04:07:45
+  [MasterVault_1950.db]  40,000,000 records  @  2026-05-10  04:07:47
+  [MasterVault_1930.db]  97,000,000 records  @  2026-05-10  04:07:49
+  [MasterVault_1940.db]  59,000,000 records  @  2026-05-10  04:07:52
+  [MasterVault_1950.db]  40,500,000 records  @  2026-05-10  04:07:54
+  [MasterVault_1930.db]  97,500,000 records  @  2026-05-10  04:07:56
+  [MasterVault_1940.db]  59,500,000 records  @  2026-05-10  04:08:00
+  [MasterVault_1950.db]  41,000,000 records  @  2026-05-10  04:08:02
+  [MasterVault_1930.db]  98,000,000 records  @  2026-05-10  04:08:04
+  [MasterVault_1940.db]  60,000,000 records  @  2026-05-10  04:08:07
+  [MasterVault_1950.db]  41,500,000 records  @  2026-05-10  04:08:09
+  [MasterVault_1930.db]  98,500,000 records  @  2026-05-10  04:08:11
+  [MasterVault_1940.db]  60,500,000 records  @  2026-05-10  04:08:15
+  [MasterVault_1950.db]  42,000,000 records  @  2026-05-10  04:08:17
+  [MasterVault_1930.db]  99,000,000 records  @  2026-05-10  04:08:19
+  [MasterVault_1940.db]  61,000,000 records  @  2026-05-10  04:08:22
+  [MasterVault_1950.db]  42,500,000 records  @  2026-05-10  04:08:24
+  [MasterVault_1930.db]  99,500,000 records  @  2026-05-10  04:08:26
+  [MasterVault_1940.db]  61,500,000 records  @  2026-05-10  04:08:30
+  [MasterVault_1950.db]  43,000,000 records  @  2026-05-10  04:08:32
+  [MasterVault_1930.db]  100,000,000 records  @  2026-05-10  04:08:34
+  [MasterVault_1940.db]  62,000,000 records  @  2026-05-10  04:08:37
+  [MasterVault_1950.db]  43,500,000 records  @  2026-05-10  04:08:40
+  [MasterVault_1930.db]  100,500,000 records  @  2026-05-10  04:08:41
+  [MasterVault_1940.db]  62,500,000 records  @  2026-05-10  04:08:45
+  [MasterVault_1950.db]  44,000,000 records  @  2026-05-10  04:08:47
+  [MasterVault_1930.db]  101,000,000 records  @  2026-05-10  04:08:49
+  [MasterVault_1940.db]  63,000,000 records  @  2026-05-10  04:08:52
+  [MasterVault_1950.db]  44,500,000 records  @  2026-05-10  04:08:54
+  [MasterVault_1930.db]  101,500,000 records  @  2026-05-10  04:08:56
+  [MasterVault_1940.db]  63,500,000 records  @  2026-05-10  04:09:00
+  [MasterVault_1950.db]  45,000,000 records  @  2026-05-10  04:09:02
+  [MasterVault_1930.db]  102,000,000 records  @  2026-05-10  04:09:04
+  [MasterVault_1940.db]  64,000,000 records  @  2026-05-10  04:09:07
+  [MasterVault_1950.db]  45,500,000 records  @  2026-05-10  04:09:09
+  [MasterVault_1930.db]  102,500,000 records  @  2026-05-10  04:09:11
+  [MasterVault_1940.db]  64,500,000 records  @  2026-05-10  04:09:15
+  [MasterVault_1950.db]  46,000,000 records  @  2026-05-10  04:09:17
+  [MasterVault_1930.db]  103,000,000 records  @  2026-05-10  04:09:19
+  [MasterVault_1940.db]  65,000,000 records  @  2026-05-10  04:09:22
+  [MasterVault_1950.db]  46,500,000 records  @  2026-05-10  04:09:24
+  [MasterVault_1930.db]  103,500,000 records  @  2026-05-10  04:09:26
+  [MasterVault_1940.db]  65,500,000 records  @  2026-05-10  04:09:30
+  [MasterVault_1950.db]  47,000,000 records  @  2026-05-10  04:09:32
+  [MasterVault_1930.db]  104,000,000 records  @  2026-05-10  04:09:34
+  [MasterVault_1940.db]  66,000,000 records  @  2026-05-10  04:09:37
+  [MasterVault_1950.db]  47,500,000 records  @  2026-05-10  04:09:39
+  [MasterVault_1930.db]  104,500,000 records  @  2026-05-10  04:09:42
+  [MasterVault_1940.db]  66,500,000 records  @  2026-05-10  04:09:45
+  [MasterVault_1950.db]  48,000,000 records  @  2026-05-10  04:09:47
+  [MasterVault_1930.db]  105,000,000 records  @  2026-05-10  04:09:49
+  [MasterVault_1940.db]  67,000,000 records  @  2026-05-10  04:09:52
+  [MasterVault_1950.db]  48,500,000 records  @  2026-05-10  04:09:54
+  [MasterVault_1930.db]  105,500,000 records  @  2026-05-10  04:09:57
+  [MasterVault_1940.db]  67,500,000 records  @  2026-05-10  04:10:00
+  [MasterVault_1950.db]  49,000,000 records  @  2026-05-10  04:10:02
+  [MasterVault_1930.db]  106,000,000 records  @  2026-05-10  04:10:04
+  [MasterVault_1940.db]  68,000,000 records  @  2026-05-10  04:10:07
+  [MasterVault_1950.db]  49,500,000 records  @  2026-05-10  04:10:09
+  [MasterVault_1930.db]  106,500,000 records  @  2026-05-10  04:10:12
+  [MasterVault_1940.db]  68,500,000 records  @  2026-05-10  04:10:15
+  [MasterVault_1950.db]  50,000,000 records  @  2026-05-10  04:10:17
+  [MasterVault_1930.db]  107,000,000 records  @  2026-05-10  04:10:19
+  [MasterVault_1940.db]  69,000,000 records  @  2026-05-10  04:10:22
+  [MasterVault_1950.db]  50,500,000 records  @  2026-05-10  04:10:24
+  [MasterVault_1930.db]  107,500,000 records  @  2026-05-10  04:10:27
+  [MasterVault_1940.db]  69,500,000 records  @  2026-05-10  04:10:30
+  [MasterVault_1950.db]  51,000,000 records  @  2026-05-10  04:10:32
+  [MasterVault_1930.db]  108,000,000 records  @  2026-05-10  04:10:34
+  [MasterVault_1940.db]  70,000,000 records  @  2026-05-10  04:10:37
+  [MasterVault_1950.db]  51,500,000 records  @  2026-05-10  04:10:39
+  [MasterVault_1930.db]  108,500,000 records  @  2026-05-10  04:10:42
+  [MasterVault_1940.db]  70,500,000 records  @  2026-05-10  04:10:45
+  [MasterVault_1950.db]  52,000,000 records  @  2026-05-10  04:10:47
+  [MasterVault_1930.db]  109,000,000 records  @  2026-05-10  04:10:49
+  [MasterVault_1940.db]  71,000,000 records  @  2026-05-10  04:10:52
+  [MasterVault_1950.db]  52,500,000 records  @  2026-05-10  04:10:54
+  [MasterVault_1930.db]  109,500,000 records  @  2026-05-10  04:10:57
+  [MasterVault_1940.db]  71,500,000 records  @  2026-05-10  04:10:59
+  [MasterVault_1950.db]  53,000,000 records  @  2026-05-10  04:11:02
+  [MasterVault_1930.db]  110,000,000 records  @  2026-05-10  04:11:04
+  [MasterVault_1940.db]  72,000,000 records  @  2026-05-10  04:11:07
+  [MasterVault_1950.db]  53,500,000 records  @  2026-05-10  04:11:09
+  [MasterVault_1930.db]  110,500,000 records  @  2026-05-10  04:11:12
+  [MasterVault_1940.db]  72,500,000 records  @  2026-05-10  04:11:14
+  [MasterVault_1950.db]  54,000,000 records  @  2026-05-10  04:11:17
+  [MasterVault_1930.db]  111,000,000 records  @  2026-05-10  04:11:19
+  [MasterVault_1940.db]  73,000,000 records  @  2026-05-10  04:11:22
+  [MasterVault_1950.db]  54,500,000 records  @  2026-05-10  04:11:24
+  [MasterVault_1930.db]  111,500,000 records  @  2026-05-10  04:11:27
+  [MasterVault_1940.db]  73,500,000 records  @  2026-05-10  04:11:29
+  [MasterVault_1950.db]  55,000,000 records  @  2026-05-10  04:11:31
+  [MasterVault_1930.db]  112,000,000 records  @  2026-05-10  04:11:34
+  [MasterVault_1940.db]  74,000,000 records  @  2026-05-10  04:11:37
+  [MasterVault_1950.db]  55,500,000 records  @  2026-05-10  04:11:39
+  [MasterVault_1930.db]  112,500,000 records  @  2026-05-10  04:11:42
+  [MasterVault_1940.db]  74,500,000 records  @  2026-05-10  04:11:44
+  [MasterVault_1950.db]  56,000,000 records  @  2026-05-10  04:11:46
+  [MasterVault_1930.db]  113,000,000 records  @  2026-05-10  04:11:50
+  [MasterVault_1940.db]  75,000,000 records  @  2026-05-10  04:11:52
+  [MasterVault_1950.db]  56,500,000 records  @  2026-05-10  04:11:54
+  [MasterVault_1930.db]  113,500,000 records  @  2026-05-10  04:11:57
+  [MasterVault_1940.db]  75,500,000 records  @  2026-05-10  04:11:59
+  [MasterVault_1950.db]  57,000,000 records  @  2026-05-10  04:12:01
+  [MasterVault_1930.db]  114,000,000 records  @  2026-05-10  04:12:05
+  [MasterVault_1940.db]  76,000,000 records  @  2026-05-10  04:12:07
+  [MasterVault_1950.db]  57,500,000 records  @  2026-05-10  04:12:09
+  [MasterVault_1930.db]  114,500,000 records  @  2026-05-10  04:12:12
+  [MasterVault_1940.db]  76,500,000 records  @  2026-05-10  04:12:14
+  [MasterVault_1950.db]  58,000,000 records  @  2026-05-10  04:12:16
+  [MasterVault_1930.db]  115,000,000 records  @  2026-05-10  04:12:20
+  [MasterVault_1940.db]  77,000,000 records  @  2026-05-10  04:12:22
+  [MasterVault_1950.db]  58,500,000 records  @  2026-05-10  04:12:24
+  [MasterVault_1930.db]  115,500,000 records  @  2026-05-10  04:12:27
+  [MasterVault_1940.db]  77,500,000 records  @  2026-05-10  04:12:29
+  [MasterVault_1950.db]  59,000,000 records  @  2026-05-10  04:12:31
+  [MasterVault_1930.db]  116,000,000 records  @  2026-05-10  04:12:35
+  [MasterVault_1940.db]  78,000,000 records  @  2026-05-10  04:12:35
+  [MasterVault_1950.db]  59,500,000 records  @  2026-05-10  04:12:39
+  [MasterVault_1940.db]  78,500,000 records  @  2026-05-10  04:12:42
+  [MasterVault_1930.db]  116,500,000 records  @  2026-05-10  04:12:43
+  [MasterVault_1950.db]  60,000,000 records  @  2026-05-10  04:12:46
+  [MasterVault_1940.db]  79,000,000 records  @  2026-05-10  04:12:50
+  [MasterVault_1930.db]  117,000,000 records  @  2026-05-10  04:12:52
+  [MasterVault_1950.db]  60,500,000 records  @  2026-05-10  04:12:54
+  [MasterVault_1940.db]  79,500,000 records  @  2026-05-10  04:12:57
+  [MasterVault_1930.db]  117,500,000 records  @  2026-05-10  04:12:59
+  [MasterVault_1950.db]  61,000,000 records  @  2026-05-10  04:13:01
+  [MasterVault_1940.db]  80,000,000 records  @  2026-05-10  04:13:05
+  [MasterVault_1930.db]  118,000,000 records  @  2026-05-10  04:13:07
+  [MasterVault_1950.db]  61,500,000 records  @  2026-05-10  04:13:09
+  [MasterVault_1940.db]  80,500,000 records  @  2026-05-10  04:13:12
+  [MasterVault_1930.db]  118,500,000 records  @  2026-05-10  04:13:14
+  [MasterVault_1950.db]  62,000,000 records  @  2026-05-10  04:13:16
+  [MasterVault_1940.db]  81,000,000 records  @  2026-05-10  04:13:20
+  [MasterVault_1930.db]  119,000,000 records  @  2026-05-10  04:13:22
+  [MasterVault_1950.db]  62,500,000 records  @  2026-05-10  04:13:24
+  [MasterVault_1940.db]  81,500,000 records  @  2026-05-10  04:13:27
+  [MasterVault_1930.db]  119,500,000 records  @  2026-05-10  04:13:29
+  [MasterVault_1950.db]  63,000,000 records  @  2026-05-10  04:13:29
+  [MasterVault_1940.db]  82,000,000 records  @  2026-05-10  04:13:35
+  [MasterVault_1950.db]  63,500,000 records  @  2026-05-10  04:13:37
+  [MasterVault_1930.db]  120,000,000 records  @  2026-05-10  04:13:38
+  [MasterVault_1940.db]  82,500,000 records  @  2026-05-10  04:13:42
+  [MasterVault_1950.db]  64,000,000 records  @  2026-05-10  04:13:44
+  [MasterVault_1930.db]  120,500,000 records  @  2026-05-10  04:13:46
+  [MasterVault_1940.db]  83,000,000 records  @  2026-05-10  04:13:50
+  [MasterVault_1950.db]  64,500,000 records  @  2026-05-10  04:13:52
+  [MasterVault_1930.db]  121,000,000 records  @  2026-05-10  04:13:53
+  [MasterVault_1940.db]  83,500,000 records  @  2026-05-10  04:13:57
+  [MasterVault_1950.db]  65,000,000 records  @  2026-05-10  04:13:59
+  [MasterVault_1930.db]  121,500,000 records  @  2026-05-10  04:14:01
+  [MasterVault_1940.db]  84,000,000 records  @  2026-05-10  04:14:04
+  [MasterVault_1950.db]  65,500,000 records  @  2026-05-10  04:14:06
+  [MasterVault_1930.db]  122,000,000 records  @  2026-05-10  04:14:08
+  [MasterVault_1940.db]  84,500,000 records  @  2026-05-10  04:14:12
+  [MasterVault_1950.db]  66,000,000 records  @  2026-05-10  04:14:14
+  [MasterVault_1930.db]  122,500,000 records  @  2026-05-10  04:14:16
+  [MasterVault_1940.db]  85,000,000 records  @  2026-05-10  04:14:19
+  [MasterVault_1950.db]  66,500,000 records  @  2026-05-10  04:14:21
+  [MasterVault_1930.db]  123,000,000 records  @  2026-05-10  04:14:24
+  [MasterVault_1940.db]  85,500,000 records  @  2026-05-10  04:14:27
+  [MasterVault_1950.db]  67,000,000 records  @  2026-05-10  04:14:29
+  [MasterVault_1930.db]  123,500,000 records  @  2026-05-10  04:14:31
+  [MasterVault_1940.db]  86,000,000 records  @  2026-05-10  04:14:34
+  [MasterVault_1950.db]  67,500,000 records  @  2026-05-10  04:14:36
+  [MasterVault_1930.db]  124,000,000 records  @  2026-05-10  04:14:39
+  [MasterVault_1940.db]  86,500,000 records  @  2026-05-10  04:14:42
+  [MasterVault_1950.db]  68,000,000 records  @  2026-05-10  04:14:44
+  [MasterVault_1930.db]  124,500,000 records  @  2026-05-10  04:14:46
+  [MasterVault_1940.db]  87,000,000 records  @  2026-05-10  04:14:49
+  [MasterVault_1950.db]  68,500,000 records  @  2026-05-10  04:14:51
+  [MasterVault_1930.db]  125,000,000 records  @  2026-05-10  04:14:54
+  [MasterVault_1940.db]  87,500,000 records  @  2026-05-10  04:14:57
+  [MasterVault_1950.db]  69,000,000 records  @  2026-05-10  04:14:59
+  [MasterVault_1930.db]  125,500,000 records  @  2026-05-10  04:15:01
+  [MasterVault_1940.db]  88,000,000 records  @  2026-05-10  04:15:04
+  [MasterVault_1950.db]  69,500,000 records  @  2026-05-10  04:15:06
+  [MasterVault_1930.db]  126,000,000 records  @  2026-05-10  04:15:09
+  [MasterVault_1940.db]  88,500,000 records  @  2026-05-10  04:15:12
+  [MasterVault_1950.db]  70,000,000 records  @  2026-05-10  04:15:14
+  [MasterVault_1930.db]  126,500,000 records  @  2026-05-10  04:15:16
+  [MasterVault_1940.db]  89,000,000 records  @  2026-05-10  04:15:19
+  [MasterVault_1950.db]  70,500,000 records  @  2026-05-10  04:15:21
+  [MasterVault_1930.db]  127,000,000 records  @  2026-05-10  04:15:24
+  [MasterVault_1940.db]  89,500,000 records  @  2026-05-10  04:15:27
+  [MasterVault_1950.db]  71,000,000 records  @  2026-05-10  04:15:29
+  [MasterVault_1930.db]  127,500,000 records  @  2026-05-10  04:15:31
+  [MasterVault_1940.db]  90,000,000 records  @  2026-05-10  04:15:34
+  [MasterVault_1950.db]  71,500,000 records  @  2026-05-10  04:15:36
+  [MasterVault_1930.db]  128,000,000 records  @  2026-05-10  04:15:39
+  [MasterVault_1940.db]  90,500,000 records  @  2026-05-10  04:15:42
+  [MasterVault_1950.db]  72,000,000 records  @  2026-05-10  04:15:44
+  [MasterVault_1930.db]  128,500,000 records  @  2026-05-10  04:15:46
+  [MasterVault_1940.db]  91,000,000 records  @  2026-05-10  04:15:49
+  [MasterVault_1950.db]  72,500,000 records  @  2026-05-10  04:15:51
+  [MasterVault_1930.db]  129,000,000 records  @  2026-05-10  04:15:54
+  [MasterVault_1940.db]  91,500,000 records  @  2026-05-10  04:15:56
+  [MasterVault_1950.db]  73,000,000 records  @  2026-05-10  04:15:59
+  [MasterVault_1930.db]  129,500,000 records  @  2026-05-10  04:16:01
+  [MasterVault_1940.db]  92,000,000 records  @  2026-05-10  04:16:04
+  [MasterVault_1950.db]  73,500,000 records  @  2026-05-10  04:16:06
+  [MasterVault_1930.db]  130,000,000 records  @  2026-05-10  04:16:09
+  [MasterVault_1930.db]  DONE — 130,102,784 records in 43.27 min.
+  [MasterVault_1940.db]  92,500,000 records  @  2026-05-10  04:16:10
+
+=================================================================
+  STATS REPORT  —  File: census-1930.csv
+=================================================================
+
+  TIMING
+    Wall clock elapsed : 2,597.5 sec  (43.29 min)
+    CPU user time      : 4,488.0 sec
+    CPU system time    : 343.5 sec
+    CPU total time     : 4,831.4 sec
+    (CPU total > wall clock means multiple cores were used in parallel)
+
+  CPU USAGE (during run)
+    Start  : 8.2%
+    End    : 7.4%
+
+  MEMORY  (RAM)
+    Start  used : 26.43 GB  (20.8%)
+    End    used : 24.33 GB  (19.1%)
+    Available   : 102.94 GB remaining
+
+  SWAP / PAGE FILE
+    Total       : 8.00 GB
+    Start  used : 0.13 GB  (1.6%)
+    End    used : 0.09 GB  (1.1%)
+
+  DISK  (D: drive)
+    Total       : 3726.0 GB
+    Start  used : 365.5 GB  (9.8%)
+    End    used : 448.5 GB  (12.0%)
+    Space added : +83.02 GB  (new database data written this run)
+    Free now    : 3277.5 GB
+
+  DISK I/O  (system-wide, all drives combined)
+    Data read      : 88.46 GB  (34.9 MB/s avg)
+    Data written   : 89.17 GB  (35.2 MB/s avg)
+    Read ops       : 1,513,468
+    Write ops      : 1,598,689
+
+  GPU
+    Not applicable — SQLite/CSV work is CPU + disk I/O only.
+=================================================================
+
+record_count :  130102784
+dtime        :  2597.4519069194794
+recPerSec    :  50088.620949405384
+  [MasterVault_1950.db]  74,000,000 records  @  2026-05-10  04:16:12
+  [MasterVault_1940.db]  93,000,000 records  @  2026-05-10  04:16:15
+  [MasterVault_1950.db]  74,500,000 records  @  2026-05-10  04:16:17
+  [MasterVault_1940.db]  93,500,000 records  @  2026-05-10  04:16:20
+  [MasterVault_1950.db]  75,000,000 records  @  2026-05-10  04:16:22
+  [MasterVault_1940.db]  94,000,000 records  @  2026-05-10  04:16:25
+  [MasterVault_1950.db]  75,500,000 records  @  2026-05-10  04:16:27
+  [MasterVault_1940.db]  94,500,000 records  @  2026-05-10  04:16:30
+  [MasterVault_1950.db]  76,000,000 records  @  2026-05-10  04:16:32
+  [MasterVault_1940.db]  95,000,000 records  @  2026-05-10  04:16:35
+  [MasterVault_1950.db]  76,500,000 records  @  2026-05-10  04:16:37
+  [MasterVault_1940.db]  95,500,000 records  @  2026-05-10  04:16:40
+  [MasterVault_1950.db]  77,000,000 records  @  2026-05-10  04:16:42
+  [MasterVault_1940.db]  96,000,000 records  @  2026-05-10  04:16:45
+  [MasterVault_1950.db]  77,500,000 records  @  2026-05-10  04:16:47
+  [MasterVault_1940.db]  96,500,000 records  @  2026-05-10  04:16:50
+  [MasterVault_1950.db]  78,000,000 records  @  2026-05-10  04:16:51
+  [MasterVault_1940.db]  97,000,000 records  @  2026-05-10  04:16:56  [MasterVault_1950.db]  78,500,000 records  @  2026-05-10  04:16:56
+
+  [MasterVault_1940.db]  97,500,000 records  @  2026-05-10  04:17:01  [MasterVault_1950.db]  79,000,000 records  @  2026-05-10  04:17:02
+
+  [MasterVault_1940.db]  98,000,000 records  @  2026-05-10  04:17:07
+  [MasterVault_1950.db]  79,500,000 records  @  2026-05-10  04:17:07
+  [MasterVault_1940.db]  98,500,000 records  @  2026-05-10  04:17:12  [MasterVault_1950.db]  80,000,000 records  @  2026-05-10  04:17:12
+
+  [MasterVault_1950.db]  80,500,000 records  @  2026-05-10  04:17:18  [MasterVault_1940.db]  99,000,000 records  @  2026-05-10  04:17:18
+
+  [MasterVault_1940.db]  99,500,000 records  @  2026-05-10  04:17:23  [MasterVault_1950.db]  81,000,000 records  @  2026-05-10  04:17:23
+
+  [MasterVault_1940.db]  100,000,000 records  @  2026-05-10  04:17:29
+  [MasterVault_1950.db]  81,500,000 records  @  2026-05-10  04:17:29
+  [MasterVault_1940.db]  100,500,000 records  @  2026-05-10  04:17:34
+  [MasterVault_1950.db]  82,000,000 records  @  2026-05-10  04:17:34
+  [MasterVault_1940.db]  101,000,000 records  @  2026-05-10  04:17:40  [MasterVault_1950.db]  82,500,000 records  @  2026-05-10  04:17:40
+
+  [MasterVault_1940.db]  101,500,000 records  @  2026-05-10  04:17:45  [MasterVault_1950.db]  83,000,000 records  @  2026-05-10  04:17:45
+
+  [MasterVault_1950.db]  83,500,000 records  @  2026-05-10  04:17:50
+  [MasterVault_1940.db]  102,000,000 records  @  2026-05-10  04:17:51
+  [MasterVault_1940.db]  102,500,000 records  @  2026-05-10  04:17:56
+  [MasterVault_1950.db]  84,000,000 records  @  2026-05-10  04:17:56
+  [MasterVault_1940.db]  103,000,000 records  @  2026-05-10  04:18:01
+  [MasterVault_1950.db]  84,500,000 records  @  2026-05-10  04:18:02
+  [MasterVault_1940.db]  103,500,000 records  @  2026-05-10  04:18:07
+  [MasterVault_1950.db]  85,000,000 records  @  2026-05-10  04:18:07
+  [MasterVault_1950.db]  85,500,000 records  @  2026-05-10  04:18:12
+  [MasterVault_1940.db]  104,000,000 records  @  2026-05-10  04:18:13
+  [MasterVault_1950.db]  86,000,000 records  @  2026-05-10  04:18:18  [MasterVault_1940.db]  104,500,000 records  @  2026-05-10  04:18:18
+
+  [MasterVault_1940.db]  105,000,000 records  @  2026-05-10  04:18:23
+  [MasterVault_1950.db]  86,500,000 records  @  2026-05-10  04:18:23
+  [MasterVault_1940.db]  105,500,000 records  @  2026-05-10  04:18:29
+  [MasterVault_1950.db]  87,000,000 records  @  2026-05-10  04:18:29
+  [MasterVault_1950.db]  87,500,000 records  @  2026-05-10  04:18:34
+  [MasterVault_1940.db]  106,000,000 records  @  2026-05-10  04:18:34
+  [MasterVault_1950.db]  88,000,000 records  @  2026-05-10  04:18:40
+  [MasterVault_1940.db]  106,500,000 records  @  2026-05-10  04:18:40
+  [MasterVault_1950.db]  88,500,000 records  @  2026-05-10  04:18:45
+  [MasterVault_1940.db]  107,000,000 records  @  2026-05-10  04:18:45
+  [MasterVault_1950.db]  89,000,000 records  @  2026-05-10  04:18:51
+  [MasterVault_1940.db]  107,500,000 records  @  2026-05-10  04:18:51
+  [MasterVault_1940.db]  108,000,000 records  @  2026-05-10  04:18:56  [MasterVault_1950.db]  89,500,000 records  @  2026-05-10  04:18:56
+
+  [MasterVault_1940.db]  108,500,000 records  @  2026-05-10  04:19:02  [MasterVault_1950.db]  90,000,000 records  @  2026-05-10  04:19:02
+
+  [MasterVault_1940.db]  109,000,000 records  @  2026-05-10  04:19:07
+  [MasterVault_1950.db]  90,500,000 records  @  2026-05-10  04:19:07
+  [MasterVault_1940.db]  109,500,000 records  @  2026-05-10  04:19:13
+  [MasterVault_1950.db]  91,000,000 records  @  2026-05-10  04:19:13
+  [MasterVault_1950.db]  91,500,000 records  @  2026-05-10  04:19:18
+  [MasterVault_1940.db]  110,000,000 records  @  2026-05-10  04:19:18
+  [MasterVault_1940.db]  110,500,000 records  @  2026-05-10  04:19:24
+  [MasterVault_1950.db]  92,000,000 records  @  2026-05-10  04:19:24
+  [MasterVault_1940.db]  111,000,000 records  @  2026-05-10  04:19:29  [MasterVault_1950.db]  92,500,000 records  @  2026-05-10  04:19:29
+
+  [MasterVault_1950.db]  93,000,000 records  @  2026-05-10  04:19:35
+  [MasterVault_1940.db]  111,500,000 records  @  2026-05-10  04:19:35
+  [MasterVault_1940.db]  112,000,000 records  @  2026-05-10  04:19:40  [MasterVault_1950.db]  93,500,000 records  @  2026-05-10  04:19:40
+
+  [MasterVault_1940.db]  112,500,000 records  @  2026-05-10  04:19:46  [MasterVault_1950.db]  94,000,000 records  @  2026-05-10  04:19:46
+
+  [MasterVault_1940.db]  113,000,000 records  @  2026-05-10  04:19:51
+  [MasterVault_1950.db]  94,500,000 records  @  2026-05-10  04:19:51
+  [MasterVault_1940.db]  113,500,000 records  @  2026-05-10  04:19:57
+  [MasterVault_1950.db]  95,000,000 records  @  2026-05-10  04:19:57
+  [MasterVault_1940.db]  114,000,000 records  @  2026-05-10  04:20:02  [MasterVault_1950.db]  95,500,000 records  @  2026-05-10  04:20:02
+
+  [MasterVault_1940.db]  114,500,000 records  @  2026-05-10  04:20:08
+  [MasterVault_1950.db]  96,000,000 records  @  2026-05-10  04:20:08
+  [MasterVault_1940.db]  115,000,000 records  @  2026-05-10  04:20:13  [MasterVault_1950.db]  96,500,000 records  @  2026-05-10  04:20:13
+
+  [MasterVault_1940.db]  115,500,000 records  @  2026-05-10  04:20:19
+  [MasterVault_1950.db]  97,000,000 records  @  2026-05-10  04:20:19
+  [MasterVault_1940.db]  116,000,000 records  @  2026-05-10  04:20:24  [MasterVault_1950.db]  97,500,000 records  @  2026-05-10  04:20:24
+
+  [MasterVault_1940.db]  116,500,000 records  @  2026-05-10  04:20:30  [MasterVault_1950.db]  98,000,000 records  @  2026-05-10  04:20:30
+
+  [MasterVault_1950.db]  98,500,000 records  @  2026-05-10  04:20:35
+  [MasterVault_1940.db]  117,000,000 records  @  2026-05-10  04:20:35
+  [MasterVault_1940.db]  117,500,000 records  @  2026-05-10  04:20:41
+  [MasterVault_1950.db]  99,000,000 records  @  2026-05-10  04:20:41
+  [MasterVault_1950.db]  99,500,000 records  @  2026-05-10  04:20:46  [MasterVault_1940.db]  118,000,000 records  @  2026-05-10  04:20:46
+
+  [MasterVault_1940.db]  118,500,000 records  @  2026-05-10  04:20:52  [MasterVault_1950.db]  100,000,000 records  @  2026-05-10  04:20:52
+
+  [MasterVault_1950.db]  100,500,000 records  @  2026-05-10  04:20:57
+  [MasterVault_1940.db]  119,000,000 records  @  2026-05-10  04:20:57
+  [MasterVault_1950.db]  101,000,000 records  @  2026-05-10  04:21:03  [MasterVault_1940.db]  119,500,000 records  @  2026-05-10  04:21:03
+
+  [MasterVault_1950.db]  101,500,000 records  @  2026-05-10  04:21:08  [MasterVault_1940.db]  120,000,000 records  @  2026-05-10  04:21:08
+
+  [MasterVault_1950.db]  102,000,000 records  @  2026-05-10  04:21:14  [MasterVault_1940.db]  120,500,000 records  @  2026-05-10  04:21:14
+
+  [MasterVault_1950.db]  102,500,000 records  @  2026-05-10  04:21:19
+  [MasterVault_1940.db]  121,000,000 records  @  2026-05-10  04:21:21
+  [MasterVault_1950.db]  103,000,000 records  @  2026-05-10  04:21:24
+  [MasterVault_1940.db]  121,500,000 records  @  2026-05-10  04:21:26
+  [MasterVault_1950.db]  103,500,000 records  @  2026-05-10  04:21:29
+  [MasterVault_1940.db]  122,000,000 records  @  2026-05-10  04:21:31
+  [MasterVault_1950.db]  104,000,000 records  @  2026-05-10  04:21:35
+  [MasterVault_1940.db]  122,500,000 records  @  2026-05-10  04:21:37
+  [MasterVault_1950.db]  104,500,000 records  @  2026-05-10  04:21:40
+  [MasterVault_1940.db]  123,000,000 records  @  2026-05-10  04:21:42
+  [MasterVault_1950.db]  105,000,000 records  @  2026-05-10  04:21:45
+  [MasterVault_1940.db]  123,500,000 records  @  2026-05-10  04:21:47
+  [MasterVault_1950.db]  105,500,000 records  @  2026-05-10  04:21:50
+  [MasterVault_1940.db]  124,000,000 records  @  2026-05-10  04:21:52
+  [MasterVault_1950.db]  106,000,000 records  @  2026-05-10  04:21:55
+  [MasterVault_1940.db]  124,500,000 records  @  2026-05-10  04:21:57
+  [MasterVault_1950.db]  106,500,000 records  @  2026-05-10  04:22:00
+  [MasterVault_1940.db]  125,000,000 records  @  2026-05-10  04:22:02
+  [MasterVault_1950.db]  107,000,000 records  @  2026-05-10  04:22:05
+  [MasterVault_1940.db]  125,500,000 records  @  2026-05-10  04:22:08
+  [MasterVault_1950.db]  107,500,000 records  @  2026-05-10  04:22:11
+  [MasterVault_1940.db]  126,000,000 records  @  2026-05-10  04:22:13
+  [MasterVault_1950.db]  108,000,000 records  @  2026-05-10  04:22:16
+  [MasterVault_1940.db]  126,500,000 records  @  2026-05-10  04:22:18
+  [MasterVault_1950.db]  108,500,000 records  @  2026-05-10  04:22:21
+  [MasterVault_1940.db]  127,000,000 records  @  2026-05-10  04:22:23
+  [MasterVault_1950.db]  109,000,000 records  @  2026-05-10  04:22:26
+  [MasterVault_1940.db]  127,500,000 records  @  2026-05-10  04:22:29
+  [MasterVault_1950.db]  109,500,000 records  @  2026-05-10  04:22:31
+  [MasterVault_1940.db]  128,000,000 records  @  2026-05-10  04:22:34
+  [MasterVault_1950.db]  110,000,000 records  @  2026-05-10  04:22:36
+  [MasterVault_1940.db]  128,500,000 records  @  2026-05-10  04:22:39
+  [MasterVault_1950.db]  110,500,000 records  @  2026-05-10  04:22:41
+  [MasterVault_1940.db]  129,000,000 records  @  2026-05-10  04:22:44
+  [MasterVault_1950.db]  111,000,000 records  @  2026-05-10  04:22:46
+  [MasterVault_1940.db]  129,500,000 records  @  2026-05-10  04:22:49
+  [MasterVault_1950.db]  111,500,000 records  @  2026-05-10  04:22:52
+  [MasterVault_1940.db]  130,000,000 records  @  2026-05-10  04:22:54
+  [MasterVault_1950.db]  112,000,000 records  @  2026-05-10  04:22:57
+  [MasterVault_1940.db]  130,500,000 records  @  2026-05-10  04:22:59
+  [MasterVault_1950.db]  112,500,000 records  @  2026-05-10  04:23:02
+  [MasterVault_1940.db]  131,000,000 records  @  2026-05-10  04:23:04
+  [MasterVault_1950.db]  113,000,000 records  @  2026-05-10  04:23:07
+  [MasterVault_1940.db]  131,500,000 records  @  2026-05-10  04:23:10
+  [MasterVault_1950.db]  113,500,000 records  @  2026-05-10  04:23:12
+  [MasterVault_1940.db]  132,000,000 records  @  2026-05-10  04:23:15
+  [MasterVault_1950.db]  114,000,000 records  @  2026-05-10  04:23:17
+  [MasterVault_1940.db]  132,500,000 records  @  2026-05-10  04:23:20
+  [MasterVault_1950.db]  114,500,000 records  @  2026-05-10  04:23:22
+  [MasterVault_1940.db]  133,000,000 records  @  2026-05-10  04:23:25
+  [MasterVault_1950.db]  115,000,000 records  @  2026-05-10  04:23:26
+  [MasterVault_1940.db]  DONE — 133,254,130 records in 34.99 min.
+  [MasterVault_1950.db]  115,500,000 records  @  2026-05-10  04:23:30
+
+=================================================================
+  STATS REPORT  —  File: census-1940.csv
+=================================================================
+
+  TIMING
+    Wall clock elapsed : 2,100.4 sec  (35.01 min)
+    CPU user time      : 3,317.6 sec
+    CPU system time    : 250.7 sec
+    CPU total time     : 3,568.3 sec
+    (CPU total > wall clock means multiple cores were used in parallel)
+
+  CPU USAGE (during run)
+    Start  : 6.4%
+    End    : 6.7%
+
+  MEMORY  (RAM)
+    Start  used : 24.76 GB  (19.5%)
+    End    used : 23.00 GB  (18.1%)
+    Available   : 104.27 GB remaining
+
+  SWAP / PAGE FILE
+    Total       : 8.00 GB
+    Start  used : 0.09 GB  (1.1%)
+    End    used : 0.09 GB  (1.1%)
+
+  DISK  (D: drive)
+    Total       : 3726.0 GB
+    Start  used : 392.9 GB  (10.5%)
+    End    used : 463.8 GB  (12.4%)
+    Space added : +70.97 GB  (new database data written this run)
+    Free now    : 3262.2 GB
+
+  DISK I/O  (system-wide, all drives combined)
+    Data read      : 55.91 GB  (27.3 MB/s avg)
+    Data written   : 74.08 GB  (36.1 MB/s avg)
+    Read ops       : 533,276
+    Write ops      : 1,203,042
+
+  GPU
+    Not applicable — SQLite/CSV work is CPU + disk I/O only.
+=================================================================
+
+record_count :  133254130
+dtime        :  2100.3532209396362
+recPerSec    :  63443.676364295534
+  [MasterVault_1950.db]  116,000,000 records  @  2026-05-10  04:23:32
+  [MasterVault_1950.db]  116,500,000 records  @  2026-05-10  04:23:35
+  [MasterVault_1950.db]  117,000,000 records  @  2026-05-10  04:23:38
+  [MasterVault_1950.db]  117,500,000 records  @  2026-05-10  04:23:41
+  [MasterVault_1950.db]  118,000,000 records  @  2026-05-10  04:23:44
+  [MasterVault_1950.db]  118,500,000 records  @  2026-05-10  04:23:46
+  [MasterVault_1950.db]  119,000,000 records  @  2026-05-10  04:23:49
+  [MasterVault_1950.db]  119,500,000 records  @  2026-05-10  04:23:52
+  [MasterVault_1950.db]  120,000,000 records  @  2026-05-10  04:23:55
+  [MasterVault_1950.db]  120,500,000 records  @  2026-05-10  04:23:58
+  [MasterVault_1950.db]  121,000,000 records  @  2026-05-10  04:24:01
+  [MasterVault_1950.db]  121,500,000 records  @  2026-05-10  04:24:03
+  [MasterVault_1950.db]  122,000,000 records  @  2026-05-10  04:24:06
+  [MasterVault_1950.db]  122,500,000 records  @  2026-05-10  04:24:09
+  [MasterVault_1950.db]  123,000,000 records  @  2026-05-10  04:24:12
+  [MasterVault_1950.db]  123,500,000 records  @  2026-05-10  04:24:15
+  [MasterVault_1950.db]  124,000,000 records  @  2026-05-10  04:24:17
+  [MasterVault_1950.db]  124,500,000 records  @  2026-05-10  04:24:20
+  [MasterVault_1950.db]  125,000,000 records  @  2026-05-10  04:24:23
+  [MasterVault_1950.db]  125,500,000 records  @  2026-05-10  04:24:26
+  [MasterVault_1950.db]  126,000,000 records  @  2026-05-10  04:24:29
+  [MasterVault_1950.db]  126,500,000 records  @  2026-05-10  04:24:31
+  [MasterVault_1950.db]  127,000,000 records  @  2026-05-10  04:24:34
+  [MasterVault_1950.db]  127,500,000 records  @  2026-05-10  04:24:37
+  [MasterVault_1950.db]  128,000,000 records  @  2026-05-10  04:24:40
+  [MasterVault_1950.db]  128,500,000 records  @  2026-05-10  04:24:43
+  [MasterVault_1950.db]  129,000,000 records  @  2026-05-10  04:24:45
+  [MasterVault_1950.db]  129,500,000 records  @  2026-05-10  04:24:48
+  [MasterVault_1950.db]  130,000,000 records  @  2026-05-10  04:24:51
+  [MasterVault_1950.db]  130,500,000 records  @  2026-05-10  04:24:54
+  [MasterVault_1950.db]  131,000,000 records  @  2026-05-10  04:24:57
+  [MasterVault_1950.db]  131,500,000 records  @  2026-05-10  04:24:59
+  [MasterVault_1950.db]  132,000,000 records  @  2026-05-10  04:25:02
+  [MasterVault_1950.db]  132,500,000 records  @  2026-05-10  04:25:05
+  [MasterVault_1950.db]  133,000,000 records  @  2026-05-10  04:25:08
+  [MasterVault_1950.db]  133,500,000 records  @  2026-05-10  04:25:11
+  [MasterVault_1950.db]  134,000,000 records  @  2026-05-10  04:25:13
+  [MasterVault_1950.db]  134,500,000 records  @  2026-05-10  04:25:16
+  [MasterVault_1950.db]  135,000,000 records  @  2026-05-10  04:25:19
+  [MasterVault_1950.db]  135,500,000 records  @  2026-05-10  04:25:22
+  [MasterVault_1950.db]  136,000,000 records  @  2026-05-10  04:25:25
+  [MasterVault_1950.db]  136,500,000 records  @  2026-05-10  04:25:28
+  [MasterVault_1950.db]  137,000,000 records  @  2026-05-10  04:25:30
+  [MasterVault_1950.db]  137,500,000 records  @  2026-05-10  04:25:33
+  [MasterVault_1950.db]  138,000,000 records  @  2026-05-10  04:25:36
+  [MasterVault_1950.db]  138,500,000 records  @  2026-05-10  04:25:39
+  [MasterVault_1950.db]  139,000,000 records  @  2026-05-10  04:25:42
+  [MasterVault_1950.db]  139,500,000 records  @  2026-05-10  04:25:44
+  [MasterVault_1950.db]  140,000,000 records  @  2026-05-10  04:25:47
+  [MasterVault_1950.db]  140,500,000 records  @  2026-05-10  04:25:50
+  [MasterVault_1950.db]  141,000,000 records  @  2026-05-10  04:25:53
+  [MasterVault_1950.db]  141,500,000 records  @  2026-05-10  04:25:56
+  [MasterVault_1950.db]  142,000,000 records  @  2026-05-10  04:25:58
+  [MasterVault_1950.db]  142,500,000 records  @  2026-05-10  04:26:01
+  [MasterVault_1950.db]  143,000,000 records  @  2026-05-10  04:26:04
+  [MasterVault_1950.db]  143,500,000 records  @  2026-05-10  04:26:07
+  [MasterVault_1950.db]  144,000,000 records  @  2026-05-10  04:26:10
+  [MasterVault_1950.db]  144,500,000 records  @  2026-05-10  04:26:12
+  [MasterVault_1950.db]  145,000,000 records  @  2026-05-10  04:26:15
+  [MasterVault_1950.db]  145,500,000 records  @  2026-05-10  04:26:18
+  [MasterVault_1950.db]  146,000,000 records  @  2026-05-10  04:26:21
+  [MasterVault_1950.db]  146,500,000 records  @  2026-05-10  04:26:24
+  [MasterVault_1950.db]  147,000,000 records  @  2026-05-10  04:26:26
+  [MasterVault_1950.db]  147,500,000 records  @  2026-05-10  04:26:29
+  [MasterVault_1950.db]  148,000,000 records  @  2026-05-10  04:26:32
+  [MasterVault_1950.db]  148,500,000 records  @  2026-05-10  04:26:35
+  [MasterVault_1950.db]  149,000,000 records  @  2026-05-10  04:26:38
+  [MasterVault_1950.db]  149,500,000 records  @  2026-05-10  04:26:41
+  [MasterVault_1950.db]  150,000,000 records  @  2026-05-10  04:26:43
+  [MasterVault_1950.db]  150,500,000 records  @  2026-05-10  04:26:46
+  [MasterVault_1950.db]  151,000,000 records  @  2026-05-10  04:26:49
+  [MasterVault_1950.db]  151,500,000 records  @  2026-05-10  04:26:52
+  [MasterVault_1950.db]  152,000,000 records  @  2026-05-10  04:26:55
+  [MasterVault_1950.db]  152,500,000 records  @  2026-05-10  04:26:57
+  [MasterVault_1950.db]  153,000,000 records  @  2026-05-10  04:27:00
+  [MasterVault_1950.db]  153,500,000 records  @  2026-05-10  04:27:03
+  [MasterVault_1950.db]  154,000,000 records  @  2026-05-10  04:27:06
+  [MasterVault_1950.db]  DONE — 154,209,275 records in 31.96 min.
+
+=================================================================
+  STATS REPORT  —  File: census-1950.csv
+=================================================================
+
+  TIMING
+    Wall clock elapsed : 1,918.9 sec  (31.98 min)
+    CPU user time      : 2,782.6 sec
+    CPU system time    : 216.1 sec
+    CPU total time     : 2,998.7 sec
+    (CPU total > wall clock means multiple cores were used in parallel)
+
+  CPU USAGE (during run)
+    Start  : 14.5%
+    End    : 2.9%
+
+  MEMORY  (RAM)
+    Start  used : 24.83 GB  (19.5%)
+    End    used : 22.98 GB  (18.1%)
+    Available   : 104.29 GB remaining
+
+  SWAP / PAGE FILE
+    Total       : 8.00 GB
+    Start  used : 0.09 GB  (1.1%)
+    End    used : 0.09 GB  (1.1%)
+
+  DISK  (D: drive)
+    Total       : 3726.0 GB
+    Start  used : 405.3 GB  (10.9%)
+    End    used : 471.0 GB  (12.6%)
+    Space added : +65.72 GB  (new database data written this run)
+    Free now    : 3255.0 GB
+
+  DISK I/O  (system-wide, all drives combined)
+    Data read      : 51.04 GB  (27.2 MB/s avg)
+    Data written   : 68.38 GB  (36.5 MB/s avg)
+    Read ops       : 485,500
+    Write ops      : 991,669
+
+  GPU
+    Not applicable — SQLite/CSV work is CPU + disk I/O only.
+=================================================================
+
+record_count :  154209275
+dtime        :  1918.8723995685577
+recPerSec    :  80364.52816491219
+
+============================================================
+  THREAD SUMMARY   (MAX_WORKERS=4, BATCH_SIZE=500,000)
+============================================================
+  Year           Records   Minutes  File
+  --------  ------------  --------  ------------------------------
+  1850        20,179,231      6.85  census-1850.csv
+  1860        28,006,160      9.55  census-1860.csv
+  1870        39,342,291     13.65  census-1870.csv
+  1880        56,525,339     21.50  census-1880.csv
+  1900        81,283,304     30.20  census-1900.csv
+  1910        94,470,240     34.18  census-1910.csv
+  1920       106,781,619     38.65  census-1920.csv
+  1930       130,102,784     43.27  census-1930.csv
+  1940       133,254,130     34.99  census-1940.csv
+  1950       154,209,275     31.96  census-1950.csv
+
+=================================================================
+  STATS REPORT  —  FULL SESSION TOTAL
+=================================================================
+
+  TIMING
+    Wall clock elapsed : 4,548.9 sec  (75.82 min)
+    CPU user time      : 7,555.8 sec
+    CPU system time    : 605.9 sec
+    CPU total time     : 8,161.7 sec
+    (CPU total > wall clock means multiple cores were used in parallel)
+
+  CPU USAGE (during run)
+    Start  : 4.1%
+    End    : 1.9%
+
+  MEMORY  (RAM)
+    Start  used : 22.92 GB  (18.0%)
+    End    used : 22.98 GB  (18.1%)
+    Available   : 104.29 GB remaining
+
+  SWAP / PAGE FILE
+    Total       : 8.00 GB
+    Start  used : 0.08 GB  (1.0%)
+    End    used : 0.09 GB  (1.1%)
+
+  DISK  (D: drive)
+    Total       : 3726.0 GB
+    Start  used : 328.7 GB  (8.8%)
+    End    used : 471.0 GB  (12.6%)
+    Space added : +142.28 GB  (new database data written this run)
+    Free now    : 3255.0 GB
+
+  DISK I/O  (system-wide, all drives combined)
+    Data read      : 140.69 GB  (31.7 MB/s avg)
+    Data written   : 154.52 GB  (34.8 MB/s avg)
+    Read ops       : 1,989,916
+    Write ops      : 2,633,101
+
+  GPU
+    Not applicable — SQLite/CSV work is CPU + disk I/O only.
+=================================================================
+
+
+  Total records across all files : 844,154,373
+  Total wall-clock time          : 75.82 minutes
+  Session ended: 2026-05-10  04:27:09
+
+
+Process finished with exit code 0
