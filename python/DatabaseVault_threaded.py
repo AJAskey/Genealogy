@@ -31,6 +31,7 @@ import datetime
 import logging
 import os
 import sqlite3
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -39,50 +40,52 @@ import psutil
 import vault_stats
 
 # ==============================================================================
-# TUNING KNOBS  ← play with these to find your sweet spot
+# TUNING KNOBS
 # ==============================================================================
 
-MAX_WORKERS = 4  # Number of threads running at the same time.
-# Good starting values to benchmark:
-#   2  → conservative, less disk contention
-#   4  → sweet spot on most desktops with SSD
-#   8  → worth trying on NVMe or RAID arrays
-#   1  → single-threaded baseline for comparison
-# Rule of thumb: more threads = more disk heads
-# competing. If your files are on a spinning HDD,
-# 2-3 is usually the ceiling before it gets worse.
+MAX_WORKERS = 1
+BATCH_SIZE = 100_000
 
-BATCH_SIZE = 500_000  # Rows buffered in memory before each SQLite commit.
-# Larger = fewer commits = faster, but uses more RAM.
-# 500k is a solid default; try 250k if RAM is tight,
-# or 1_000_000 if you have plenty of headroom.
-#
-db_name1 = r"e:\Data\Genealogy_Data\MasterVault_"
-#
+MULTIPLE_DATABASE_FILES = True
+
+db_name1 = r"E:\Data\Genealogy_Data\MasterVault_"
 input_directory = r"E:\Census\IPUMS\Original"
-#
-yr = ''
+yr = 'ALL'
 #
 # ==============================================================================
-# COLUMNS  (unchanged from original)
+# >>> SINGLE DATABASE PATH  ← change this to wherever you want the file <<<
+# ==============================================================================
+
+
+# ==============================================================================
+# COLUMNS
 # ==============================================================================
 
 TARGET_COLUMNS = [
-    "YEAR", "SAMPLE", "SERIAL", "PERNUM", "NUMPREC", "HHTYPE", "STATEICP", "COUNTYICP", "CITY", "FARM",
-    "NMOTHERS", "NFATHERS", "FAMUNIT", "FAMSIZE", "MOMLOC", "POPLOC", "SPLOC", "NCHILD",
-    "NSIBS", "ELDCH", "YNGCH", "RELATED", "SEX", "AGE", "BIRTHYR", "RACED", "BPLD",
-    "NAMELAST", "NAMEFRST", "HISTID",
+    "YEAR", "SAMPLE", "SERIAL", "PERNUM", "NUMPREC", "HHTYPE", "STATEICP", "COUNTYICP", "CITY",
+    "FARM", "NMOTHERS", "NFATHERS",  "FAMUNIT", "FAMSIZE", "MOMLOC", "MOMRULE_HIST", "POPLOC",
+    "POPRULE_HIST", "SPLOC", "SPRULE_HIST", "NCHILD", "NSIBS", "ELDCH", "YNGCH", "RELATED", "SEX", "AGE",
+    "BIRTHYR", "RACED", "BPLD", "NAMELAST", "NAMEFRST", "HISTID"
 ]
 
 
 # ==============================================================================
-# DATABASE FUNCTIONS  (same logic as original, extracted so a thread can call)
+# DATABASE SETUP  — called ONCE at startup, not per thread
 # ==============================================================================
 
-def setup_database(db_name):
-    """Builds the population table and index if they don't exist yet."""
-    conn = sqlite3.connect(db_name)
+
+def setup_database(db_path):
+    logging.info(f"Database set up: {db_path}")
+
+    """
+    Creates the population table and index in the single master database.
+    Safe to call multiple times — IF NOT EXISTS protects against duplicates.
+    """
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
+
+    # Enable WAL mode so multiple threads can write without stomping on each other
+    cursor.execute("PRAGMA journal_mode=WAL")
 
     columns_sql = "composite_id TEXT PRIMARY KEY, "
     columns_sql += ", ".join([f"{col.lower()} TEXT" for col in TARGET_COLUMNS])
@@ -92,18 +95,24 @@ def setup_database(db_name):
 
     conn.commit()
     conn.close()
+    logging.info(f"Database ready: {db_path}")
 
 
-def ingest_to_vault(input_csv, db_name):
+# ==============================================================================
+# INGEST FUNCTION  — each thread calls this for its own CSV file
+# ==============================================================================
+
+def ingest_to_vault(input_csv, db_path):
     """
-    Reads one CSV file and writes it to one SQLite database.
-    Entirely self-contained — safe to call from any thread.
+    Reads one CSV file and writes it into the shared master database.
+    Missing columns are filled with NULL — no crash, no ERR values.
+    Each thread opens its own connection (WAL mode makes this safe).
     """
-    setup_database(db_name)
+    conn = sqlite3.connect(db_path)
 
-    # Each thread opens its own connection.  sqlite3 connections are NOT
-    # thread-safe to share, but creating one per thread is fine and fast.
-    conn = sqlite3.connect(db_name)
+    # WAL mode per connection too, just to be safe
+    conn.execute("PRAGMA journal_mode=WAL")
+
     cursor = conn.cursor()
 
     cols_string = "composite_id, " + ", ".join([col.lower() for col in TARGET_COLUMNS])
@@ -117,29 +126,44 @@ def ingest_to_vault(input_csv, db_name):
     with open(input_csv, mode='r', errors='replace') as infile:
         reader = csv.DictReader(infile, delimiter=',')
 
+        # Figure out which TARGET_COLUMNS actually exist in THIS csv file.
+        # Any column missing from the file will just get None (stored as NULL).
+        available_cols = set(reader.fieldnames) if reader.fieldnames else set()
+
         for row in reader:
             count += 1
 
             serial = row.get('SERIAL', '').strip()
             pernum = row.get('PERNUM', '').strip()
-            composite_id = f"{serial}_{pernum}_{count}"
+
+            # Include the year in the composite_id so records from different
+            # census years never collide even if SERIAL/PERNUM repeat.
+            year = row.get('YEAR', 'UNKN').strip()
+            composite_id = f"{year}_{serial}_{pernum}_{count}"
 
             row_data = [composite_id]
             for col in TARGET_COLUMNS:
-                try:
-                    row_data.append(row.get(col, 'ERR123').strip())
-                except Exception:
-                    logging.warning(f"[{os.path.basename(input_csv)}] err: {col}")
-                    row_data.append("ERR456")
+                if col in available_cols:
+                    try:
+                        row_data.append(row.get(col, None))
+                        if row_data[-1] is not None:
+                            row_data[-1] = row_data[-1].strip()
+                    except Exception:
+                        logging.warning(f"[{os.path.basename(input_csv)}] problem reading col: {col}")
+                        row_data.append(None)
+                else:
+                    # Column doesn't exist in this CSV — store NULL quietly
+                    row_data.append(None)
 
             batch.append(tuple(row_data))
+
 
             if count % BATCH_SIZE == 0:
                 cursor.executemany(insert_query, batch)
                 conn.commit()
                 batch = []
                 ts = datetime.datetime.now().strftime('%Y-%m-%d  %H:%M:%S')
-                logging.info(f"  [{os.path.basename(db_name)}]  {count:,} records  @  {ts}")
+                logging.info(f"  [{os.path.basename(input_csv)}]  {count:,} records")
 
         if batch:
             cursor.executemany(insert_query, batch)
@@ -147,28 +171,30 @@ def ingest_to_vault(input_csv, db_name):
 
     conn.close()
     elapsed = round((time.time() - start_time) / 60, 2)
-    logging.info(f"  [{os.path.basename(db_name)}]  DONE — {count:,} records in {elapsed} min.")
+    logging.info(f"  [{os.path.basename(input_csv)}]  DONE — {count:,} records in {elapsed} min.")
     return count, elapsed
 
 
 # ==============================================================================
 # THREAD WORKER
-# Wraps ingest_to_vault with per-file stats so the main thread can report them.
 # ==============================================================================
 
 def process_file(filename, input_directory):
+    global db_name1, yr
+
     """
     Called by the thread pool for each CSV file.
-    Returns a dict with timing/stats so the main thread can print a summary.
+    All files now write to the same MASTER_DB_PATH.
     """
-    global yr
+
     file_path = os.path.join(input_directory, filename)
-    if len(yr) < 2:
-        yr = filename.split('-')[1].split('.')[0]
-        if len(yr) < 2:
-            logging.error(f"Invalid filename format: {filename}")
-            return 0, 0
-    db_name = db_name1 + yr + ".db"
+
+    if MULTIPLE_DATABASE_FILES:
+        yr = filename.split('-')[1].split('.')[0] if '-' in filename else 'unknown'
+        db_name = db_name1 + yr + ".db"
+        setup_database(db_name)
+    else:
+        db_name = db_name1 + "ALL.db"
 
     logging.info(f"\n--- [{filename}]  Thread starting → {db_name} ---")
 
@@ -192,7 +218,7 @@ def process_file(filename, input_directory):
     )
 
     dtime = (wall_end - wall_start) * 1000
-    rec_per_sec = record_count / dtime
+    rec_per_sec = record_count / dtime if dtime > 0 else 0
     logging.info(f"   record_count        : {record_count}")
     logging.info(f"   dtime milliseconds  : {dtime}")
     logging.info(f"   Rec per MS          : {rec_per_sec}\n")
@@ -236,6 +262,11 @@ if __name__ == '__main__':
     session_snap_before = vault_stats.get_system_snapshot()
 
 
+    # set up creation of single db here before threads kick off
+    if not MULTIPLE_DATABASE_FILES:
+        db_name = db_name1 + r"ALL.db"
+        setup_database(db_name)
+
     # Collect every CSV in the input directory
     csv_files = [f for f in os.listdir(input_directory) if f.endswith(".csv")]
 
@@ -244,14 +275,14 @@ if __name__ == '__main__':
         csv_files = csv_files[:args.files]
 
     logging.info(f"input_directory  {input_directory} \n")
-    logging.info(f"\nFound {len(csv_files)} CSV file(s).  Launching up to {MAX_WORKERS} thread(s).\n")
+    logging.info(f"\nFound {len(csv_files)} CSV file(s).  Launching up to {MAX_WORKERS} file processing thread(s).\n")
 
     results = []
 
     # ThreadPoolExecutor works just like Java's ExecutorService.
     # submit() hands a job to the pool and returns a Future.
     # as_completed() yields each Future as it finishes (not in submission order).
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS,  thread_name_prefix="CensusWorker") as executor:
 
         # Submit all jobs up front; the pool throttles to MAX_WORKERS at a time
         future_to_file = {
@@ -259,13 +290,17 @@ if __name__ == '__main__':
             for fname in csv_files
         }
 
+        thread_id = 0
         for future in as_completed(future_to_file):
             fname = future_to_file[future]
             try:
+                thread_id += 1
+                logging.info(f"\nthread_id {thread_id} {threading.current_thread().name} begins")
                 result = future.result()  # re-raises any exception from the thread
                 results.append(result)
-            except Exception as exc:
-                logging.error(f"\n!!! ERROR processing {fname}: {exc}")
+                logging.info(f"\nthread_id {thread_id} {threading.current_thread().name} complete")
+            except Exception as ex:
+                logging.error(f"\n!!! ERROR processing {fname}: {ex}")
 
     # ------------------------------------------------------------------
     # Summary table

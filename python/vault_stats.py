@@ -62,7 +62,7 @@ def setup_logging(log_dir=r"D:\Data\Genealogy_Data\Logs"):
     logger.setLevel(logging.INFO)
 
     # Formatter: no "INFO:root:" prefix — just the message, same as print()
-    formatter = logging.Formatter("%(message)s")
+    formatter = logging.Formatter("%(asctime)s %(module)s P%(process)d T%(thread)d %(levelname)s %(message)s")
 
     # Console handler (replaces what print() was doing)
     console_handler = logging.StreamHandler()
