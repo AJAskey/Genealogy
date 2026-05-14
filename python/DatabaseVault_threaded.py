@@ -38,6 +38,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import psutil
 
 import vault_stats
+import logging_local
 
 # ==============================================================================
 # TUNING KNOBS
@@ -63,7 +64,7 @@ yr = 'ALL'
 
 TARGET_COLUMNS = [
     "YEAR", "SAMPLE", "SERIAL", "PERNUM", "NUMPREC", "HHTYPE", "STATEICP", "COUNTYICP", "CITY",
-    "FARM", "NMOTHERS", "NFATHERS",  "FAMUNIT", "FAMSIZE", "MOMLOC", "MOMRULE_HIST", "POPLOC",
+    "FARM", "NMOTHERS", "NFATHERS", "FAMUNIT", "FAMSIZE", "MOMLOC", "MOMRULE_HIST", "POPLOC",
     "POPRULE_HIST", "SPLOC", "SPRULE_HIST", "NCHILD", "NSIBS", "ELDCH", "YNGCH", "RELATED", "SEX", "AGE",
     "BIRTHYR", "RACED", "BPLD", "NAMELAST", "NAMEFRST", "HISTID"
 ]
@@ -157,7 +158,6 @@ def ingest_to_vault(input_csv, db_path):
 
             batch.append(tuple(row_data))
 
-
             if count % BATCH_SIZE == 0:
                 cursor.executemany(insert_query, batch)
                 conn.commit()
@@ -237,6 +237,7 @@ def process_file(filename, input_directory):
 # ==============================================================================
 
 if __name__ == '__main__':
+    logging_local.setup_logging()
 
     parser = argparse.ArgumentParser(description="Ingest census CSVs into SQLite vaults.")
     parser.add_argument(
@@ -261,7 +262,6 @@ if __name__ == '__main__':
     session_cpu_before = psutil.Process().cpu_times()
     session_snap_before = vault_stats.get_system_snapshot()
 
-
     # set up creation of single db here before threads kick off
     if not MULTIPLE_DATABASE_FILES:
         db_name = db_name1 + r"ALL.db"
@@ -282,7 +282,7 @@ if __name__ == '__main__':
     # ThreadPoolExecutor works just like Java's ExecutorService.
     # submit() hands a job to the pool and returns a Future.
     # as_completed() yields each Future as it finishes (not in submission order).
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS,  thread_name_prefix="CensusWorker") as executor:
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="CensusWorker") as executor:
 
         # Submit all jobs up front; the pool throttles to MAX_WORKERS at a time
         future_to_file = {
@@ -295,10 +295,9 @@ if __name__ == '__main__':
             fname = future_to_file[future]
             try:
                 thread_id += 1
-                logging.info(f"\nthread_id {thread_id} {threading.current_thread().name} begins")
                 result = future.result()  # re-raises any exception from the thread
                 results.append(result)
-                logging.info(f"\nthread_id {thread_id} {threading.current_thread().name} complete")
+                logging.info(f"thread_id {thread_id} {threading.current_thread().name} complete")
             except Exception as ex:
                 logging.error(f"\n!!! ERROR processing {fname}: {ex}")
 
