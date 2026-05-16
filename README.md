@@ -24,7 +24,7 @@ over 20 years by hand and longed for the day computers could help. That day is h
 ---
 
 ## Data flow of the system
-![DataFlow.jpg](assets/Census Data Processing.png)
+![Census Data Processing.png](assets/Census Data Processing.png)
 
 ---
 
