@@ -14,8 +14,9 @@ handle ~281 million records across 10 census years, resolve unnamed
 individuals using scoring logic, and produce a family tree with proper
 source citations.
 
-Find all relatives of Captain Thomas Erskine/Askey (1727-1806) from 1850-1950 census data. There are many family trees created and the goal is find the 
-best existing tree. I have been working on this for over 20 years by hand and longed for the day computers could help. That day is here. 
+My personal objective is to find all relatives of Captain Thomas Erskine/Askey (1727-1806) from 1850-1950 census data.
+There are many family trees created and the goal is to find the best existing tree. I have been working on this for 
+over 20 years by hand and longed for the day computers could help. That day is here. 
  This software can be cloned and used by others in similar family situations.
 
 ![Thomas Askey.jpg](assets/fc507baa7441aae8868236b18e8a7f05e4a61429aa44c420bf720c0bd5858f1a.jpg)
@@ -24,24 +25,22 @@ best existing tree. I have been working on this for over 20 years by hand and lo
 ## Current State (as of late May 2026)
 
 - Raw CSV files downloaded from IPUMS: 1850–1950, one file per census year
-- Files stored at: `E:\Storage\Census\IPUMS\Original`
+- Files stored locally at: `E:\Storage\Census\IPUMS\Original`
 - SQLite databases created (one per decade): `D:\Data\Genealogy_Data`
 - Ingest pipeline working: approximately 8 hours to process all years
 - DB Browser being used for data exploration
 
 **Known Data Issues:**
-- Approximately 75% of records are missing name data (illegible handwriting
-  in original census documents or held back by IPUMS to force payment to the 
+- Approximately 75% of records are missing name data (illegible handwriting  in original census documents or held back by IPUMS to force payment to the 
   commercial companies involved.)
 - Records with missing names are otherwise high quality — the gap is names only
-- MOMLOC and POPLOC fields in IPUMS already link parents to children within
-  a household — check completeness before building custom matching logic
+- MOMLOC and POPLOC fields in IPUMS already link parents to children withina household — 
+  this is check completeness before building custom matching logic
 
 ---
 
 ## Architecture Decisions (Locked)
 
-### Decision 1: Post-Ingest Processing (Option B)
 
 All four AI advisors and project lead agreed unanimously: do NOT process
 matching logic during CSV ingest. Reasons:
@@ -64,8 +63,8 @@ The Raw DB is the vault. The Clean DB is the output. They never mix.
 
 ### Decision 3: Human Review Gate (Text File Buffer)
 
-Matching candidates will be written to human-readable TEXT FILES beforeanything is written to the Clean DB. Andy reviews and edits these files,
-then a second script reads the approved files and writes to the Clean DB.
+Matching candidates will be written to human-readable TEXT FILES before anything is written to the Clean DB. 
+Andy reviews and edits these files, then a second script reads the approved files and writes to the Clean DB.
 
 This eliminates all concurrency and write-contention concerns. It also provides a permanent audit trail of every matching decision made.
 
@@ -85,17 +84,16 @@ Every individual gets a unique integer ID that never changes, never gets reused,
 the moment a match is approved.
 
 - Use a simple sequential integer starting at 1
-- Stored in a separate Registry DB (or dedicated table) that nothing else writes to
-- Every piece of data about a person across all censuses references this ID
-- Even if a match is later corrected, the ID stays — only the link changes
+- Stored in as part of the Origin ID below.
 
-**Critical:** Origin ID must be at the PERSON level (SERIAL + PERNUM),
+**Critical:** Origin ID must be at the PERSON level (YEAR + SERIAL + PERNUM + ID integer),
 not the household level. Households split and merge across decades.
+The incremental ID points to the line in the CSV file if one ever needs to go back and reference where the data came from. 
 
 ### Decision 5: Citation Tracking
 
-Every record in the Clean DB must have a citation row linking it to its source. This is both good genealogy practice and provides protection
-if IPUMS data use questions arise later.
+Every record in the Clean DB must have a citation row linking it to its source. This is both good genealogy practice 
+and provides protection if IPUMS data use questions arise later.
 
 Citation table structure:
 ```
@@ -104,8 +102,8 @@ PersonID  | Source   | SourceDetail                   | CensusYear | SERIAL | PE
 100042    | Ancestry | Death Certificate, Cook Co. IL  | 1923       | --     | --
 ```
 
-If IPUMS data use agreement becomes a concern, citations can be switched to reference the primary source (US Federal Census, National Archives)
-instead of IPUMS directly. The family tree structure is unaffected either way.
+If IPUMS data use agreement becomes a concern, citations can be switched to reference the primary source 
+(US Federal Census, National Archives) instead of IPUMS directly. The family tree structure is unaffected either way.
 
 ---
 
@@ -208,14 +206,13 @@ Before building custom matching, audit how complete these IPUMS fields are:
 - `POPLOC` — person number of father within household
 - `SPLOC` — person number of spouse within household
 
-Run a query: what percentage of records have non-zero values?
-These may handle 60–70% of linking automatically.
-
 ### Threading / Concurrency
 
-Not needed right now. The human review gate (text file buffer) means Script 1 and Script 2 run at completely separate times. No concurrent
-writes. No locking issues. Add complexity only if performance requires it later.
+Processing is threaded. The number of workers is a command line parameter (1 is default).
 
+Two options  output available - One massive DB or many smaller DBs are written. 
+- One is easier to process family linkage across ten-year increments.
+- Multiple databases are smaller and each one is easier to read in the browser. 
 ---
 
 ## GEDCOM Output Considerations
