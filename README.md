@@ -19,7 +19,7 @@ There are many family trees created and the goal is to find the best existing tr
 over 20 years by hand and longed for the day computers could help. That day is here. 
  This software can be cloned and used by others in similar family situations.
 
-![Thomas Askey.jpg](assets/CaptThom.jpg)
+![CaptThom.jpg](assets/CaptThom.jpg)
 
 ---
 
