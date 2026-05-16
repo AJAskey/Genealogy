@@ -19,7 +19,13 @@ There are many family trees created and the goal is to find the best existing tr
 over 20 years by hand and longed for the day computers could help. That day is here. 
  This software can be cloned and used by others in similar family situations.
 
-![Thomas Askey.jpg](assets/fc507baa7441aae8868236b18e8a7f05e4a61429aa44c420bf720c0bd5858f1a.jpg)
+![Thomas Askey.jpg](assets/CaptThom.jpg)
+
+---
+
+## Data flow of the system
+![DataFlow.jpg](assets/Census Data Processing.png)
+
 ---
 
 ## Current State (as of late May 2026)
@@ -36,6 +42,8 @@ over 20 years by hand and longed for the day computers could help. That day is h
 - Records with missing names are otherwise high quality — the gap is names only
 - MOMLOC and POPLOC fields in IPUMS already link parents to children withina household — 
   this is check completeness before building custom matching logic
+
+
 
 ---
 
@@ -210,7 +218,7 @@ Before building custom matching, audit how complete these IPUMS fields are:
 
 Processing is threaded. The number of workers is a command line parameter (1 is default).
 
-Two options  output available - One massive DB or many smaller DBs are written. 
+Two output options are available - One massive DB or many smaller DBs are written. 
 - One is easier to process family linkage across ten-year increments.
 - Multiple databases are smaller and each one is easier to read in the browser. 
 ---
