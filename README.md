@@ -30,7 +30,7 @@ over 20 years by hand and longed for the day computers could help. That day is h
 
 ## Current State (as of late May 2026)
 
-- Raw CSV files downloaded from IPUMS: 1850–1950, one file per census year
+- Raw CSV files downloaded from IPUMS: 1850–1950, one file per census year 
 - Files stored locally at: `E:\Storage\Census\IPUMS\Original`
 - SQLite databases created (one per decade): `D:\Data\Genealogy_Data`
 - Ingest pipeline working: approximately 8 hours to process all years
