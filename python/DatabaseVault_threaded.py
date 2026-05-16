@@ -44,11 +44,15 @@ import logging_local
 # TUNING KNOBS
 # ==============================================================================
 
-MAX_WORKERS = 1
-BATCH_SIZE = 100_000
+# Maximum number of concurrent threads (1 means sequential execution)
+MAX_WORKERS = 1 
+# Number of records to accumulate before executing a bulk database commit
+BATCH_SIZE = 100_000 
 
+# Toggle whether to split outputs by year or merge them all into one database
 MULTIPLE_DATABASE_FILES = True
 
+# Database configuration paths and defaults
 db_name1 = r"E:\Data\Genealogy_Data\MasterVault_"
 input_directory = r"E:\Census\IPUMS\Original"
 yr = 'ALL'
@@ -76,21 +80,26 @@ TARGET_COLUMNS = [
 
 
 def setup_database(db_path):
-    logging.info(f"Database set up: {db_path}")
-
     """
     Creates the population table and index in the single master database.
     Safe to call multiple times — IF NOT EXISTS protects against duplicates.
+    
+    Args:
+        db_path (str): The file path to the SQLite database to initialize.
     """
+    logging.info(f"Database set up: {db_path}")
+
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
     # Enable WAL mode so multiple threads can write without stomping on each other
     cursor.execute("PRAGMA journal_mode=WAL")
 
+    # Build the schema dynamically from the TARGET_COLUMNS list
     columns_sql = "composite_id TEXT PRIMARY KEY, "
     columns_sql += ", ".join([f"{col.lower()} TEXT" for col in TARGET_COLUMNS])
 
+    # Create the main table and a sample index for performance
     cursor.execute(f"CREATE TABLE IF NOT EXISTS population ({columns_sql})")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_last_name ON population (namelast)")
 
@@ -108,6 +117,13 @@ def ingest_to_vault(input_csv, db_path):
     Reads one CSV file and writes it into the shared master database.
     Missing columns are filled with NULL — no crash, no ERR values.
     Each thread opens its own connection (WAL mode makes this safe).
+    
+    Args:
+        input_csv (str): Path to the CSV file to be ingested.
+        db_path (str): Path to the target SQLite database.
+        
+    Returns:
+        tuple: (Total number of records processed, Elapsed time in minutes)
     """
     conn = sqlite3.connect(db_path)
 
@@ -116,6 +132,7 @@ def ingest_to_vault(input_csv, db_path):
 
     cursor = conn.cursor()
 
+    # Prepare the bulk insert SQL statement dynamically
     cols_string = "composite_id, " + ", ".join([col.lower() for col in TARGET_COLUMNS])
     placeholders = "?, " + ", ".join(["?"] * len(TARGET_COLUMNS))
     insert_query = f"INSERT OR IGNORE INTO population ({cols_string}) VALUES ({placeholders})"
@@ -134,6 +151,7 @@ def ingest_to_vault(input_csv, db_path):
         for row in reader:
             count += 1
 
+            # Extract identifiers to create a universally unique ID for the database
             serial = row.get('SERIAL', '').strip()
             pernum = row.get('PERNUM', '').strip()
 
@@ -143,6 +161,7 @@ def ingest_to_vault(input_csv, db_path):
             composite_id = f"{year}_{serial}_{pernum}_{count}"
 
             row_data = [composite_id]
+            # Map the CSV row data to our target schema, handling missing columns gracefully
             for col in TARGET_COLUMNS:
                 if col in available_cols:
                     try:
@@ -158,6 +177,7 @@ def ingest_to_vault(input_csv, db_path):
 
             batch.append(tuple(row_data))
 
+            # Execute a batch commit when the batch limit is reached
             if count % BATCH_SIZE == 0:
                 cursor.executemany(insert_query, batch)
                 conn.commit()
@@ -165,6 +185,7 @@ def ingest_to_vault(input_csv, db_path):
                 ts = datetime.datetime.now().strftime('%Y-%m-%d  %H:%M:%S')
                 logging.info(f"  [{os.path.basename(input_csv)}]  {count:,} records")
 
+        # Flush any remaining records that didn't fill the final batch
         if batch:
             cursor.executemany(insert_query, batch)
             conn.commit()
@@ -180,16 +201,25 @@ def ingest_to_vault(input_csv, db_path):
 # ==============================================================================
 
 def process_file(filename, input_directory):
-    global db_name1, yr
-
     """
     Called by the thread pool for each CSV file.
-    All files now write to the same MASTER_DB_PATH.
+    Handles routing the CSV file to the correct database (either single or split by year).
+    Records execution statistics for performance monitoring.
+    
+    Args:
+        filename (str): Name of the CSV file.
+        input_directory (str): The folder containing the CSV file.
+        
+    Returns:
+        dict: Summary statistics about the processed file.
     """
+    global db_name1, yr
 
     file_path = os.path.join(input_directory, filename)
 
+    # Determine destination database logic
     if MULTIPLE_DATABASE_FILES:
+        # Extract the year from standard census filenames (e.g., 'census-1850.csv')
         yr = filename.split('-')[1].split('.')[0] if '-' in filename else 'unknown'
         db_name = db_name1 + yr + ".db"
         setup_database(db_name)
@@ -198,16 +228,19 @@ def process_file(filename, input_directory):
 
     logging.info(f"\n--- [{filename}]  Thread starting → {db_name} ---")
 
+    # Snapshot hardware statistics prior to ingestion
     wall_start = time.time()
     cpu_before = psutil.Process().cpu_times()
     snap_before = vault_stats.get_system_snapshot()
 
+    # Perform the actual data ingestion
     record_count, elapsed_min = ingest_to_vault(file_path, db_name)
 
     wall_end = time.time()
     cpu_after = psutil.Process().cpu_times()
     snap_after = vault_stats.get_system_snapshot()
 
+    # Output performance differentials via custom stats module
     vault_stats.print_stats_report(
         label=f"File: {filename}",
         before=snap_before,
@@ -217,6 +250,7 @@ def process_file(filename, input_directory):
         cpu_times_after=cpu_after,
     )
 
+    # Calculate throughput metrics
     dtime = (wall_end - wall_start) * 1000
     rec_per_sec = record_count / dtime if dtime > 0 else 0
     logging.info(f"   record_count        : {record_count}")
@@ -239,6 +273,7 @@ def process_file(filename, input_directory):
 if __name__ == '__main__':
     logging_local.setup_logging()
 
+    # Set up command-line arguments to override tuning knobs dynamically
     parser = argparse.ArgumentParser(description="Ingest census CSVs into SQLite vaults.")
     parser.add_argument(
         "--workers", "-w",
@@ -267,7 +302,7 @@ if __name__ == '__main__':
         db_name = db_name1 + r"ALL.db"
         setup_database(db_name)
 
-    # Collect every CSV in the input directory
+    # Scan the input directory and gather all CSV files
     csv_files = [f for f in os.listdir(input_directory) if f.endswith(".csv")]
 
     # --- NEW: cap the list if --files was specified ---
@@ -295,6 +330,7 @@ if __name__ == '__main__':
             fname = future_to_file[future]
             try:
                 thread_id += 1
+                # Extract results from the completed thread.
                 result = future.result()  # re-raises any exception from the thread
                 results.append(result)
                 logging.info(f"thread_id {thread_id} {threading.current_thread().name} complete")
@@ -311,12 +347,14 @@ if __name__ == '__main__':
     logging.info(f"  {'Year':<8}  {'Records':>12}  {'Minutes':>8} {'Rec_per_MS':>11}  {'File'}")
     logging.info(f"  {'-' * 8}  {'-' * 12}  {'-' * 8}  {'-' * 11}  {'-' * 15}")
 
+    # Print per-file metrics, sorted chronologically by year
     for r in sorted(results, key=lambda x: x["year"]):
         ms = r["elapsed_min"] * 60_000.0
         rec_per_ms = r["records"] / ms if ms > 0 else 0.0
         logging.info(
             f"  {r['year']:<8}  {r['records']:>12,}  {r['elapsed_min']:>8.2f}  {rec_per_ms:>10.2f}  {r['filename']}")
 
+    # Capture global runtime telemetry across the whole job session
     total_records = sum(r["records"] for r in results)
     session_wall_end = time.time()
     session_cpu_after = psutil.Process().cpu_times()
