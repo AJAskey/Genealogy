@@ -158,7 +158,7 @@ def ingest_to_vault(input_csv, db_path):
             # Include the year in the composite_id so records from different
             # census years never collide even if SERIAL/PERNUM repeat.
             year = row.get('YEAR', 'UNKN').strip()
-            composite_id = f"{year}_{serial}_{pernum}_{count}"
+            composite_id = f"{sample}_{serial}_{pernum}_{count}"
 
             row_data = [composite_id]
             # Map the CSV row data to our target schema, handling missing columns gracefully

@@ -1,7 +1,7 @@
 """
 build_codebook.py
 
-Parses an IPUMS basic .txt file and builds a codebook.db SQLite database.
+Parses an IPUMS basic.txt file and builds a codebook.db SQLite database.
 Tables:
     variables  -- variable name + description
     codes      -- variable, code, label  (meaningful entries only)

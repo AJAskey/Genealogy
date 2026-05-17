@@ -9,7 +9,7 @@
 ## Project Goal
 
 Convert USA census data (1850–1950) into a validated GEDCOM file
-suitable for genealogy for sharing with family. The pipeline must
+suitable for family tree and sharing with family. The pipeline must
 handle ~281 million records across 10 census years, resolve unnamed
 individuals using scoring logic, and produce a family tree with proper
 source citations.
@@ -24,7 +24,7 @@ over 20 years by hand and longed for the day computers could help. That day is h
 ---
 
 ## Data flow of the system
-![Census Data Processing.png](assets/Census Data Processing.png)
+![Census Data Processing.png](design/Census Data Processing.png)
 
 ---
 
@@ -94,9 +94,15 @@ the moment a match is approved.
 - Use a simple sequential integer starting at 1
 - Stored in as part of the Origin ID below.
 
-**Critical:** Origin ID must be at the PERSON level (YEAR + SERIAL + PERNUM + ID integer),
+**Critical:** Origin ID must be at the PERSON level and a composite of  (SAMPLE + SERIAL + PERNUM + ID integer),
 not the household level. Households split and merge across decades.
-The incremental ID points to the line in the CSV file if one ever needs to go back and reference where the data came from. 
+The incremental ID points to the line in the CSV file if one ever needs to go back and reference where the data came from.
+SAMPLE identifies the IPUMS sample from which the case is drawn. Each sample receives a unique 6-digit code. 
+The codes are structured as follows:
+The first four digits are the year of the census/survey.
+The next two digits identify the sample within the year.
+
+composite_id = sample_serial_pernum}_{count}
 
 ### Decision 5: Citation Tracking
 
@@ -105,13 +111,13 @@ and provides protection if IPUMS data use questions arise later.
 
 Citation table structure:
 ```
-PersonID  | Source   | SourceDetail                   | CensusYear | SERIAL | PERNUM
-100042    | IPUMS    | census-1880.csv, row 4,521,307  | 1880       | 12345  | 3
-100042    | Ancestry | Death Certificate, Cook Co. IL  | 1923       | --     | --
-```
+PersonID  | Source   | SourceDetail                   
+191001_12345_1_1356    | IPUMS    | census-1880.csv, row 4,521,307  
+192001_12345_1_1691    | Ancestry | Death Certificate, Cook Co. IL ```
 
 If IPUMS data use agreement becomes a concern, citations can be switched to reference the primary source 
 (US Federal Census, National Archives) instead of IPUMS directly. The family tree structure is unaffected either way.
+```
 
 ---
 
@@ -212,13 +218,13 @@ Before building custom matching, audit how complete these IPUMS fields are:
 
 - `MOMLOC` — person number of mother within household
 - `POPLOC` — person number of father within household
-- `SPLOC` — person number of spouse within household
+- `SPLOC`  — person number of spouse within household
 
 ### Threading / Concurrency
 
 Processing is threaded. The number of workers is a command line parameter (1 is default).
 
-Two output options are available - One massive DB or many smaller DBs are written. 
+Two output options available - One massive DB or many smaller DBs are written. 
 - One is easier to process family linkage across ten-year increments.
 - Multiple databases are smaller and each one is easier to read in the browser. 
 ---
