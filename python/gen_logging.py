@@ -24,7 +24,7 @@ import os
 
 def setup_logging(log_dir=r"D:\Data\Genealogy_Data\Logs"):
     """
-    Call this once at session start (from DatabaseVault_threaded.py __main__).
+    Call this once at session start (from DatabaseVault.py __main__).
 
     Creates two handlers:
       1. StreamHandler  → console (same output you've always seen)

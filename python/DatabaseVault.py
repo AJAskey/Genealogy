@@ -1,6 +1,6 @@
 """
 -----------------------------------
-File: DatabaseVault_threaded.py
+File: DatabaseVault.py
 
 Summary: Creates a Database for each year of census data, using a
          thread pool so multiple CSV files are ingested in parallel.
