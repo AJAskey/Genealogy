@@ -1,6 +1,6 @@
 """
 -----------------------------------
-File: logging_local.py
+File: gen_logging.py
 
 Summary:  Set up logging in the Genealogy project.
 
@@ -14,7 +14,7 @@ Outputs:
 
 """
 import datetime
-import logging
+import  logging
 import os
 
 

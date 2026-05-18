@@ -22,10 +22,8 @@ import platform
 import time
 import psutil
 
-import logging_local
+import gen_logging
 
-def setup_logging():
-    logging_local.setup_logging()
 
 # ==============================================================================
 # STATS HELPERS
@@ -192,7 +190,7 @@ def print_stats_report(label, before, after, wall_seconds, cpu_times_before, cpu
 
 if __name__ == '__main__':
     # ---- Quick self-test when run directly ----------------------------------
-    setup_logging()   # logs to console + file when run standalone
+    gen_logging.setup_logging()   # logs to console + file when run standalone
 
     now = datetime.datetime.now()
     current_time = now.strftime("%H:%M:%S")

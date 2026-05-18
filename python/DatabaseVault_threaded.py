@@ -37,24 +37,25 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import psutil
 
+import gen_logging
+
 import vault_stats
-import logging_local
 
 # ==============================================================================
 # TUNING KNOBS
 # ==============================================================================
 
 # Maximum number of concurrent threads (1 means sequential execution)
-MAX_WORKERS = 1 
+MAX_WORKERS = 1
 # Number of records to accumulate before executing a bulk database commit
-BATCH_SIZE = 100_000 
+BATCH_SIZE = 100_000
 
 # Toggle whether to split outputs by year or merge them all into one database
 MULTIPLE_DATABASE_FILES = True
 
 # Database configuration paths and defaults
-db_name1 = r"E:\Data\Genealogy_Data\MasterVault_"
-input_directory = r"E:\Census\IPUMS\Original"
+db_name1 = r"d:\Data\Genealogy_Data\MasterVault_"
+input_directory = r"D:\Data\Genealogy_Data\CSV"
 yr = 'ALL'
 #
 # ==============================================================================
@@ -67,10 +68,10 @@ yr = 'ALL'
 # ==============================================================================
 
 TARGET_COLUMNS = [
-    "YEAR", "SAMPLE", "SERIAL", "PERNUM", "NUMPREC", "HHTYPE", "STATEICP", "COUNTYICP", "CITY",
-    "FARM", "NMOTHERS", "NFATHERS", "FAMUNIT", "FAMSIZE", "MOMLOC", "MOMRULE_HIST", "POPLOC",
-    "POPRULE_HIST", "SPLOC", "SPRULE_HIST", "NCHILD", "NSIBS", "ELDCH", "YNGCH", "RELATED", "SEX", "AGE",
-    "BIRTHYR", "RACED", "BPLD", "NAMELAST", "NAMEFRST", "HISTID"
+    "YEAR", "SAMPLE", "SERIAL", "NUMPREC", "HHTYPE", "STATEICP", "COUNTYICP", "METAREAD",
+    "CITY", "FARM", "NMOTHERS", "NFATHERS", "PERNUM", "FAMUNIT", "FAMSIZE", "MOMLOC",
+    "MOMRULE_HIST", "POPLOC", "POPRULE_HIST", "SPLOC", "SPRULE_HIST", "NCHILD", "NSIBS", "ELDCH", "YNGCH",
+    "RELATED", "SEX", "AGE", "BIRTHYR", "RACED", "BPLD", "VERSIONHIST", "NAMELAST", "NAMEFRST", "HISTID"
 ]
 
 
@@ -154,6 +155,7 @@ def ingest_to_vault(input_csv, db_path):
             # Extract identifiers to create a universally unique ID for the database
             serial = row.get('SERIAL', '').strip()
             pernum = row.get('PERNUM', '').strip()
+            sample = row.get('SAMPLE', '').strip()
 
             # Include the year in the composite_id so records from different
             # census years never collide even if SERIAL/PERNUM repeat.
@@ -271,7 +273,9 @@ def process_file(filename, input_directory):
 # ==============================================================================
 
 if __name__ == '__main__':
-    logging_local.setup_logging()
+    # ---- Set up logging FIRST so every line below goes to file + console ----
+    gen_logging.setup_logging()   # logs to console + file when run standalone
+
 
     # Set up command-line arguments to override tuning knobs dynamically
     parser = argparse.ArgumentParser(description="Ingest census CSVs into SQLite vaults.")
@@ -289,8 +293,6 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
     MAX_WORKERS = args.workers
-    # ---- Set up logging FIRST so every line below goes to file + console ----
-    vault_stats.setup_logging()
 
     vault_stats.print_session_header()
     session_wall_start = time.time()

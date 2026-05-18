@@ -7,7 +7,7 @@ import csv
 from pathlib import Path
 
 # ── Configuration ──────────────────────────────────────────────────────────
-CSV_FOLDER = r"E:\Census\IPUMS\Original"
+CSV_FOLDER = r"E:\Census\IPUMS\Downloads"
 DRY_RUN    = False   # Start True to preview, then change to False to rename
 # ──────────────────────────────────────────────────────────────────────────
 
