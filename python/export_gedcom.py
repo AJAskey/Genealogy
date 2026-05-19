@@ -23,6 +23,8 @@ import datetime
 import os
 import argparse
 
+from python.project_globals import CODEBOOK
+
 # ==============================================================================
 # CONFIGURATION
 # ==============================================================================
@@ -158,6 +160,7 @@ def export_to_gedcom(db_path, output_path, limit=None):
                     has_husb = True
 
             elif relate.startswith('3') or relate == '0300':
+                state = CODEBOOK.get_code_value("RELATED", relate)
                 fam_records[short_fam_id].append(f"1 CHIL {short_indi_id}\n")
                 indi_links[short_indi_id].append(f"1 FAMC {short_fam_id}\n")
             else:
@@ -248,7 +251,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Export database to GEDCOM")
     parser.add_argument("--db", default=DEFAULT_DB, help="Path to SQLite database")
     parser.add_argument("--out", default=OUTPUT_GED, help="Output GEDCOM file path")
-    parser.add_argument("--limit", type=int, default=12500, help="Max number of HOUSEHOLDS to export for testing")
+    parser.add_argument("--limit", type=int, default=100, help="Max number of HOUSEHOLDS to export for testing")
     args = parser.parse_args()
 
     export_to_gedcom(args.db, args.out, args.limit)
