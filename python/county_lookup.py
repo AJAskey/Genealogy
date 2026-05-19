@@ -110,7 +110,7 @@ class CountyByCode:
         Returns a formatted string like "Douglas County, Colorado",
         or None if the code pair is not found.
 
-        Args:
+        Args:I'm updating the log files to go to the output directory. They went to another directory for some reason. I don't know why. But their kind of special spot is the output directory, so I'll put the log files there. So you can look at them any time you want.
             stateicp:  The STATEICP value from your database row  (e.g. 62)
             countyicp: The COUNTYICP value from your database row (e.g. 350)
         """

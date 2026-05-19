@@ -52,7 +52,7 @@ def main():
     folder = Path(CSV_FOLDER)
     
     # Get a sorted list of all CSV files in the folder
-    files  = sorted(folder.glob("*.csv"))
+    files  = sorted(folder.glob("usa*.csv"))
     print(f"Found {len(files)} CSV files")
     print(f"Mode: {'DRY RUN' if DRY_RUN else 'LIVE'}\n")
 

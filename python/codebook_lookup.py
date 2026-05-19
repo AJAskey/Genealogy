@@ -1,19 +1,18 @@
-"""
-codebook_lookup.py
 
-Simple helper to look up a label from the codebook.
-Load it once at the top of any script, call it anywhere.
+# codebook_lookup.py
+#
+# Simple helper to look up a label from the codebook.
+# Load it once at the top of any script, call it anywhere.
+#
+# Usage:
+#     from codebook_lookup import CodeBook
+#
+#     # cb = CodeBook(r"D:\Data\Genealogy_Data\codebook.json")
+#     cb.lookup("RACE", "2")        # --> "Black/African American"
+#     cb.lookup("STATEICP", "13")   # --> "New York"
+#     cb.lookup("SEX", "1")         # --> "Male"
+#     cb.lookup("RACE", "99")       # --> None  (not found)
 
-Usage:
-    from codebook_lookup import CodeBook
-
-    cb = CodeBook(r"D:\Data\Genealogy_Data\codebook.json")
-
-    cb.lookup("RACE", "2")        # --> "Black/African American"
-    cb.lookup("STATEICP", "13")   # --> "New York"
-    cb.lookup("SEX", "1")         # --> "Male"
-    cb.lookup("RACE", "99")       # --> None  (not found)
-"""
 
 import json
 from pathlib import Path

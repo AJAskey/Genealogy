@@ -22,7 +22,7 @@ import os
 # LOGGING SETUP
 # ==============================================================================
 
-def setup_logging(log_dir=r"D:\Data\Genealogy_Data\Logs"):
+def setup_logging(log_dir=r"E:\Users\Andy\PycharmProjects\Genealogy\output"):
     """
     Call this once at session start (from DatabaseVault.py __main__).
 
@@ -58,10 +58,11 @@ def setup_logging(log_dir=r"D:\Data\Genealogy_Data\Logs"):
     # Formatter: no "INFO:root:" prefix — just the message, same as print()
     formatter = logging.Formatter(
         "%(asctime)s\n%(message)s -- %(module)s P%(process)d T%(thread)d %(threadName)s %(levelname)s")
+    con_formatter = logging.Formatter("%(asctime)s%(message)s  ")
 
     # Console handler (replaces what print() was doing)
     console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
+    console_handler.setFormatter(con_formatter)
     logger.addHandler(console_handler)
 
     # File handler

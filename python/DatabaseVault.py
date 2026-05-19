@@ -33,12 +33,11 @@ import os
 import sqlite3
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed, ProcessPoolExecutor
 
 import psutil
 
 import gen_logging
-
 import vault_stats
 
 # ==============================================================================
@@ -57,6 +56,7 @@ MULTIPLE_DATABASE_FILES = True
 db_name1 = r"d:\Data\Genealogy_Data\MasterVault_"
 input_directory = r"D:\Data\Genealogy_Data\CSV"
 yr = 'ALL'
+CENSUS_FILE_PREFIX = "census-1900"
 #
 # ==============================================================================
 # >>> SINGLE DATABASE PATH  ← change this to wherever you want the file <<<
@@ -68,10 +68,10 @@ yr = 'ALL'
 # ==============================================================================
 
 TARGET_COLUMNS = [
-    "YEAR", "SAMPLE", "SERIAL", "NUMPREC", "HHTYPE", "STATEICP", "COUNTYICP", "METAREAD",
-    "CITY", "FARM", "NMOTHERS", "NFATHERS", "PERNUM", "FAMUNIT", "FAMSIZE", "MOMLOC",
+    "YEAR", "SAMPLE", "SERIAL", "PERNUM", "NUMPREC", "BIRTHYR", "AGE", "SEX", "HHTYPE", "STATEICP", "COUNTYICP",
+    "METAREAD", "CITY", "FARM", "NMOTHERS", "NFATHERS", "FAMUNIT", "FAMSIZE", "MOMLOC",
     "MOMRULE_HIST", "POPLOC", "POPRULE_HIST", "SPLOC", "SPRULE_HIST", "NCHILD", "NSIBS", "ELDCH", "YNGCH",
-    "RELATED", "SEX", "AGE", "BIRTHYR", "RACED", "BPLD", "VERSIONHIST", "NAMELAST", "NAMEFRST", "HISTID"
+    "RELATED", "RACED", "BPLD", "NAMELAST", "NAMEFRST", "HISTID"
 ]
 
 
@@ -274,8 +274,7 @@ def process_file(filename, input_directory):
 
 if __name__ == '__main__':
     # ---- Set up logging FIRST so every line below goes to file + console ----
-    gen_logging.setup_logging()   # logs to console + file when run standalone
-
+    gen_logging.setup_logging()  # logs to console + file when run standalone
 
     # Set up command-line arguments to override tuning knobs dynamically
     parser = argparse.ArgumentParser(description="Ingest census CSVs into SQLite vaults.")
@@ -305,7 +304,7 @@ if __name__ == '__main__':
         setup_database(db_name)
 
     # Scan the input directory and gather all CSV files
-    csv_files = [f for f in os.listdir(input_directory) if f.endswith(".csv")]
+    csv_files = [f for f in os.listdir(input_directory) if (f.startswith(CENSUS_FILE_PREFIX) and f.endswith(".csv"))]
 
     # --- NEW: cap the list if --files was specified ---
     if args.files is not None:
@@ -319,7 +318,8 @@ if __name__ == '__main__':
     # ThreadPoolExecutor works just like Java's ExecutorService.
     # submit() hands a job to the pool and returns a Future.
     # as_completed() yields each Future as it finishes (not in submission order).
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="CensusWorker") as executor:
+    with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        # with ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="CensusWorker") as executor:
 
         # Submit all jobs up front; the pool throttles to MAX_WORKERS at a time
         future_to_file = {
