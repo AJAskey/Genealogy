@@ -3,4 +3,11 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.14" />
   </component>
+  <component name="StyledComponentsInjections">
+    <option name="prefixes">
+      <array>
+        <option value="" />
+      </array>
+    </option>
+  </component>
 </project>

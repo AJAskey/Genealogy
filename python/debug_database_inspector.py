@@ -45,7 +45,6 @@ def inspect_database(db_path, output_path, limit=100, **filters):
     # Connect to the database
     logging.info(f"Connecting to database: {db_path}")
     conn = sqlite3.connect(db_path)
-    # Use sqlite3.Row to access columns by name (like a dictionary)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -98,7 +97,16 @@ def inspect_database(db_path, output_path, limit=100, **filters):
 
             # County
             county_code = str(row['countyicp']).strip() if row['countyicp'] else ""
-            county_value = COUNTY_LOOKUP.get(county_code, "Unknown County")
+            
+            # The COUNTY_LOOKUP JSON is grouped by state names, so we need to:
+            # 1. Get the state name (which we already have in state_value)
+            # 2. Get the dictionary of counties for that specific state
+            # 3. Look up the county code within that state's dictionary
+            county_value = "Unknown County"
+            if state_value and state_value in COUNTY_LOOKUP:
+                state_counties = COUNTY_LOOKUP[state_value]
+                county_value = state_counties.get(county_code, "Unknown County")
+
             f.write(f"  COUNTY:   {county_code:<5} -> {county_value}\n")
 
             # Race (RACED)
@@ -134,7 +142,7 @@ if __name__ == '__main__':
     # Set up basic logging to see progress
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
-    # --- This is where you can define your filters ---
+    # --- You can define your filters here ---
     # The script will build a WHERE clause from these key-value pairs.
     # You can add, remove, or comment out lines as needed.
     # Using '%' as a wildcard is supported.

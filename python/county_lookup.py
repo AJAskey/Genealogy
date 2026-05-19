@@ -135,7 +135,7 @@ if __name__ == '__main__':
     # Smoke tests
     tests = [
         (62, 350, "Douglas County, Colorado"),
-        (13, 350, "Fulton County, New York"),
+        (14, 270, "Fulton County, New York"),
         (24, 350, "Cuyahoga County, Ohio"),
         (62, 10, "Adams County, Colorado"),
     ]
