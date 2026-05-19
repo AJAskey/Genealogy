@@ -8,7 +8,9 @@ from pathlib import Path
 
 # ── Configuration ─────────────────────────────────────────────────────────
 TXT_FOLDER = r"E:\Census\IPUMS\Downloads\Basic"
-DRY_RUN    = False   # Start True to preview, then flip to False
+DRY_RUN = False  # Start True to preview, then flip to False
+
+
 # ──────────────────────────────────────────────────────────────────────────
 
 
@@ -27,7 +29,7 @@ def detect_year(filepath: Path) -> str | None:
 
 
 def main():
-    folder    = Path(TXT_FOLDER)
+    folder = Path(TXT_FOLDER)
     txt_files = sorted(folder.glob("*.txt"))
 
     if not txt_files:

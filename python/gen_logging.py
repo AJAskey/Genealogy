@@ -14,8 +14,9 @@ Outputs:
 
 """
 import datetime
-import  logging
+import logging
 import os
+
 
 # ==============================================================================
 # LOGGING SETUP

@@ -17,19 +17,19 @@ import sqlite3
 from pathlib import Path
 
 # ── Configuration ──────────────────────────────────────────────────────────────
-BASIC_FILE   = r"E:\Census\IPUMS\Downloads\Basic\basic-1910.txt"
-CODEBOOK_DB  = r"D:\Data\Genealogy_Data\codebook.db"
-VERBOSE      = True   # Print progress as it runs
+BASIC_FILE = r"E:\Census\IPUMS\Downloads\Basic\basic-1910.txt"
+CODEBOOK_DB = r"D:\Data\Genealogy_Data\codebook.db"
+VERBOSE = True  # Print progress as it runs
 # ───────────────────────────────────────────────────────────────────────────────
 
 
 # Matches a variable header line:  VARNAME    Some description text
 # Variable names are all caps, no spaces, start at column 0
-VAR_HEADER   = re.compile(r'^([A-Z][A-Z0-9_]+)\s{2,}(.+)$')
+VAR_HEADER = re.compile(r'^([A-Z][A-Z0-9_]+)\s{2,}(.+)$')
 
 # Matches a code line:  123    Some label text
 # Code is digits/letters at start of line, followed by 2+ spaces, then label
-CODE_LINE    = re.compile(r'^(\S+)\s{2,}(.+)$')
+CODE_LINE = re.compile(r'^(\S+)\s{2,}(.+)$')
 
 
 def is_tautology(code: str, label: str) -> bool:
@@ -52,7 +52,7 @@ def parse_basic_file(filepath: Path) -> dict:
     Parse the basic .txt file into a dict:
         { varname: { 'description': str, 'codes': { code: label } } }
     """
-    variables   = {}
+    variables = {}
     current_var = None
 
     with open(filepath, "r", encoding="utf-8", errors="replace") as f:
@@ -68,7 +68,7 @@ def parse_basic_file(filepath: Path) -> dict:
             var_match = VAR_HEADER.match(line)
             if var_match and not line.startswith(' '):
                 varname = var_match.group(1)
-                desc    = var_match.group(2).strip()
+                desc = var_match.group(2).strip()
 
                 # Skip the file header pseudo-variables
                 if varname in ('Variable', 'RECTYPE', 'All'):
@@ -96,7 +96,7 @@ def parse_basic_file(filepath: Path) -> dict:
             # Try to match a code line (may be indented)
             code_match = CODE_LINE.match(line.lstrip())
             if code_match:
-                code  = code_match.group(1).strip()
+                code = code_match.group(1).strip()
                 label = code_match.group(2).strip()
 
                 # Skip tautologies
@@ -119,7 +119,7 @@ def filter_variables(variables: dict) -> dict:
     pure numeric sequences with no labels.
     """
     filtered = {}
-    skipped  = []
+    skipped = []
 
     for varname, data in variables.items():
         if data['codes']:
@@ -146,28 +146,30 @@ def build_database(variables: dict, db_path: Path) -> None:
         print(f"\nRemoved existing {db_path.name}")
 
     conn = sqlite3.connect(db_path)
-    cur  = conn.cursor()
+    cur = conn.cursor()
 
     # ── Create tables ──────────────────────────────────────────────────────────
     cur.executescript("""
-        CREATE TABLE variables (
-            varname     TEXT PRIMARY KEY,
-            description TEXT NOT NULL
-        );
+                      CREATE TABLE variables
+                      (
+                          varname     TEXT PRIMARY KEY,
+                          description TEXT NOT NULL
+                      );
 
-        CREATE TABLE codes (
-            varname     TEXT    NOT NULL,
-            code        TEXT    NOT NULL,
-            label       TEXT    NOT NULL,
-            PRIMARY KEY (varname, code),
-            FOREIGN KEY (varname) REFERENCES variables(varname)
-        );
+                      CREATE TABLE codes
+                      (
+                          varname TEXT NOT NULL,
+                          code    TEXT NOT NULL,
+                          label   TEXT NOT NULL,
+                          PRIMARY KEY (varname, code),
+                          FOREIGN KEY (varname) REFERENCES variables (varname)
+                      );
 
-        CREATE INDEX idx_codes_varname ON codes(varname);
-    """)
+                      CREATE INDEX idx_codes_varname ON codes (varname);
+                      """)
 
     # ── Insert data ────────────────────────────────────────────────────────────
-    var_count  = 0
+    var_count = 0
     code_count = 0
 
     for varname, data in variables.items():
@@ -194,7 +196,7 @@ def build_database(variables: dict, db_path: Path) -> None:
 
 def main():
     basic_path = Path(BASIC_FILE)
-    db_path    = Path(CODEBOOK_DB)
+    db_path = Path(CODEBOOK_DB)
 
     if not basic_path.exists():
         print(f"ERROR: File not found: {basic_path}")

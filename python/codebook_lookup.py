@@ -1,4 +1,3 @@
-
 # codebook_lookup.py
 #
 # Simple helper to look up a label from the codebook.
@@ -30,7 +29,6 @@ class CodeBook:
 
         print(f"Codebook loaded -- {len(self._data)} variables")
 
-
     def lookup(self, varname: str, code) -> str | None:
         """
         Return the label for a variable/code pair.
@@ -45,18 +43,15 @@ class CodeBook:
         label = var["codes"].get(str(code))
         return label
 
-
     def describe(self, varname: str) -> str | None:
         """Return the description of a variable.  e.g. 'Race [general version]'"""
         var = self._data.get(varname.upper())
         return var["description"] if var else None
 
-
     def all_codes(self, varname: str) -> dict | None:
         """Return the full code->label dict for a variable."""
         var = self._data.get(varname.upper())
         return var["codes"] if var else None
-
 
     def known_variables(self) -> list:
         """Return a sorted list of all variable names in the codebook."""

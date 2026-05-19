@@ -20,6 +20,7 @@ import datetime
 import logging
 import platform
 import time
+
 import psutil
 
 import gen_logging
@@ -71,14 +72,13 @@ def get_system_snapshot():
     except Exception:
         snapshot['disk_d_total_gb'] = None  # drive not present on this machine
 
-
     # Disk I/O counters — cumulative bytes read/written since boot.
     # We capture before & after so print_stats_report can show the delta.
     try:
-        io = psutil.disk_io_counters(perdisk=False)   # system-wide totals
-        snapshot['io_read_bytes']  = io.read_bytes
+        io = psutil.disk_io_counters(perdisk=False)  # system-wide totals
+        snapshot['io_read_bytes'] = io.read_bytes
         snapshot['io_write_bytes'] = io.write_bytes
-        snapshot['io_read_count']  = io.read_count
+        snapshot['io_read_count'] = io.read_count
         snapshot['io_write_count'] = io.write_count
     except Exception:
         snapshot['io_read_bytes'] = None
@@ -169,12 +169,12 @@ def print_stats_report(label, before, after, wall_seconds, cpu_times_before, cpu
 
     # Disk I/O throughput
     if before.get('io_read_bytes') is not None and after.get('io_read_bytes') is not None:
-        read_gb    = (after['io_read_bytes']  - before['io_read_bytes'])  / (1024 ** 3)
-        write_gb   = (after['io_write_bytes'] - before['io_write_bytes']) / (1024 ** 3)
-        read_ops   =  after['io_read_count']  - before['io_read_count']
-        write_ops  =  after['io_write_count'] - before['io_write_count']
-        elapsed    = after['snapshot_time']   - before['snapshot_time']
-        read_mbps  = (read_gb  * 1024) / elapsed if elapsed else 0
+        read_gb = (after['io_read_bytes'] - before['io_read_bytes']) / (1024 ** 3)
+        write_gb = (after['io_write_bytes'] - before['io_write_bytes']) / (1024 ** 3)
+        read_ops = after['io_read_count'] - before['io_read_count']
+        write_ops = after['io_write_count'] - before['io_write_count']
+        elapsed = after['snapshot_time'] - before['snapshot_time']
+        read_mbps = (read_gb * 1024) / elapsed if elapsed else 0
         write_mbps = (write_gb * 1024) / elapsed if elapsed else 0
         logging.info(f"\n  DISK I/O  (system-wide, all drives combined)")
         logging.info(f"    Data read      : {read_gb:,.2f} GB  ({read_mbps:,.1f} MB/s avg)")
@@ -190,7 +190,7 @@ def print_stats_report(label, before, after, wall_seconds, cpu_times_before, cpu
 
 if __name__ == '__main__':
     # ---- Quick self-test when run directly ----------------------------------
-    gen_logging.setup_logging()   # logs to console + file when run standalone
+    gen_logging.setup_logging()  # logs to console + file when run standalone
 
     now = datetime.datetime.now()
     current_time = now.strftime("%H:%M:%S")

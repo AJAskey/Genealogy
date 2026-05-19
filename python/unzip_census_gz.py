@@ -8,14 +8,16 @@ import shutil
 from pathlib import Path
 
 # ── Configuration ─────────────────────────────────────────────────────────
-GZ_FOLDER   = r"E:\Census\IPUMS\Downloads"
-DELETE_GZ   = False  # True = delete the .gz after successful extract
-DRY_RUN     = False  # Start True to preview, then flip to False
+GZ_FOLDER = r"E:\Census\IPUMS\Downloads"
+DELETE_GZ = False  # True = delete the .gz after successful extract
+DRY_RUN = False  # Start True to preview, then flip to False
+
+
 # ──────────────────────────────────────────────────────────────────────────
 
 
 def main():
-    folder   = Path(GZ_FOLDER)
+    folder = Path(GZ_FOLDER)
     gz_files = sorted(folder.glob("*.gz"))
 
     if not gz_files:

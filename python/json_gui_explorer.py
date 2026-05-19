@@ -1,7 +1,8 @@
-import tkinter as tk
-from tkinter import ttk, messagebox
 import json
 import os
+import tkinter as tk
+from tkinter import ttk, messagebox
+
 
 class JsonGuiExplorer:
     def __init__(self, root, initial_json_path):
@@ -19,7 +20,7 @@ class JsonGuiExplorer:
         # Top Frame for File Info
         top_frame = ttk.Frame(self.root, padding="10")
         top_frame.pack(fill=tk.X)
-        
+
         ttk.Label(top_frame, text="File:").pack(side=tk.LEFT)
         self.file_label = ttk.Label(top_frame, text=os.path.basename(self.current_path), font=("Arial", 10, "bold"))
         self.file_label.pack(side=tk.LEFT, padx=5)
@@ -39,7 +40,7 @@ class JsonGuiExplorer:
         # Left Side: Variable List
         left_frame = ttk.Frame(paned)
         paned.add(left_frame, weight=1)
-        
+
         ttk.Label(left_frame, text="Variables").pack(anchor=tk.W)
         self.var_listbox = tk.Listbox(left_frame)
         self.var_listbox.pack(fill=tk.BOTH, expand=True)
@@ -54,7 +55,7 @@ class JsonGuiExplorer:
         self.desc_text.pack(fill=tk.X, pady=5)
 
         ttk.Label(right_frame, text="Codes & Labels:").pack(anchor=tk.W)
-        
+
         # Treeview for Codes
         columns = ("code", "label")
         self.tree = ttk.Treeview(right_frame, columns=columns, show="headings", selectmode="browse")
@@ -62,10 +63,10 @@ class JsonGuiExplorer:
         self.tree.heading("label", text="Label")
         self.tree.column("code", width=100)
         self.tree.column("label", width=400)
-        
+
         scrollbar = ttk.Scrollbar(right_frame, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscroll=scrollbar.set)
-        
+
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
@@ -73,7 +74,8 @@ class JsonGuiExplorer:
         bottom_frame = ttk.Frame(self.root, padding="10")
         bottom_frame.pack(fill=tk.X)
 
-        self.export_btn = ttk.Button(bottom_frame, text="Export Selected to 'selection.txt'", command=self.export_selection)
+        self.export_btn = ttk.Button(bottom_frame, text="Export Selected to 'selection.txt'",
+                                     command=self.export_selection)
         self.export_btn.pack(side=tk.RIGHT)
         self.export_btn.config(state=tk.DISABLED)
 
@@ -93,7 +95,7 @@ class JsonGuiExplorer:
         var_name = self.var_listbox.get(var_selection[0])
 
         output_content = f"VARIABLE: {var_name}\nCODE: {code}\nLABEL: {label}\n"
-        
+
         try:
             with open("selection.txt", "w") as f:
                 f.write(output_content)
@@ -122,7 +124,7 @@ class JsonGuiExplorer:
         selection = self.var_listbox.curselection()
         if not selection:
             return
-        
+
         var_name = self.var_listbox.get(selection[0])
         details = self.json_data.get(var_name, {})
 
@@ -135,14 +137,15 @@ class JsonGuiExplorer:
         # Update Codes Tree
         for item in self.tree.get_children():
             self.tree.delete(item)
-        
+
         codes = details.get("codes", {})
         if isinstance(codes, dict):
             for code, label in sorted(codes.items()):
                 self.tree.insert("", tk.END, values=(code, label))
-        
+
         # Enable export button once list is loaded
         self.export_btn.config(state=tk.NORMAL)
+
 
 if __name__ == "__main__":
     root = tk.Tk()

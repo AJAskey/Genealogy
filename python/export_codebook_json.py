@@ -21,13 +21,15 @@ import sqlite3
 from pathlib import Path
 
 # ── Configuration ──────────────────────────────────────────────────────────────
-CODEBOOK_DB   = r"D:\Data\Genealogy_Data\codebook.db"
+CODEBOOK_DB = r"D:\Data\Genealogy_Data\codebook.db"
 CODEBOOK_JSON = r"E:\Users\Andy\PycharmProjects\Genealogy\JSON\codebook.json"
+
+
 # ───────────────────────────────────────────────────────────────────────────────
 
 
 def main():
-    db_path   = Path(CODEBOOK_DB)
+    db_path = Path(CODEBOOK_DB)
     json_path = Path(CODEBOOK_JSON)
 
     if not db_path.exists():
@@ -35,7 +37,7 @@ def main():
         return
 
     conn = sqlite3.connect(db_path)
-    cur  = conn.cursor()
+    cur = conn.cursor()
 
     # Pull all variables
     cur.execute("SELECT varname, description FROM variables ORDER BY varname")

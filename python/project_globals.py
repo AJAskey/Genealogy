@@ -14,9 +14,9 @@ Design:
     as module-level variables.
 --------------------------------
 """
-import os
 import json
 import logging
+import os
 
 # Assuming the Codebook class is in a file named codebook_lookup.py
 # in the same directory.
@@ -33,7 +33,7 @@ CODEBOOK_PATH = os.path.join(PROJECT_ROOT, 'JSON', 'codebook.json')
 COUNTY_LOOKUP_PATH = os.path.join(PROJECT_ROOT, 'JSON', 'county_codes_to_names.json')
 
 # We can also centralize other common paths here
-DEFAULT_DB = r"D:\Data\Genealogy_Data\MasterVault_1920.db"
+DEFAULT_DB = r"D:\Data\Genealogy_Data\MasterVault_1900.db"
 OUTPUT_REPORT = os.path.join(PROJECT_ROOT, 'output', 'database_inspection_report.txt')
 
 # --- Instantiate Global Objects ---

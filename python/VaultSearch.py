@@ -9,31 +9,31 @@ Usage:   Tweak the parameters below and run. That's it.
 -----------------------------------
 """
 
-import sqlite3
 import os
+import sqlite3
 
 # ==============================================================================
 # SEARCH PARAMETERS  ← change these and re-run
 # ==============================================================================
 
-YEAR        = 1880   # Which year's database to open
+YEAR = 1880  # Which year's database to open
 
-SEX         = 1      # 1=male, 2=female,        0=don't filter
-STATEICP    = 41     # state code (e.g. 41=PA),  0=don't filter
-COUNTYICP   = 0      # county code,              0=don't filter
-CITY        = 0      # city code,                0=don't filter
-FARM        = 0      # farm status code,         0=don't filter
-AGE         = 0      # exact age,                0=don't filter
-BIRTHYR     = 0      # birth year,               0=don't filter
-RACED       = 0      # race code,                0=don't filter
-BPLD        = 0      # birthplace code,          0=don't filter
-RELATED     = 0      # relationship code,        0=don't filter
-HHTYPE      = 0      # household type code,      0=don't filter
+SEX = 1  # 1=male, 2=female,        0=don't filter
+STATEICP = 41  # state code (e.g. 41=PA),  0=don't filter
+COUNTYICP = 0  # county code,              0=don't filter
+CITY = 0  # city code,                0=don't filter
+FARM = 0  # farm status code,         0=don't filter
+AGE = 0  # exact age,                0=don't filter
+BIRTHYR = 0  # birth year,               0=don't filter
+RACED = 0  # race code,                0=don't filter
+BPLD = 0  # birthplace code,          0=don't filter
+RELATED = 0  # relationship code,        0=don't filter
+HHTYPE = 0  # household type code,      0=don't filter
 
-NAMELAST    = ""     # last name,  ""=don't filter
-NAMEFRST    = ""     # first name, ""=don't filter
+NAMELAST = ""  # last name,  ""=don't filter
+NAMEFRST = ""  # first name, ""=don't filter
 
-MAX_RESULTS = 100    # cap results so console doesn't explode; 0=no limit
+MAX_RESULTS = 100  # cap results so console doesn't explode; 0=no limit
 
 # ==============================================================================
 # DATABASE PATH  ← adjust if your path changes
@@ -53,27 +53,27 @@ def build_query():
     Returns (query_string, params_tuple).
     """
     conditions = []
-    params     = []
+    params = []
 
     # Numeric filters — skip if zero
     numeric_fields = {
-        "sex"       : SEX,
-        "stateicp"  : STATEICP,
-        "countyicp" : COUNTYICP,
-        "city"      : CITY,
-        "farm"      : FARM,
-        "age"       : AGE,
-        "birthyr"   : BIRTHYR,
-        "raced"     : RACED,
-        "bpld"      : BPLD,
-        "related"   : RELATED,
-        "hhtype"    : HHTYPE,
+        "sex": SEX,
+        "stateicp": STATEICP,
+        "countyicp": COUNTYICP,
+        "city": CITY,
+        "farm": FARM,
+        "age": AGE,
+        "birthyr": BIRTHYR,
+        "raced": RACED,
+        "bpld": BPLD,
+        "related": RELATED,
+        "hhtype": HHTYPE,
     }
 
     for column, value in numeric_fields.items():
         if value != 0:
             conditions.append(f"{column} = ?")
-            params.append(str(value))   # stored as TEXT in the db
+            params.append(str(value))  # stored as TEXT in the db
 
     # Name filters — skip if empty string
     if NAMELAST.strip():
@@ -111,7 +111,7 @@ def run_search():
     print("=" * 80)
 
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row   # lets us access columns by name
+    conn.row_factory = sqlite3.Row  # lets us access columns by name
     cursor = conn.cursor()
 
     cursor.execute(query, params)
@@ -125,8 +125,8 @@ def run_search():
     # Print header
     print(f"  {'Last':<20} {'First':<15} {'Age':>4}  {'Sex':>3}  "
           f"{'State':>6}  {'County':>6}  {'BirthYr':>7}  Serial/Pernum")
-    print(f"  {'-'*20} {'-'*15} {'-'*4}  {'-'*3}  "
-          f"{'-'*6}  {'-'*6}  {'-'*7}  {'-'*15}")
+    print(f"  {'-' * 20} {'-' * 15} {'-' * 4}  {'-' * 3}  "
+          f"{'-' * 6}  {'-' * 6}  {'-' * 7}  {'-' * 15}")
 
     for row in rows:
         print(f"  {row['namelast']:<20} {row['namefrst']:<15} {row['age']:>4}  "
