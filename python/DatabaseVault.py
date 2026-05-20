@@ -33,7 +33,10 @@ import os
 import sqlite3
 import threading
 import time
-from concurrent.futures import as_completed, ProcessPoolExecutor
+from concurrent.futures import as_completed, ThreadPoolExecutor
+
+from genealogy_classes import Person
+from project_globals import CODEBOOK  # Import the global codebook
 
 import psutil
 
@@ -45,18 +48,28 @@ import vault_stats
 # ==============================================================================
 
 # Maximum number of concurrent threads (1 means sequential execution)
-MAX_WORKERS = 1
+MAX_WORKERS = 4
 # Number of records to accumulate before executing a bulk database commit
 BATCH_SIZE = 100_000
 
-# Toggle whether to split outputs by year or merge them all into one database
-MULTIPLE_DATABASE_FILES = True
+# Toggle whether to split outputs by year or merge them all into one database.
+# Set to False to build one massive MasterVault_ALL.db (ideal for cross-census queries)
+MULTIPLE_DATABASE_FILES = False
 
 # Database configuration paths and defaults
 db_name1 = r"d:\Data\Genealogy_Data\MasterVault_"
 input_directory = r"D:\Data\Genealogy_Data\CSV"
 yr = 'ALL'
-CENSUS_FILE_PREFIX = "census-1900"
+CENSUS_FILE_PREFIX = "census-1860"
+
+# Toggle to instantiate the Person object dynamically during ingest
+CREATE_PERSON_OBJECTS = True
+
+# Toggle to write a sample of the parsed CSV rows to a new file for visual inspection
+WRITE_DEBUG_CSV = True
+# Limit the debug CSV to a small number of rows so we don't duplicate 18 GB files!
+DEBUG_CSV_LIMIT = 5000
+DEBUG_OUTPUT_DIR = r"E:\Users\Andy\PycharmProjects\Genealogy\debug"
 #
 # ==============================================================================
 # >>> SINGLE DATABASE PATH  ← change this to wherever you want the file <<<
@@ -142,8 +155,25 @@ def ingest_to_vault(input_csv, db_path):
     count = 0
     start_time = time.time()
 
-    with open(input_csv, mode='r', errors='replace') as infile:
+    debug_file = None
+    debug_writer = None
+
+    # If the debug toggle is on, prepare a secondary CSV file for writing
+    if WRITE_DEBUG_CSV:
+        os.makedirs(DEBUG_OUTPUT_DIR, exist_ok=True)
+        debug_csv_path = os.path.join(DEBUG_OUTPUT_DIR, f"debug_{os.path.basename(input_csv)}")
+        logging.info(f"  [{os.path.basename(input_csv)}] Debug CSV enabled. Writing to: {debug_csv_path}")
+        # Open the debug file for writing. Always use UTF-8!
+        debug_file = open(debug_csv_path, mode='w', encoding='utf-8', newline='')
+
+    # Enforcing UTF-8 encoding per project Golden Rules
+    with open(input_csv, mode='r', encoding='utf-8', errors='replace') as infile:
         reader = csv.DictReader(infile, delimiter=',')
+
+        if WRITE_DEBUG_CSV and debug_file:
+            # Initialize the writer with the exact same headers we just read
+            debug_writer = csv.DictWriter(debug_file, fieldnames=reader.fieldnames)
+            debug_writer.writeheader()
 
         # Figure out which TARGET_COLUMNS actually exist in THIS csv file.
         # Any column missing from the file will just get None (stored as NULL).
@@ -151,6 +181,19 @@ def ingest_to_vault(input_csv, db_path):
 
         for row in reader:
             count += 1
+
+            # Write the row to our debug CSV file if we haven't hit the limit
+            if WRITE_DEBUG_CSV and debug_writer and count <= DEBUG_CSV_LIMIT:
+                debug_writer.writerow(row)
+
+            # Only create the Person object if the toggle is turned on
+            if CREATE_PERSON_OBJECTS:
+                # Create Person p by unpacking the DictReader's dictionary directly
+                # Pass the global CODEBOOK to enable rich, decoded logging
+                p = Person(codebook=CODEBOOK, **row)
+                # Log the decoded Person object for the first 5 records for debugging
+                if count <= 5:
+                    logging.info(f"\n{p}")
 
             # Extract identifiers to create a universally unique ID for the database
             serial = row.get('SERIAL', '').strip()
@@ -191,6 +234,10 @@ def ingest_to_vault(input_csv, db_path):
         if batch:
             cursor.executemany(insert_query, batch)
             conn.commit()
+
+    # Clean up the debug file gracefully if we opened it
+    if debug_file:
+        debug_file.close()
 
     conn.close()
     elapsed = round((time.time() - start_time) / 60, 2)
@@ -318,8 +365,7 @@ if __name__ == '__main__':
     # ThreadPoolExecutor works just like Java's ExecutorService.
     # submit() hands a job to the pool and returns a Future.
     # as_completed() yields each Future as it finishes (not in submission order).
-    with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        # with ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="CensusWorker") as executor:
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="CensusWorker") as executor:
 
         # Submit all jobs up front; the pool throttles to MAX_WORKERS at a time
         future_to_file = {
