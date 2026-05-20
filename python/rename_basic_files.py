@@ -6,8 +6,8 @@ Finds all .txt files, reads the year from the first line, renames to basic-YYYY.
 import re
 from pathlib import Path
 
-# ── Configuration ─────────────────────────────────────────────────────────
-TXT_FOLDER = r"E:\Census\IPUMS\Downloads\Basic"
+# ── Configuration ──────────────────────
+TXT_FOLDER = r"E:\temp\Downloads\basic-all.txt"
 DRY_RUN = False  # Start True to preview, then flip to False
 
 
@@ -30,7 +30,7 @@ def detect_year(filepath: Path) -> str | None:
 
 def main():
     folder = Path(TXT_FOLDER)
-    txt_files = sorted(folder.glob("*.txt"))
+    txt_files = sorted(folder.glob("usa*.txt"))
 
     if not txt_files:
         print("No .txt files found.")

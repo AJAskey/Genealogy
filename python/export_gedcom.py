@@ -215,13 +215,17 @@ def export_to_gedcom(db_path, output_path, limit=None):
                     f.write(f"2 PLAC {row['bpld']}\n")
 
             # --- Census (CENS) Event using the master source ---
-            year = str(row['year']).strip() if row['year'] else ""
-            age = str(row['age']).strip() if row['age'] else ""
-            serial = str(row['serial']).strip() if row['serial'] else ""
-            pernum = str(row['pernum']).strip() if row['pernum'] else ""
-            
+            year = str(row['year']).strip() if row.get('year') else ""
+            age = str(row['age']).strip() if row.get('age') else ""
+            serial = str(row['serial']).strip() if row.get('serial') else ""
+            pernum = str(row['pernum']).strip() if row.get('pernum') else ""
+            reel = str(row['reel']).strip() if row.get('reel') else ""
+            pageno = str(row['pageno']).strip() if row.get('pageno') else ""
+            line = str(row['line']).strip() if row.get('line') else ""
+            microseq = str(row['microseq']).strip() if row.get('microseq') else ""
+
             # Lookup state name for the PLAC field
-            state_code = str(row['stateicp']).strip() if row['stateicp'] else ""
+            state_code = str(row['stateicp']).strip() if row.get('stateicp') else ""
             state_name = CODEBOOK.get_code_value("STATEICP", state_code)
             place = state_name if state_name else "USA"
 
@@ -231,16 +235,25 @@ def export_to_gedcom(db_path, output_path, limit=None):
             if place:
                 f.write(f"2 PLAC {place}\n")
             f.write("2 SOUR @S1@\n")
-            if serial and pernum:
-                f.write(f"3 PAGE Serial: {serial}, Person: {pernum}\n")
+            
+            page_parts = []
+            if serial: page_parts.append(f"Serial: {serial}")
+            if pernum: page_parts.append(f"Person: {pernum}")
+            if reel: page_parts.append(f"Reel: {reel}")
+            if pageno: page_parts.append(f"Page: {pageno}")
+            if line: page_parts.append(f"Line: {line}")
+            if microseq: page_parts.append(f"Microseq: {microseq}")
+            
+            if page_parts:
+                f.write(f"3 PAGE {', '.join(page_parts)}\n")
+                
             if age:
                 f.write("3 DATA\n")
                 f.write(f"4 TEXT Age in census: {age}\n")
 
             # Instead of a custom tag, we use the universally compliant REFN tag
-            # REFN means "Reference Number" - exactly what a database ID is.
             f.write(f"1 REFN {comp_id_safe}\n")
-            f.write(f"2 TYPE IPUMS_COMPOSITE_ID\n")
+            f.write(f"2 TYPE ST_JOES_ID\n")
 
             if short_indi_id in indi_links:
                 for link in indi_links[short_indi_id]:

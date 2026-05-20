@@ -20,10 +20,11 @@ import os
 import sqlite3
 
 # Import the global objects from our new central module
-from project_globals import CODEBOOK, COUNTY_LOOKUP, OUTPUT_REPORT
+from project_globals import CODEBOOK, COUNTY_LOOKUP, PROJECT_ROOT
 
 # Define the path to the master database
 MASTER_DB_PATH = r"D:\Data\Genealogy_Data\MasterVault_ALL.db"
+ASKEY_REPORT_PATH = os.path.join(PROJECT_ROOT, 'output', 'askey_report.txt')
 
 # ==============================================================================
 # INSPECTION SCRIPT
@@ -154,8 +155,8 @@ if __name__ == '__main__':
 
     inspect_database(
         db_path=MASTER_DB_PATH,
-        output_path=OUTPUT_REPORT,
-        limit=100,
-        order_by="year ASC",
+        output_path=ASKEY_REPORT_PATH,
+        limit=10000, # Set a high limit to get all Askey records
+        order_by="year ASC, namelast ASC, namefrst ASC",
         **search_filters
     )

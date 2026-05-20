@@ -1,75 +1,35 @@
-"""
------------------------------------
-File: gen_logging.py
-
-Summary:  Set up logging in the Genealogy project.
-
-Design:
-
-Inputs:
-
-Outputs:
-
---------------------------------
-
-"""
-import datetime
 import logging
 import os
+from datetime import datetime
 
 
-# ==============================================================================
-# LOGGING SETUP
-# ==============================================================================
-
-def setup_logging(log_dir=r"E:\Users\Andy\PycharmProjects\Genealogy\output"):
-    """
-    Call this once at session start (from DatabaseVault.py __main__).
-
-    Creates two handlers:
-      1. StreamHandler  → console (same output you've always seen)
-      2. FileHandler    → timestamped .log file in log_dir
-
-    The log file is named like:
-        vault_2025-07-14_09-32-11.log
-
-    If log_dir doesn't exist it will be created automatically.
-    If something goes wrong creating the directory the log still goes to
-    the console — it won't crash the run.
-    """
-
-    # Build a timestamped filename
-    ts = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    log_filename = f"vault_{ts}.log"
-
-    # Make sure the log folder exists
-    try:
-        os.makedirs(log_dir, exist_ok=True)
-        log_path = os.path.join(log_dir, log_filename)
-    except Exception as e:
-        log_path = None
-        print(f"[WARNING] Could not create log directory '{log_dir}': {e}")
-        print("[WARNING] Logging to console only.")
-
-    # Root logger — INFO level so everything at INFO and above is captured
+def setup_logging(year="ALL"):
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 
-    # Formatter: no "INFO:root:" prefix — just the message, same as print()
-    formatter = logging.Formatter(
-        "%(asctime)s\n%(message)s -- %(module)s P%(process)d T%(thread)d %(threadName)s %(levelname)s")
-    con_formatter = logging.Formatter("%(asctime)s%(message)s  ")
+    # 1. Aggressively clear ALL existing root handlers to completely eliminate double logging.
+    # Some Python libraries sneakily attach a basic handler before setup_logging runs.
+    if logger.handlers:
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
 
-    # Console handler (replaces what print() was doing)
+    # 2. File Handler: Full date and time, extremely detailed for debugging
+    log_dir = r"E:\Users\Andy\PycharmProjects\Genealogy\output"
+    os.makedirs(log_dir, exist_ok=True)
+
+    time_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    log_filename = os.path.join(log_dir, f"vault_{year}_{time_str}.log")
+
+    file_handler = logging.FileHandler(log_filename, mode='w', encoding='utf-8')
+    file_formatter = logging.Formatter('%(asctime)s  %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+    file_handler.setFormatter(file_formatter)
+    logger.addHandler(file_handler)
+
+    # 3. Console Handler: Only Hours, Minutes, and Seconds for a cleaner screen
     console_handler = logging.StreamHandler()
-    console_handler.setFormatter(con_formatter)
+    # The datefmt="%H:%M:%S" strips the year, month, and day out of the console output
+    console_formatter = logging.Formatter('%(asctime)s  %(message)s', datefmt='%H:%M:%S')
+    console_handler.setFormatter(console_formatter)
     logger.addHandler(console_handler)
 
-    # File handler
-    if log_path:
-        file_handler = logging.FileHandler(log_path, encoding="utf-8")
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-        logging.info(f"  Log file  : {log_path}")
-
-    return log_path
+    logging.info("Logging successfully initialized.")

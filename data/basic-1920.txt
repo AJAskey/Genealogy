@@ -1,4 +1,4 @@
-Description: 1920 genealogy with samples
+Description: 1920 with samples
 Samples selected:
       1920 1%
             Note: 
@@ -22,36 +22,45 @@ Case Selection:               No
   CLUSTER                      H  32-44          13     X       .       
   STATEICP                     H  45-46           2     X       X       
   COUNTYICP                    H  47-50           4     X       X       
-  CITY                         H  51-54           4     X       X       
-  STRATA                       H  55-66          12     X       .       
-  GQ                           H  67              1     X       X       
-  FARM                         H  68              1     X       X       
-  NMOTHERS                     H  69              1     X       X       
-  NFATHERS                     H  70              1     X       X       
-  PERNUM                       P  71-74           4     X       X       
-  PERWT                        P  75-84          10     X       X       
-  FAMUNIT                      P  85-86           2     X       X       
-  FAMSIZE                      P  87-88           2     X       X       
-  MOMLOC                       P  89-90           2     X       X       
-  POPLOC                       P  91-92           2     X       X       
-  SPLOC                        P  93-94           2     X       X       
-  NCHILD                       P  95              1     X       X       
-  NSIBS                        P  96              1     X       X       
-  ELDCH                        P  97-98           2     X       X       
-  YNGCH                        P  99-100          2     X       X       
-  RELATE                       P 101-102          2     X       X       
-  RELATED                      P 103-106          4     X       X       
-  SEX                          P 107              1     X       X       
-  AGE                          P 108-110          3     X       X       
-  BIRTHYR                      P 111-114          4     X       X       
-  RACE                         P 115              1     X       X       
-  RACED                        P 116-118          3     X       X       
-  BPL                          P 119-121          3     X       X       
-  BPLD                         P 122-126          5     X       X       
-  VERSIONHIST                  P 127-128          2     .       X       
-  NAMELAST                     P 129-199         71     X       .       
-  NAMEFRST                     P 200-272         73     X       .       
-  HISTID                       P 273-308         36     .       X       
+  METAREA                      H  51-53           3     X       X       
+  METAREAD                     H  54-57           4     X       X       
+  CITY                         H  58-61           4     X       X       
+  STRATA                       H  62-73          12     X       .       
+  GQ                           H  74              1     X       X       
+  FARM                         H  75              1     X       X       
+  NMOTHERS                     H  76              1     X       X       
+  NFATHERS                     H  77              1     X       X       
+  REEL                         H  78-81           4     X       .       
+  PAGENO                       H  82-85           4     X       .       
+  LINE                         H  86-88           3     X       .       
+  MICROSEQ                     H  89              1     X       .       
+  PERNUM                       P  90-93           4     X       X       
+  PERWT                        P  94-103         10     X       X       
+  FAMUNIT                      P 104-105          2     X       X       
+  FAMSIZE                      P 106-107          2     X       X       
+  MOMLOC                       P 108-109          2     X       X       
+  MOMRULE_HIST                 P 110              1     X       X       
+  POPLOC                       P 111-112          2     X       X       
+  POPRULE_HIST                 P 113              1     X       X       
+  SPLOC                        P 114-115          2     X       X       
+  SPRULE_HIST                  P 116              1     X       X       
+  NCHILD                       P 117              1     X       X       
+  NSIBS                        P 118              1     X       X       
+  ELDCH                        P 119-120          2     X       X       
+  YNGCH                        P 121-122          2     X       X       
+  RELATE                       P 123-124          2     X       X       
+  RELATED                      P 125-128          4     X       X       
+  SEX                          P 129              1     X       X       
+  AGE                          P 130-132          3     X       X       
+  BIRTHYR                      P 133-136          4     X       X       
+  RACE                         P 137              1     X       X       
+  RACED                        P 138-140          3     X       X       
+  BPL                          P 141-143          3     X       X       
+  BPLD                         P 144-148          5     X       X       
+  VERSIONHIST                  P 149-150          2     .       X       
+  NAMELAST                     P 151-221         71     X       .       
+  NAMEFRST                     P 222-294         73     X       .       
+  HISTID                       P 295-330         36     .       X       
 
 Variable Availability Key:
 All Years X - available in this sample
@@ -622,6 +631,758 @@ COUNTYICP           County (ICPSR code, identifiable counties only)
 8200                
 8300                
 8400                
+
+METAREA             Metropolitan area (pre-2013 delineations, identifiable areas only) [general version]
+000                 Not identifiable or not in an MSA
+004                 Abilene, TX
+006                 Aguadilla, PR
+008                 Akron, OH
+012                 Albany, GA
+016                 Albany-Schenectady-Troy, NY
+020                 Albuquerque, NM
+022                 Alexandria, LA
+024                 Allentown-Bethlehem-Easton, PA/NJ
+028                 Altoona, PA
+032                 Amarillo, TX
+038                 Anchorage, AK
+040                 Anderson, IN
+044                 Ann Arbor, MI
+045                 Anniston, AL
+046                 Appleton-Oshkosh-Neenah, WI
+047                 Arecibo, PR
+048                 Asheville, NC
+050                 Athens, GA
+052                 Atlanta, GA
+056                 Atlantic City, NJ
+058                 Auburn-Opekika, AL
+060                 Augusta-Aiken, GA/SC
+064                 Austin, TX
+068                 Bakersfield, CA
+072                 Baltimore, MD
+073                 Bangor, ME
+074                 Barnstable-Yarmouth, MA
+076                 Baton Rouge, LA
+078                 Battle Creek, MI
+084                 Beaumont-Port Arthur-Orange, TX
+086                 Bellingham, WA
+087                 Benton Harbor, MI
+088                 Billings, MT
+092                 Biloxi-Gulfport, MS
+096                 Binghamton, NY
+100                 Birmingham, AL
+102                 Bloomington, IN
+104                 Bloomington-Normal, IL
+108                 Boise City, ID
+112                 Boston, MA/NH
+114                 Bradenton, FL
+115                 Bremerton, WA
+116                 Bridgeport, CT
+120                 Brockton, MA
+124                 Brownsville-Harlingen-San Benito, TX
+126                 Bryan-College Station, TX
+128                 Buffalo-Niagara Falls, NY
+130                 Burlington, NC
+131                 Burlington, VT
+132                 Canton, OH
+133                 Caguas, PR
+135                 Casper, WY
+136                 Cedar Rapids, IA
+140                 Champaign-Urbana-Rantoul, IL
+144                 Charleston-N. Charleston, SC
+148                 Charleston, WV
+152                 Charlotte-Gastonia-Rock Hill, NC/SC
+154                 Charlottesville, VA
+156                 Chattanooga, TN/GA
+158                 Cheyenne, WY
+160                 Chicago, IL
+162                 Chico, CA
+164                 Cincinnati-Hamilton, OH/KY/IN
+166                 Clarksville- Hopkinsville, TN/KY
+168                 Cleveland, OH
+172                 Colorado Springs, CO
+174                 Columbia, MO
+176                 Columbia, SC
+180                 Columbus, GA/AL
+184                 Columbus, OH
+188                 Corpus Christi, TX
+190                 Cumberland, MD/WV
+192                 Dallas-Fort Worth, TX
+193                 Danbury, CT
+195                 Danville, VA
+196                 Davenport, IA - Rock Island-Moline, IL
+200                 Dayton-Springfield, OH
+202                 Daytona Beach, FL
+203                 Decatur, AL
+204                 Decatur, IL
+208                 Denver-Boulder, CO
+212                 Des Moines, IA
+216                 Detroit, MI
+218                 Dothan, AL
+219                 Dover, DE
+220                 Dubuque, IA
+224                 Duluth-Superior, MN/WI
+228                 Dutchess Co., NY
+229                 Eau Claire, WI
+231                 El Paso, TX
+232                 Elkhart-Goshen, IN
+233                 Elmira, NY
+234                 Enid, OK
+236                 Erie, PA
+240                 Eugene-Springfield, OR
+244                 Evansville, IN/KY
+252                 Fargo-Morehead, ND/MN
+256                 Fayetteville, NC
+258                 Fayetteville-Springdale, AR
+260                 Fitchburg-Leominster, MA
+262                 Flagstaff, AZ/UT
+264                 Flint, MI
+265                 Florence, AL
+266                 Florence, SC
+267                 Fort Collins-Loveland, CO
+268                 Fort Lauderdale-Hollywood-Pompano Beach, FL
+270                 Fort Myers-Cape Coral, FL
+271                 Fort Pierce, FL
+272                 Fort Smith, AR/OK
+275                 Fort Walton Beach, FL
+276                 Fort Wayne, IN
+284                 Fresno, CA
+288                 Gadsden, AL
+290                 Gainesville, FL
+292                 Galveston-Texas City, TX
+297                 Glens Falls, NY
+298                 Goldsboro, NC
+299                 Grand Forks, ND
+300                 Grand Rapids, MI
+301                 Grand Junction, CO
+304                 Great Falls, MT
+306                 Greeley, CO
+308                 Green Bay, WI
+312                 Greensboro-Winston Salem-High Point, NC
+315                 Greenville, NC
+316                 Greenville-Spartenburg-Anderson, SC
+318                 Hagerstown, MD
+320                 Hamilton-Middleton, OH
+324                 Harrisburg-Lebanon--Carlisle, PA
+328                 Hartford-Bristol-Middleton- New Britain, CT
+329                 Hickory-Morganton, NC
+330                 Hattiesburg, MS
+332                 Honolulu, HI
+335                 Houma-Thibodoux, LA
+336                 Houston-Brazoria, TX
+340                 Huntington-Ashland, WV/KY/OH
+344                 Huntsville, AL
+348                 Indianapolis, IN
+350                 Iowa City, IA
+352                 Jackson, MI
+356                 Jackson, MS
+358                 Jackson, TN
+359                 Jacksonville, FL
+360                 Jacksonville, NC
+361                 Jamestown-Dunkirk, NY
+362                 Janesville-Beloit, WI
+366                 Johnson City-Kingsport--Bristol, TN/VA
+368                 Johnstown, PA
+371                 Joplin, MO
+372                 Kalamazoo-Portage, MI
+374                 Kankakee, IL
+376                 Kansas City, MO/KS
+380                 Kenosha, WI
+381                 Kileen-Temple, TX
+384                 Knoxville, TN
+385                 Kokomo, IN
+387                 LaCrosse, WI
+388                 Lafayette, LA
+392                 Lafayette-W. Lafayette, IN
+396                 Lake Charles, LA
+398                 Lakeland-Winterhaven, FL
+400                 Lancaster, PA
+404                 Lansing-E. Lansing, MI
+408                 Laredo, TX
+410                 Las Cruces, NM
+412                 Las Vegas, NV
+415                 Lawrence, KS
+420                 Lawton, OK
+424                 Lewiston-Auburn, ME
+428                 Lexington-Fayette, KY
+432                 Lima, OH
+436                 Lincoln, NE
+440                 Little Rock-N. Little Rock, AR
+441                 Long Branch-Asbury Park, NJ
+442                 Longview-Marshall, TX
+444                 Lorain-Elyria, OH
+448                 Los Angeles-Long Beach, CA
+452                 Louisville, KY/IN
+460                 Lubbock, TX
+464                 Lynchburg, VA
+468                 Macon-Warner Robins, GA
+472                 Madison, WI
+476                 Manchester, NH
+480                 Mansfield, OH
+484                 Mayaguez, PR
+488                 McAllen-Edinburg-Pharr-Mission, TX
+489                 Medford, OR
+490                 Melbourne-Titusville-Cocoa-Palm Bay, FL
+492                 Memphis, TN/AR/MS
+494                 Merced, CA
+500                 Miami-Hialeah, FL
+504                 Midland, TX
+508                 Milwaukee, WI
+512                 Minneapolis-St. Paul, MN
+514                 Missoula, MT
+516                 Mobile, AL
+517                 Modesto, CA
+519                 Monmouth-Ocean, NJ
+520                 Monroe, LA
+524                 Montgomery, AL
+528                 Muncie, IN
+532                 Muskegon-Norton Shores-Muskegon Heights, MI
+533                 Myrtle Beach, SC
+534                 Naples, FL
+535                 Nashua, NH
+536                 Nashville, TN
+540                 New Bedford, MA
+546                 New Brunswick-Perth Amboy-Sayreville, NJ
+548                 New Haven-Meriden, CT
+552                 New London-Norwich, CT/RI
+556                 New Orleans, LA
+560                 New York, NY-Northeastern NJ
+564                 Newark, OH
+566                 Newburgh-Middletown, NY
+572                 Norfolk-VA Beach--Newport News, VA
+576                 Norwalk, CT
+579                 Ocala, FL
+580                 Odessa, TX
+588                 Oklahoma City, OK
+591                 Olympia, WA
+592                 Omaha, NE/IA
+595                 Orange, NY
+596                 Orlando, FL
+599                 Owensboro, KY
+601                 Panama City, FL
+602                 Parkersburg-Marietta,WV/OH
+603                 Pascagoula-Moss Point, MS
+608                 Pensacola, FL
+612                 Peoria, IL
+616                 Philadelphia, PA/NJ
+620                 Phoenix, AZ
+628                 Pittsburgh, PA
+632                 Pittsfield, MA
+636                 Ponce, PR
+640                 Portland, ME
+644                 Portland, OR/WA
+645                 Portsmouth-Dover--Rochester, NH/ME
+646                 Poughkeepsie, NY
+648                 Providence-Fall River-Pawtucket, MA/RI
+652                 Provo-Orem, UT
+656                 Pueblo, CO
+658                 Punta Gorda, FL
+660                 Racine, WI
+664                 Raleigh-Durham, NC
+666                 Rapid City, SD
+668                 Reading, PA
+669                 Redding, CA
+672                 Reno, NV
+674                 Richland-Kennewick-Pasco, WA
+676                 Richmond-Petersburg, VA
+678                 Riverside-San Bernardino, CA
+680                 Roanoke, VA
+682                 Rochester, MN
+684                 Rochester, NY
+688                 Rockford, IL
+689                 Rocky Mount, NC
+692                 Sacramento, CA
+696                 Saginaw-Bay City-Midland, MI
+698                 St. Cloud, MN
+700                 St. Joseph, MO
+704                 St. Louis, MO/IL
+708                 Salem, OR
+712                 Salinas-Sea Side-Monterey, CA
+714                 Salisbury-Concord, NC
+716                 Salt Lake City-Ogden, UT
+720                 San Angelo, TX
+724                 San Antonio, TX
+732                 San Diego, CA
+736                 San Francisco-Oakland-Vallejo, CA
+740                 San Jose, CA
+744                 San Juan-Bayamon, PR
+746                 San Luis Obispo-Atascad-P Robles, CA
+747                 Santa Barbara-Santa Maria-Lompoc, CA
+748                 Santa Cruz, CA
+749                 Santa Fe, NM
+750                 Santa Rosa-Petaluma, CA
+751                 Sarasota, FL
+752                 Savannah, GA
+756                 Scranton-Wilkes-Barre, PA
+760                 Seattle-Everett, WA
+761                 Sharon, PA
+762                 Sheboygan, WI
+764                 Sherman-Davidson, TX
+768                 Shreveport, LA
+772                 Sioux City, IA/NE
+776                 Sioux Falls, SD
+780                 South Bend-Mishawaka, IN
+784                 Spokane, WA
+788                 Springfield, IL
+792                 Springfield, MO
+800                 Springfield-Holyoke-Chicopee, MA
+804                 Stamford, CT
+805                 State College, PA
+808                 Steubenville-Weirton,OH/WV
+812                 Stockton, CA
+814                 Sumter, SC
+816                 Syracuse, NY
+820                 Tacoma, WA
+824                 Tallahassee, FL
+828                 Tampa-St. Petersburg-Clearwater, FL
+832                 Terre Haute, IN
+836                 Texarkana, TX/AR
+840                 Toledo, OH/MI
+844                 Topeka, KS
+848                 Trenton, NJ
+852                 Tucson, AZ
+856                 Tulsa, OK
+860                 Tuscaloosa, AL
+864                 Tyler, TX
+868                 Utica-Rome, NY
+873                 Ventura-Oxnard-Simi Valley, CA
+875                 Victoria, TX
+876                 Vineland-Milville-Bridgetown, NJ
+878                 Visalia-Tulare-Porterville, CA
+880                 Waco, TX
+884                 Washington, DC/MD/VA
+888                 Waterbury, CT
+892                 Waterloo-Cedar Falls, IA
+894                 Wausau, WI
+896                 West Palm Beach-Boca Raton-Delray Beach, FL
+900                 Wheeling, WV/OH
+904                 Wichita, KS
+908                 Wichita Falls, TX
+914                 Williamsport, PA
+916                 Wilmington, DE/NJ/MD
+920                 Wilmington, NC
+924                 Worcester, MA
+926                 Yakima, WA
+927                 Yolo, CA
+928                 York, PA
+932                 Youngstown-Warren, OH/PA
+934                 Yuba City, CA
+936                 Yuma, AZ
+
+METAREAD            Metropolitan area (pre-2013 delineations, identifiable areas only) [detailed version]
+0000                Not identifiable or not in an MSA
+0040                Abilene, TX
+0060                Aguadilla, PR
+0080                Akron, OH
+0120                Albany, GA
+0160                Albany-Schenectady-Troy, NY
+0200                Albuquerque, NM
+0220                Alexandria, LA
+0240                Allentown-Bethlehem-Easton, PA/NJ
+0280                Altoona, PA
+0320                Amarillo, TX
+                    Anaheim-Santa Ana, CA  (See Los Angeles)
+0380                Anchorage, AK
+0400                Anderson, IN
+                    Anderson, SC (See Greenville)
+0440                Ann Arbor, MI
+0450                Anniston, AL
+0460                Appleton-Oshkosh-Neenah, WI
+0470                Arecibo, PR
+0480                Asheville, NC
+0500                Athens, GA
+0520                Atlanta, GA
+0560                Atlantic City, NJ
+0580                Auburn-Opelika, AL
+0600                Augusta-Aiken, GA/SC
+                    Aurora-Elgin, IL  (See Chicago)
+0640                Austin, TX
+0680                Bakersfield, CA
+0720                Baltimore, MD
+0730                Bangor, ME
+0740                Barnstable-Yarmouth, MA
+0760                Baton Rouge, LA
+0780                Battle Creek, MI
+                    Bay City, MI (See Saginaw)
+0840                Beaumont-Port Arthur-Orange, TX
+                    Beaver County, PA (See Pittsburgh)
+0860                Bellingham, WA
+0870                Benton Harbor, MI
+                    Bergen-Passaic, NY (See New York)
+0880                Billings, MT
+0920                Biloxi-Gulfport, MS
+0960                Binghamton, NY
+1000                Birmingham, AL
+1010                Bismarck, ND
+1020                Bloomington, IN
+1040                Bloomington-Normal, IL
+1080                Boise City, ID
+1120                Boston, MA
+1121                Lawrence-Haverhill, MA/NH
+1122                Lowell, MA/NH
+1123                Salem-Gloucester, MA
+                    Boulder, CO  (See Denver)
+1140                Bradenton, FL
+                    Brazoria, TX (See Houston)
+1150                Bremerton, WA
+1160                Bridgeport, CT
+                    Bristol, CT (See Hartford)
+1200                Brockton, MA
+1240                Brownsville-Harlingen-San Benito, TX
+1260                Bryan-College Station, TX
+1280                Buffalo-Niagara Falls, NY
+1281                Niagara Falls, NY
+1300                Burlington, NC
+1310                Burlington, VT
+1320                Canton, OH
+1330                Caguas, PR
+1350                Casper, WY
+1360                Cedar Rapids, IA
+1400                Champaign-Urbana-Rantoul, IL
+1440                Charleston-N. Charleston, SC
+1480                Charleston, WV
+1520                Charlotte-Gastonia-Rock Hill, SC
+1521                Rock Hill, SC
+1540                Charlottesville, VA
+1560                Chattanooga, TN/GA
+1580                Cheyenne, WY
+1600                Chicago-Gary-Lake, IL
+1601                Aurora-Elgin, IL
+1602                Gary-Hammond-East Chicago, IN
+1603                Joliet, IL
+1604                Lake County, IL
+1620                Chico, CA
+1640                Cincinnati, OH/KY/IN
+1660                Clarksville-Hopkinsville, TN/KY
+1680                Cleveland, OH
+1720                Colorado Springs, CO
+1740                Columbia, MO
+1760                Columbia, SC
+1800                Columbus, GA/AL
+1840                Columbus, OH
+1880                Corpus Christi, TX
+1900                Cumberland, MD/WV
+1920                Dallas-Fort Worth, TX
+1921                Fort Worth-Arlington, TX
+1930                Danbury, CT
+1950                Danville, VA
+1960                Davenport, IA - Rock Island-Moline, IL
+2000                Dayton-Springfield, OH
+2001                Springfield, OH
+2020                Daytona Beach, FL
+2030                Decatur, AL
+2040                Decatur, IL
+2080                Denver-Boulder-Longmont, CO
+2081                Boulder-Longmont, CO
+2120                Des Moines, IA
+2121                Polk, IA
+2160                Detroit, MI
+2180                Dothan, AL
+2190                Dover, DE
+2200                Dubuque, IA
+2240                Duluth-Superior, MN/WI
+2281                Dutchess Co., NY
+2290                Eau Claire, WI
+2310                El Paso, TX
+2320                Elkhart-Goshen, IN
+2330                Elmira, NY
+2340                Enid, OK
+2360                Erie, PA
+2400                Eugene-Springfield, OR
+2440                Evansville, IN/KY
+                    Fall River, MA  (See Providence)
+2520                Fargo-Morehead, ND/MN
+2560                Fayetteville, NC
+2580                Fayetteville-Springdale, AR
+2600                Fitchburg-Leominster, MA
+2620                Flagstaff, AZ/UT
+2640                Flint, MI
+2650                Florence, AL
+2660                Florence, SC
+2670                Fort Collins-Loveland, CO
+2680                Fort Lauderdale-Hollywood-Pompano Beach, FL
+2700                Fort Myers-Cape Coral, FL
+2710                Fort Pierce, FL
+2720                Fort Smith, AR/OK
+2750                Fort Walton Beach, FL
+2760                Fort Wayne, IN
+                    Fort Worth, TX  (See Dallas)
+2840                Fresno, CA
+2880                Gadsden, AL
+2900                Gainesville, FL
+2920                Galveston-Texas City, TX
+                    Gary, IN  (See Chicago)
+2970                Glens Falls, NY
+2980                Goldsboro, NC
+2990                Grand Forks, ND/MN
+3000                Grand Rapids, MI
+3010                Grand Junction, CO
+3040                Great Falls, MT
+3060                Greeley, CO
+3080                Green Bay, WI
+3120                Greensboro-Winston Salem-High Point, NC
+3121                Winston-Salem, NC
+3150                Greenville, NC
+3160                Greenville-Spartenburg-Anderson, SC
+3161                Anderson, SC
+3180                Hagerstown, MD
+3200                Hamilton-Middleton, OH
+3240                Harrisburg-Lebanon-Carlisle, PA
+3280                Hartford-Bristol-Middleton-New Britain, CT
+3281                Bristol, CT
+3282                Middletown, CT
+3283                New Britain, CT
+3290                Hickory-Morganton, NC
+3300                Hattiesburg, MS
+3320                Honolulu, HI
+3350                Houma-Thibodoux, LA
+3360                Houston-Brazoria, TX
+3361                Brazoria, TX
+3400                Huntington-Ashland, WV/KY/OH
+3440                Huntsville, AL
+3480                Indianapolis, IN
+3500                Iowa City, IA
+3520                Jackson, MI
+3560                Jackson, MS
+3580                Jackson, TN
+3590                Jacksonville, FL
+3600                Jacksonville, NC
+3610                Jamestown-Dunkirk, NY
+3620                Janesville-Beloit, WI
+                    Jersey City, NJ  (See New York)
+3660                Johnson City-Kingsport-Bristol, TN/VA
+3680                Johnstown, PA
+                    Joliet, IL  (See Chicago)
+3710                Joplin, MO
+3720                Kalamazoo-Portage, MI
+3740                Kankakee, IL
+3760                Kansas City, MO/KS
+3800                Kenosha, WI
+3810                Kileen-Temple, TX
+3840                Knoxville, TN
+3850                Kokomo, IN
+3870                LaCrosse, WI
+3880                Lafayette, LA
+3920                Lafayette-W. Lafayette, IN
+3960                Lake Charles, LA
+                    Lake County, IL  (See Chicago)
+3980                Lakeland-Winterhaven, FL
+4000                Lancaster, PA
+4040                Lansing-E. Lansing, MI
+4080                Laredo, TX
+4100                Las Cruces, NM
+4120                Las Vegas, NV
+4150                Lawrence, KS
+                    Lawrence-Haverhill, MA  (See Boston)
+4200                Lawton, OK
+4240                Lewiston-Auburn, ME
+4280                Lexington-Fayette, KY
+4320                Lima, OH
+4360                Lincoln, NE
+4400                Little Rock-N. Little Rock, AR
+4410                Long Branch-Asbury Park, NJ
+4420                Longview-Marshall, TX
+4440                Lorain-Elyria, OH
+4480                Los Angeles-Long Beach, CA
+4481                Anaheim-Santa Ana-Garden Grove, CA
+4482                Orange County, CA
+4520                Louisville, KY/IN
+                    Lowell, MA  (See Boston)
+4600                Lubbock, TX
+4640                Lynchburg, VA
+4680                Macon-Warner Robins, GA
+4720                Madison, WI
+4760                Manchester, NH
+4800                Mansfield, OH
+4840                Mayaguez, PR
+4880                McAllen-Edinburg-Pharr-Mission, TX
+4890                Medford, OR
+4900                Melbourne-Titusville-Cocoa-Palm Bay, FL
+4920                Memphis, TN/AR/MS
+4940                Merced, CA
+5000                Miami-Hialeah, FL
+                    Middlesex-Somerset-Hunterdon (See New York)
+                    Middleton, CT (See Hartford)
+5040                Midland, TX
+5080                Milwaukee, WI
+5120                Minneapolis-St. Paul, MN
+5140                Missoula, MT
+5160                Mobile, AL
+5170                Modesto, CA
+5190                Monmouth-Ocean, NJ
+5200                Monroe, LA
+5240                Montgomery, AL
+5280                Muncie, IN
+5320                Muskegon-Norton Shores-Muskegon Heights, MI
+5330                Myrtle Beach, SC
+5340                Naples, FL
+5350                Nashua, NH
+5360                Nashville, TN
+                    Nassau-Suffolk, NY  (See New York)
+5400                New Bedford, MA
+                    New Britian, CT  (See Hartford)
+5460                New Brunswick-Perth Amboy-Sayreville, NJ
+5480                New Haven-Meriden, CT
+5481                Meriden
+5482                New Haven, CT
+5520                New London-Norwich, CT/RI
+5560                New Orleans, LA
+5600                New York, NY-Northeastern NJ
+5601                Nassau Co, NY
+5602                Bergen-Passaic, NJ
+5603                Jersey City, NJ
+5604                Middlesex-Somerset-Hunterdon, NJ
+5605                Newark, NJ
+5640                Newark, OH
+5660                Newburgh-Middletown, NY
+                    Niagara Falls, NY (See Buffalo)
+5720                Norfolk-VA Beach-Newport News, VA
+5721                Newport News-Hampton
+5722                Norfolk- VA Beach-Portsmouth
+5760                Norwalk, CT
+                    Oakland, CA (See San Francisco)
+5790                Ocala, FL
+5800                Odessa, TX
+                    Ogden, UT (See Salt Lake)
+5880                Oklahoma City, OK
+5910                Olympia, WA
+5920                Omaha, NE/IA
+5950                Orange, NY
+5960                Orlando, FL
+5990                Owensboro, KY
+6010                Panama City, FL
+6020                Parkersburg-Marietta,WV/OH
+6030                Pascagoula-Moss Point, MS
+                    Paterson-Clifton, NJ (See New York)
+                    Pawtuckett, RI (See Providence)
+6080                Pensacola, FL
+6120                Peoria, IL
+                    Petersburg-Col.Heights, VA  (See Richmond)
+6160                Philadelphia, PA/NJ
+6200                Phoenix, AZ
+6240                Pine Bluff, AR
+6280                Pittsburgh-Beaver Valley, PA
+6281                Beaver County, PA
+6320                Pittsfield, MA
+6360                Ponce, PR
+6400                Portland, ME
+6440                Portland-Vancouver, OR
+6441                Vancouver, WA
+6450                Portsmouth-Dover-Rochester, NH/ME
+6460                Poughkeepsie, NY
+6480                Providence-Fall River-Pawtucket, MA/RI
+6481                Fall River, MA/RI
+6482                Pawtuckett-Woonsocket-Attleboro, RI/MA
+6520                Provo-Orem, UT
+6560                Pueblo, CO
+6580                Punta Gorda, FL
+6600                Racine, WI
+6640                Raleigh-Durham, NC
+6641                Durham, NC
+6660                Rapid City, SD
+6680                Reading, PA
+6690                Redding, CA
+6720                Reno, NV
+6740                Richland-Kennewick-Pasco, WA
+6760                Richmond-Petersburg, VA
+6761                Petersburg-Colonial Heights, VA
+6780                Riverside-San Bernardino, CA
+6781                San Bernardino, CA
+6800                Roanoke, VA
+6820                Rochester, MN
+6840                Rochester, NY
+                    Rock Hill, SC (See Charlotte)
+6880                Rockford, IL
+6895                Rocky Mount, NC
+6920                Sacramento, CA
+6960                Saginaw-Bay City-Midland, MI
+6961                Bay City, MI
+                    Salem-Gloucester, MA (See Boston)
+                    San Bernadino, CA (see Riverside)
+                    Springfield, OH (See Dayton)
+6980                St. Cloud, MN
+7000                St. Joseph, MO
+7040                St. Louis, MO/IL
+7080                Salem, OR
+7120                Salinas-Sea Side-Monterey, CA
+7140                Salisbury-Concord, NC
+7160                Salt Lake City-Ogden, UT
+7161                Ogden
+7200                San Angelo, TX
+7240                San Antonio, TX
+7320                San Diego, CA
+7360                San Francisco-Oakland-Vallejo, CA
+7361                Oakland, CA
+7362                Vallejo-Fairfield-Napa, CA
+7400                San Jose, CA
+7440                San Juan-Bayamon, PR
+7460                San Luis Obispo-Atascad-P Robles, CA
+7470                Santa Barbara-Santa Maria-Lompoc, CA
+7480                Santa Cruz, CA
+7490                Santa Fe, NM
+7500                Santa Rosa-Petaluma, CA
+7510                Sarasota, FL
+7520                Savannah, GA
+7560                Scranton-Wilkes-Barre, PA
+7561                Wilkes-Barre-Hazelton, PA
+7600                Seattle-Everett, WA
+7610                Sharon, PA
+7620                Sheboygan, WI
+7640                Sherman-Denison, TX
+7680                Shreveport, LA
+7720                Sioux City, IA/NE
+7760                Sioux Falls, SD
+7800                South Bend-Mishawaka, IN
+7840                Spokane, WA
+7880                Springfield, IL
+                    Springfield, OH (See Dayton)
+7920                Springfield, MO
+8000                Springfield-Holyoke-Chicopee, MA
+8040                Stamford, CT
+8050                State College, PA
+8080                Steubenville-Weirton,OH/WV
+8120                Stockton, CA
+8140                Sumter, SC
+8160                Syracuse, NY
+8200                Tacoma, WA
+8240                Tallahassee, FL
+8280                Tampa-St. Petersburg-Clearwater, FL
+8320                Terre Haute, IN
+8360                Texarkana, TX/AR
+8400                Toledo, OH/MI
+8440                Topeka, KS
+8480                Trenton, NJ
+8520                Tucson, AZ
+8560                Tulsa, OK
+8600                Tuscaloosa, AL
+8640                Tyler, TX
+8680                Utica-Rome, NY
+                    Vallejo-Fairfield-Napa, CA (See San Francisco)
+                    Vancouver, WA (see Portland)
+8730                Ventura-Oxnard-Simi Valley, CA
+8750                Victoria, TX
+8760                Vineland-Milville-Bridgetown, NJ
+8780                Visalia-Tulare-Porterville, CA
+8800                Waco, TX
+8840                Washington, DC/MD/VA
+8880                Waterbury, CT
+8920                Waterloo-Cedar Falls, IA
+8940                Wausau, WI
+8960                West Palm Beach-Boca Raton-Delray Beach, FL
+9000                Wheeling, WV/OH
+9040                Wichita, KS
+9080                Wichita Falls, TX
+                    Wilkes-Barre, PA (See Scranton)
+9140                Williamsport, PA
+9160                Wilmington, DE/NJ/MD
+9200                Wilmington, NC
+                    Winston-Salem, NC (see Greensboro)
+9240                Worcester, MA
+9260                Yakima, WA
+9270                Yolo, CA
+9280                York, PA
+9320                Youngstown-Warren, OH/PA
+9340                Yuba City, CA
+9360                Yuma, AZ
 
 CITY                City (identifiable cities only)
 0000                Not in identifiable city (or size group)
@@ -1956,6 +2717,35 @@ FAMSIZE             Number of own family members in household
 56                  56
 57                  57
 58                  58
+
+MOMRULE_HIST        Rule for linking mother
+0                   No mother link
+1                   Unambiguous mother link
+2                   Daughter/grandchild link
+3                   Preceding female (no intervening person)
+4                   Preceding female (surname similarity)
+5                   Daughter/grandchild (child surviving status)
+6                   Preceding female (child surviving status)
+7                   Spouse of father becomes stepmother
+
+POPRULE_HIST        Rule for linking father
+0                   No father link
+1                   Unambiguous father link
+2                   Son/granchild link
+3                   Preceding male (no intervening person)
+4                   Preceding male (surname similarity)
+7                   Husband of mother becomes stepfather
+
+SPRULE_HIST         Rule for linking spouse
+0                   No spouse link
+                    Unambiguous link:
+1                   Wife follows husband
+2                   Wife precedes husband
+3                   Non-adjacent links -- consistent relationship to head/age differences
+4                   Adjacent links (wife follows husband -- no age, other relative conflicts)
+5                   Adjacent links (wife precedes husband -- no age, other relative conflicts)
+6                   Non-adjacent links -- no age, other relative conflicts
+7                   Previously allocated marital status -- no age, other relative conflicts
 
 NCHILD              Number of own children in the household
 0                   0 children present
