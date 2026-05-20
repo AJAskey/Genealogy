@@ -20,14 +20,16 @@ import os
 import sqlite3
 
 # Import the global objects from our new central module
-from project_globals import CODEBOOK, COUNTY_LOOKUP, DEFAULT_DB, OUTPUT_REPORT
+from project_globals import CODEBOOK, COUNTY_LOOKUP, OUTPUT_REPORT
 
+# Define the path to the master database
+MASTER_DB_PATH = r"D:\Data\Genealogy_Data\MasterVault_ALL.db"
 
 # ==============================================================================
 # INSPECTION SCRIPT
 # ==============================================================================
 
-def inspect_database(db_path, output_path, limit=100, **filters):
+def inspect_database(db_path, output_path, limit=100, order_by=None, **filters):
     """
     Connects to a database, reads records based on filters, and writes a report.
 
@@ -35,6 +37,7 @@ def inspect_database(db_path, output_path, limit=100, **filters):
         db_path (str): Path to the SQLite database file.
         output_path (str): Path to write the final text report.
         limit (int): The maximum number of records to inspect.
+        order_by (str): Column to sort the results by (e.g., "year ASC").
         **filters (dict): A dictionary of column names and values to filter by.
                           e.g., namelast="Smith", stateicp="42"
     """
@@ -59,16 +62,20 @@ def inspect_database(db_path, output_path, limit=100, **filters):
     
     base_query = "SELECT * FROM population"
     if where_clauses:
-        query = f"{base_query} WHERE {' AND '.join(where_clauses)} LIMIT ?"
-        params.append(limit)
+        query = f"{base_query} WHERE {' AND '.join(where_clauses)}"
     else:
-        query = f"{base_query} LIMIT ?"
-        params.append(limit)
+        query = base_query
+
+    if order_by:
+        query += f" ORDER BY {order_by}"
+
+    query += " LIMIT ?"
+    params.append(limit)
 
     logging.info(f"Executing query: {query}")
     logging.info(f"With parameters: {params}")
     
-    cursor.execute(query, params)
+    cursor.execute(query, tuple(params))
 
     # Open the output file for writing
     with open(output_path, 'w', encoding='utf-8') as f:
@@ -85,8 +92,10 @@ def inspect_database(db_path, output_path, limit=100, **filters):
             first_name = str(row['namefrst']).strip() if row['namefrst'] else "Unknown"
             last_name = str(row['namelast']).strip() if row['namelast'] else "Unknown"
             age = str(row['age']).strip() if row['age'] else "?"
+            year = str(row['year']).strip() if row['year'] else "Unknown"
 
             f.write(f"  NAME:     {first_name} {last_name} (Age {age})\n")
+            f.write(f"  YEAR:     {year}\n")
 
             # --- Use the global CODEBOOK and COUNTY_LOOKUP objects ---
 
@@ -98,10 +107,6 @@ def inspect_database(db_path, output_path, limit=100, **filters):
             # County
             county_code = str(row['countyicp']).strip() if row['countyicp'] else ""
             
-            # The COUNTY_LOOKUP JSON is grouped by state names, so we need to:
-            # 1. Get the state name (which we already have in state_value)
-            # 2. Get the dictionary of counties for that specific state
-            # 3. Look up the county code within that state's dictionary
             county_value = "Unknown County"
             if state_value and state_value in COUNTY_LOOKUP:
                 state_counties = COUNTY_LOOKUP[state_value]
@@ -143,20 +148,14 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
     # --- You can define your filters here ---
-    # The script will build a WHERE clause from these key-value pairs.
-    # You can add, remove, or comment out lines as needed.
-    # Using '%' as a wildcard is supported.
-    
     search_filters = {
         "namelast": "Askey",
-        "stateicp": "14",          # Code for Pennsylvania
-        # "countyicp": "1410",     # Example: Code for Centre County, PA
-        # "namefrst": "John%",      # Example: Find all Johns
     }
 
     inspect_database(
-        db_path=DEFAULT_DB,
+        db_path=MASTER_DB_PATH,
         output_path=OUTPUT_REPORT,
-        limit=10000,
-        **search_filters  # The ** unpacks the dictionary into keyword arguments
+        limit=100,
+        order_by="year ASC",
+        **search_filters
     )

@@ -1,5 +1,4 @@
- I need some help documentation for the chat window into Gemini code 8 code assist """
------------------------------------
+"""
 File: genealogy_classes.py
 
 Summary: Defines the core data structures for the "Clean DB" phase.
@@ -11,7 +10,6 @@ Design:
                 a pointer back to the raw database (for rich attributes).
   - Family: Represents a nuclear family unit. Contains pointers to parents
             and a list of children (for top-down traversal).
---------------------------------
 """
 
 class Individual:
@@ -66,9 +64,47 @@ class Family:
         # A list of St. Joes IDs representing the children in this family
         self.children_ids = []
 
+        # Score for matching algorithms
+        self.score = 0
+
     def add_child(self, child_st_joes_id):
         if child_st_joes_id not in self.children_ids:
             self.children_ids.append(child_st_joes_id)
 
     def __repr__(self):
-        return f"<Family [{self.family_id}] Husb:{self.husband_id} Wife:{self.wife_id} Children:{len(self.children_ids)}>"
+        children_str = ", ".join(map(str, self.children_ids))
+        return (f"Family ID: {self.family_id}\n"
+                f"  Husband: {self.husband_id}\n"
+                f"  Wife: {self.wife_id}\n"
+                f"  Children: [{children_str}]\n"
+                f"  Score: {self.score}")
+
+
+class Person:
+    """
+    A temporary object to hold raw data from a CSV row during ingestion.
+    The __repr__ is designed to output a human-readable, decoded format
+    for easy logging and debugging.
+    """
+    def __init__(self, codebook=None, **kwargs):
+        self._data = kwargs
+        self._codebook = codebook
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    def __repr__(self):
+        if not self._codebook:
+            # Fallback to original CSV format if no codebook is provided
+            return ",".join(str(v) for v in self._data.values())
+
+        output = ["--- Person Record ---"]
+        for var, code in self._data.items():
+            # Attempt to look up the decoded label
+            label = self._codebook.get_code_value(var, code)
+            if label:
+                # Show both the code and the human-readable label
+                output.append(f"  {var:<15}: {code} ({label})")
+            else:
+                # If no label exists (e.g., for names, ages), just show the value
+                output.append(f"  {var:<15}: {code}")
+        return "\n".join(output)

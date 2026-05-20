@@ -187,13 +187,6 @@ def export_to_gedcom(db_path, output_path, limit=None):
         f.write("1 GEDC\n")
         f.write("2 VERS 7.0.18\n")
 
-        # In GEDCOM 7, standard extensions need to point to a URI.
-        # Custom internal tags should be structured specifically under a URI we control.
-        # But an even safer way that complies fully with the standard and avoids schema errors
-        # is to simply use the standard `REFN` (Reference Number) tag or a `NOTE`.
-
-        # Let's remove the SCHMA block and use REFN in the INDI block instead.
-
         # -----------------------------
         # SUBMITTER RECORD
         # -----------------------------
@@ -221,8 +214,28 @@ def export_to_gedcom(db_path, output_path, limit=None):
                 if row['bpld']:
                     f.write(f"2 PLAC {row['bpld']}\n")
 
-            if row['age']:
-                f.write(f"1 NOTE Age in census: {row['age']}\n")
+            # --- Census (CENS) Event using the master source ---
+            year = str(row['year']).strip() if row['year'] else ""
+            age = str(row['age']).strip() if row['age'] else ""
+            serial = str(row['serial']).strip() if row['serial'] else ""
+            pernum = str(row['pernum']).strip() if row['pernum'] else ""
+            
+            # Lookup state name for the PLAC field
+            state_code = str(row['stateicp']).strip() if row['stateicp'] else ""
+            state_name = CODEBOOK.get_code_value("STATEICP", state_code)
+            place = state_name if state_name else "USA"
+
+            f.write("1 CENS\n")
+            if year:
+                f.write(f"2 DATE {year}\n")
+            if place:
+                f.write(f"2 PLAC {place}\n")
+            f.write("2 SOUR @S1@\n")
+            if serial and pernum:
+                f.write(f"3 PAGE Serial: {serial}, Person: {pernum}\n")
+            if age:
+                f.write("3 DATA\n")
+                f.write(f"4 TEXT Age in census: {age}\n")
 
             # Instead of a custom tag, we use the universally compliant REFN tag
             # REFN means "Reference Number" - exactly what a database ID is.
@@ -242,6 +255,13 @@ def export_to_gedcom(db_path, output_path, limit=None):
                 f.write(f"0 {short_fam_id} FAM\n")
                 for role in roles:
                     f.write(role)
+
+        # -----------------------------
+        # SOURCE (SOUR) RECORDS
+        # -----------------------------
+        f.write("0 @S1@ SOUR\n")
+        f.write("1 TITL U.S. Federal Census\n")
+        f.write("1 PUBL National Archives and Records Administration\n")
 
         # -----------------------------
         # TRAILER
