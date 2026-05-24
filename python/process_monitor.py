@@ -1,3 +1,11 @@
+"""
+-----------------------------------
+File: process_monitor.py
+
+Summary: A command-line utility to monitor system processes, CPU, and Memory.
+         Includes a live-update mode and CSV snapshot exporting.
+-----------------------------------
+"""
 import os
 import time
 from datetime import datetime

@@ -1,3 +1,11 @@
+"""
+-----------------------------------
+File: gen_logging.py
+
+Summary: Centralized, thread-safe logging configuration. Forces immediate 
+         flush to disk to prevent log loss during multi-threaded crashes.
+-----------------------------------
+"""
 import logging
 import os
 import sys

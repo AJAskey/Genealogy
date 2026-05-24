@@ -1,3 +1,11 @@
+"""
+-----------------------------------
+File: fragment_csv.py
+
+Summary: Splits massive CSV files into smaller, Excel-friendly chunks 
+         to prevent pandas or system memory crashes.
+-----------------------------------
+"""
 import os
 
 import pandas as pd
