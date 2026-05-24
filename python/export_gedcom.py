@@ -28,8 +28,12 @@ from python.project_globals import CODEBOOK
 # ==============================================================================
 # CONFIGURATION
 # ==============================================================================
-DEFAULT_DB = r"D:\Data\Genealogy_Data\MasterVault_1920.db"
-OUTPUT_GED = r"E:\Users\Andy\PycharmProjects\Genealogy\output\census_export.ged"
+DEFAULT_DB = r"D:\Data\Genealogy_Data\MasterVault_ALL.db"
+OUTPUT_GED = r"E:\Users\Andy\PycharmProjects\Genealogy\output\census_all_export.ged"
+
+# Set this to a St. Joe's ID (e.g., "192001_101_1_1") to ONLY export that 
+# specific individual's household. Leave as None to export everything (up to limit).
+STARTING_ST_JOES_ID = "1910_191002_14029101_1_696312"
 
 
 # ==============================================================================
@@ -56,7 +60,7 @@ def format_name(first, last):
 # ==============================================================================
 # GEDCOM EXPORTER
 # ==============================================================================
-def export_to_gedcom(db_path, output_path, limit=None):
+def export_to_gedcom(db_path, output_path, limit=None, starting_id=None):
     if not os.path.exists(db_path):
         print(f"Error: Database not found at {db_path}")
         return
@@ -69,17 +73,28 @@ def export_to_gedcom(db_path, output_path, limit=None):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # 1. Get a list of unique household serials
-    print("Fetching unique household serials...")
-    cursor.execute("SELECT DISTINCT serial FROM population")
-    all_serials = [row['serial'] for row in cursor.fetchall()]
-
-    # 2. Limit the number of households to process
-    if limit:
-        serials_to_process = all_serials[:limit]
-        print(f"Limiting to first {limit} households.")
+    if starting_id:
+        print(f"Looking up household for St. Joe's ID: {starting_id}...")
+        cursor.execute("SELECT serial FROM population WHERE composite_id = ?", (starting_id,))
+        result = cursor.fetchone()
+        if result:
+            serials_to_process = [result['serial']]
+            print(f"Found serial {result['serial']} for individual. Exporting this household.")
+        else:
+            print(f"Error: Could not find individual with St. Joe's ID '{starting_id}'.")
+            return
     else:
-        serials_to_process = all_serials
+        # 1. Get a list of unique household serials
+        print("Fetching unique household serials...")
+        cursor.execute("SELECT DISTINCT serial FROM population")
+        all_serials = [row['serial'] for row in cursor.fetchall()]
+
+        # 2. Limit the number of households to process
+        if limit:
+            serials_to_process = all_serials[:limit]
+            print(f"Limiting to first {limit} households.")
+        else:
+            serials_to_process = all_serials
 
     # 3. Fetch all rows for those selected households
     print(f"Fetching all records for {len(serials_to_process)} households...")
@@ -215,17 +230,17 @@ def export_to_gedcom(db_path, output_path, limit=None):
                     f.write(f"2 PLAC {row['bpld']}\n")
 
             # --- Census (CENS) Event using the master source ---
-            year = str(row['year']).strip() if row.get('year') else ""
-            age = str(row['age']).strip() if row.get('age') else ""
-            serial = str(row['serial']).strip() if row.get('serial') else ""
-            pernum = str(row['pernum']).strip() if row.get('pernum') else ""
-            reel = str(row['reel']).strip() if row.get('reel') else ""
-            pageno = str(row['pageno']).strip() if row.get('pageno') else ""
-            line = str(row['line']).strip() if row.get('line') else ""
-            microseq = str(row['microseq']).strip() if row.get('microseq') else ""
+            year = str(row['year']).strip() if row['year'] else ""
+            age = str(row['age']).strip() if row['age'] else ""
+            serial = str(row['serial']).strip() if row['serial'] else ""
+            pernum = str(row['pernum']).strip() if row['pernum'] else ""
+            reel = str(row['reel']).strip() if row['reel'] else ""
+            pageno = str(row['pageno']).strip() if row['pageno'] else ""
+            line = str(row['line']).strip() if row['line'] else ""
+            microseq = str(row['microseq']).strip() if row['microseq'] else ""
 
             # Lookup state name for the PLAC field
-            state_code = str(row['stateicp']).strip() if row.get('stateicp') else ""
+            state_code = str(row['stateicp']).strip() if row['stateicp'] else ""
             state_name = CODEBOOK.get_code_value("STATEICP", state_code)
             place = state_name if state_name else "USA"
 
@@ -235,7 +250,7 @@ def export_to_gedcom(db_path, output_path, limit=None):
             if place:
                 f.write(f"2 PLAC {place}\n")
             f.write("2 SOUR @S1@\n")
-            
+
             page_parts = []
             if serial: page_parts.append(f"Serial: {serial}")
             if pernum: page_parts.append(f"Person: {pernum}")
@@ -243,10 +258,10 @@ def export_to_gedcom(db_path, output_path, limit=None):
             if pageno: page_parts.append(f"Page: {pageno}")
             if line: page_parts.append(f"Line: {line}")
             if microseq: page_parts.append(f"Microseq: {microseq}")
-            
+
             if page_parts:
                 f.write(f"3 PAGE {', '.join(page_parts)}\n")
-                
+
             if age:
                 f.write("3 DATA\n")
                 f.write(f"4 TEXT Age in census: {age}\n")
@@ -289,6 +304,7 @@ if __name__ == "__main__":
     parser.add_argument("--db", default=DEFAULT_DB, help="Path to SQLite database")
     parser.add_argument("--out", default=OUTPUT_GED, help="Output GEDCOM file path")
     parser.add_argument("--limit", type=int, default=100, help="Max number of HOUSEHOLDS to export for testing")
+    parser.add_argument("--start", default=STARTING_ST_JOES_ID, help="St. Joe's ID to export specific household")
     args = parser.parse_args()
 
-    export_to_gedcom(args.db, args.out, args.limit)
+    export_to_gedcom(args.db, args.out, args.limit, args.start)

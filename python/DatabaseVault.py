@@ -18,11 +18,11 @@ Outputs: One SQLite database file per year.
 import argparse
 import csv
 import datetime
-import logging
 import os
 import sqlite3
 import time
-from concurrent.futures import as_completed, ThreadPoolExecutor
+import re
+from concurrent.futures import as_completed, ProcessPoolExecutor
 
 import gen_logging
 from genealogy_classes import Person
@@ -36,7 +36,6 @@ BATCH_SIZE = 100_000
 MULTIPLE_DATABASE_FILES = True
 db_name1 = r"d:\Data\Genealogy_Data\MasterVault_"
 input_directory = r"D:\Data\Genealogy_Data\CSV"
-CENSUS_FILE_PREFIX = "census-"
 CREATE_PERSON_OBJECTS = True
 WRITE_DEBUG_CSV = True
 DEBUG_CSV_LIMIT = 5000
@@ -46,10 +45,10 @@ DEBUG_OUTPUT_DIR = r"E:\Users\Andy\PycharmProjects\Genealogy\debug"
 # COLUMNS
 # ==============================================================================
 TARGET_COLUMNS = [
-    "YEAR", "SAMPLE", "SERIAL", "PERNUM", "NUMPREC", "SEX", "AGE", "BIRTHYR", "HHTYPE", "STATEICP", "COUNTYICP",
-    "METAREAD", "CITY", "FARM", "NMOTHERS", "NFATHERS", "FAMUNIT", "FAMSIZE",
-    "MOMLOC", "POPLOC", "SPLOC", "MOMRULE_HIST", "POPRULE_HIST", "SPRULE_HIST", "NCHILD", "NSIBS",
-    "ELDCH", "YNGCH", "RELATED", "RACED", "BPLD", "NAMELAST", "NAMEFRST", "HISTID",
+    "YEAR", "SAMPLE", "SERIAL", "PERNUM", "NUMPREC", "SEX", "AGE", "BIRTHYR", "BPLD", "NAMELAST", "NAMEFRST", "HHTYPE",
+    "STATEICP", "COUNTYICP", "METAREAD", "CITY", "FARM", "FAMUNIT", "FAMSIZE", "NMOTHERS", "NFATHERS", "NCHILD",
+    "NSIBS", "MOMLOC", "POPLOC", "SPLOC", "MOMRULE_HIST", "POPRULE_HIST", "SPRULE_HIST",
+    "ELDCH", "YNGCH", "RELATED", "RACED", "HISTID",
     "REEL", "PAGENO", "LINE", "MICROSEQ"
 ]
 
@@ -57,8 +56,9 @@ TARGET_COLUMNS = [
 # ==============================================================================
 # DATABASE SETUP
 # ==============================================================================
-def setup_database(db_path):
-    logging.info(f"Database set up: {db_path}")
+def setup_database(db_path, logger):
+    logger.info(f"Connecting to database (Setup): {db_path}")
+    logger.info(f"Database set up: {db_path}")
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
@@ -66,14 +66,16 @@ def setup_database(db_path):
     cursor.execute(f"CREATE TABLE IF NOT EXISTS population ({columns_sql})")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_last_name ON population (namelast)")
     conn.commit()
+    logger.info(f"Disconnecting from database (Setup): {db_path}")
     conn.close()
-    logging.info(f"Database ready: {db_path}")
+    logger.info(f"Database ready: {db_path}")
 
 
 # ==============================================================================
 # INGEST FUNCTION
 # ==============================================================================
-def ingest_to_vault(input_csv, db_path):
+def ingest_to_vault(input_csv, db_path, logger):
+    logger.info(f"Connecting to database (Ingest): {db_path}")
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA journal_mode=WAL")
     cursor = conn.cursor()
@@ -90,9 +92,10 @@ def ingest_to_vault(input_csv, db_path):
     if WRITE_DEBUG_CSV:
         os.makedirs(DEBUG_OUTPUT_DIR, exist_ok=True)
         debug_csv_path = os.path.join(DEBUG_OUTPUT_DIR, f"debug_{os.path.basename(input_csv)}")
-        logging.info(f"  [{os.path.basename(input_csv)}] Debug CSV enabled. Writing to: {debug_csv_path}")
+        logger.info(f"  [{os.path.basename(input_csv)}] Debug CSV enabled. Writing to: {debug_csv_path}")
         debug_file = open(debug_csv_path, mode='w', encoding='utf-8', newline='')
 
+    logger.info(f"Opening CSV file for reading: {input_csv}")
     with open(input_csv, mode='r', encoding='utf-8', errors='replace') as infile:
         reader = csv.DictReader(infile, delimiter=',')
 
@@ -107,26 +110,40 @@ def ingest_to_vault(input_csv, db_path):
         for row in reader:
             count += 1
 
-            if WRITE_DEBUG_CSV and debug_writer and count <= DEBUG_CSV_LIMIT:
-                decoded_row = row.copy()
-                for key, value in row.items():
-                    if value is None:
-                        continue
+            # Extract raw values to build the St. Joe's ID BEFORE they get translated by the Codebook
+            raw_sample = str(row.get('SAMPLE', '')).strip()
+            raw_serial = str(row.get('SERIAL', '')).strip()
+            raw_pernum = str(row.get('PERNUM', '')).strip()
 
-                    # Strip hidden spaces from the CSV so it matches the JSON codebook correctly
-                    clean_val = str(value).strip()
-                    # Inline replace the numeric code with the translated text
-                    text_val = CODEBOOK.get_code_value(key, clean_val)
-                    if text_val is not None and str(text_val) != clean_val:
-                        decoded_row[key] = text_val
-                debug_writer.writerow(decoded_row)
+            # Create the permanent, repeatable St. Joe's ID 
+            composite_id = f"{raw_sample}_{raw_serial}_{raw_pernum}"
+
+            # 1. Clean and translate the row globally BEFORE doing anything else
+            for key, value in row.items():
+                if value is None:
+                    continue
+
+                clean_val = str(value).strip()
+
+                # IPUMS CSVs drop leading zeroes to save space, but the JSON Codebook expects exactly 4 digits.
+                if key in ('COUNTYICP', 'CITY'):
+                    clean_val = clean_val.zfill(4)
+
+                text_val = CODEBOOK.get_code_value(key, clean_val)
+
+                # Overwrite the row dictionary with the clean/translated value
+                if text_val is not None and str(text_val) != clean_val:
+                    row[key] = text_val
+                else:
+                    row[key] = clean_val
+
+            # 2. Write to debug CSV if needed
+            if WRITE_DEBUG_CSV and debug_writer and count <= DEBUG_CSV_LIMIT:
+                debug_writer.writerow(row)
 
             if CREATE_PERSON_OBJECTS and count <= 5:
                 p = Person(codebook=CODEBOOK, **row)
-                logging.info(f"\n{p}")
-
-            year = row.get('YEAR', 'UNKN').strip()
-            composite_id = f"{row.get('SAMPLE', '').strip()}_{row.get('SERIAL', '').strip()}_{row.get('PERNUM', '').strip()}_{count}"
+                logger.info(f"\n{p}")
 
             row_data = [composite_id]
             for col in TARGET_COLUMNS:
@@ -138,18 +155,20 @@ def ingest_to_vault(input_csv, db_path):
                 cursor.executemany(insert_query, batch)
                 conn.commit()
                 batch = []
-                logging.info(f"  [{os.path.basename(input_csv)}]  {count:,} records")
+                logger.info(f"  [{os.path.basename(input_csv)}]  {count:,} records")
 
         if batch:
             cursor.executemany(insert_query, batch)
             conn.commit()
 
+    logger.info(f"Closing CSV file: {input_csv}")
     if debug_file:
         debug_file.close()
 
+    logger.info(f"Disconnecting from database (Ingest): {db_path}")
     conn.close()
     elapsed = round((time.time() - start_time) / 60, 2)
-    logging.info(f"  [{os.path.basename(input_csv)}]  DONE — {count:,} records in {elapsed} min.")
+    logger.info(f"  [{os.path.basename(input_csv)}]  DONE — {count:,} records in {elapsed} min.")
     return count, elapsed
 
 
@@ -161,26 +180,30 @@ def process_file(filename, input_directory):
 
     year = 'ALL'
     if MULTIPLE_DATABASE_FILES:
-        try:
-            year = filename.split('-')[1].split('.')[0]
-        except IndexError:
-            year = 'unknown'
+        # Safely extract the 4-digit year from the filename
+        match = re.search(r'\d{4}', filename)
+        year = match.group() if match else 'unknown'
+
+    # Create a unique logger for this specific year/thread
+    logger = gen_logging.setup_logging(logger_name=year)
+
+    if MULTIPLE_DATABASE_FILES:
         db_name = db_name1 + year + ".db"
-        setup_database(db_name)
+        setup_database(db_name, logger)
     else:
         db_name = db_name1 + "ALL.db"
 
-    logging.info(f"\n--- [{filename}]  Thread starting → {db_name} ---")
+    logger.info(f"\n--- [{filename}]  Thread starting → {db_name} ---")
 
     wall_start = time.time()
-    record_count, elapsed_min = ingest_to_vault(file_path, db_name)
+    record_count, elapsed_min = ingest_to_vault(file_path, db_name, logger)
     wall_end = time.time()
 
     dtime = (wall_end - wall_start) * 1000
     rec_per_sec = record_count / dtime if dtime > 0 else 0
-    logging.info(f"   record_count        : {record_count}")
-    logging.info(f"   dtime milliseconds  : {dtime}")
-    logging.info(f"   Rec per MS          : {rec_per_sec}\n")
+    logger.info(f"  [{filename}]  record_count        : {record_count:,}")
+    logger.info(f"  [{filename}]  dtime milliseconds  : {dtime:,.2f}")
+    logger.info(f"  [{filename}]  Rec per MS          : {rec_per_sec:,.2f}\n")
 
     return {
         "filename": filename,
@@ -202,26 +225,27 @@ if __name__ == '__main__':
     MAX_WORKERS = args.workers
 
     # Initial logging setup for the main process
-    gen_logging.setup_logging()
+    main_logger = gen_logging.setup_logging(logger_name="MAIN")
 
-    logging.info("====================================================")
-    logging.info(f"  MAX_WORKERS              : {MAX_WORKERS}")
-    logging.info(f"  BATCH_SIZE               : {BATCH_SIZE}")
-    logging.info(f"  MULTIPLE_DATABASE_FILES  : {MULTIPLE_DATABASE_FILES}")
-    logging.info("====================================================")
+    main_logger.info("====================================================")
+    main_logger.info(f"  MAX_WORKERS              : {MAX_WORKERS}")
+    main_logger.info(f"  BATCH_SIZE               : {BATCH_SIZE}")
+    main_logger.info(f"  MULTIPLE_DATABASE_FILES  : {MULTIPLE_DATABASE_FILES}")
+    main_logger.info("====================================================")
 
     if not MULTIPLE_DATABASE_FILES:
         db_name = db_name1 + r"ALL.db"
-        setup_database(db_name)
+        setup_database(db_name, main_logger)
 
-    csv_files = [f for f in os.listdir(input_directory) if (f.startswith(CENSUS_FILE_PREFIX) and f.endswith(".csv"))]
+    csv_files = [f for f in os.listdir(input_directory) if f.endswith(".csv")]
     if args.files is not None:
         csv_files = csv_files[:args.files]
 
-    logging.info(f"\nFound {len(csv_files)} CSV file(s). Launching up to {MAX_WORKERS} file processing thread(s).\n")
+    main_logger.info(
+        f"\nFound {len(csv_files)} CSV file(s). Launching up to {MAX_WORKERS} file processing thread(s).\n")
 
     results = []
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="CensusWorker") as executor:
+    with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
         future_to_file = {executor.submit(process_file, fname, input_directory): fname for fname in csv_files}
         for future in as_completed(future_to_file):
             fname = future_to_file[future]
@@ -229,18 +253,18 @@ if __name__ == '__main__':
                 result = future.result()
                 results.append(result)
             except Exception as ex:
-                logging.error(f"\n!!! ERROR processing {fname}: {ex}", exc_info=True)
+                main_logger.error(f"\n!!! ERROR processing {fname}: {ex}", exc_info=True)
 
-    logging.info("\n" + "=" * 60)
-    logging.info(f"  THREAD SUMMARY   (MAX_WORKERS={MAX_WORKERS}, BATCH_SIZE={BATCH_SIZE:,})")
-    logging.info("=" * 60)
-    logging.info(f"  {'Year':<8}  {'Records':>12}  {'Minutes':>8}  {'File'}")
-    logging.info(f"  {'-' * 8}  {'-' * 12}  {'-' * 8}  {'-' * 15}")
+    main_logger.info("\n" + "=" * 60)
+    main_logger.info(f"  THREAD SUMMARY   (MAX_WORKERS={MAX_WORKERS}, BATCH_SIZE={BATCH_SIZE:,})")
+    main_logger.info("=" * 60)
+    main_logger.info(f"  {'Year':<8}  {'Records':>12}  {'Minutes':>8}  {'File'}")
+    main_logger.info(f"  {'-' * 8}  {'-' * 12}  {'-' * 8}  {'-' * 15}")
 
     for r in sorted(results, key=lambda x: x["year"]):
-        logging.info(f"  {r['year']:<8}  {r['records']:>12,}  {r['elapsed_min']:>8.2f}  {r['filename']}")
+        main_logger.info(f"  {r['year']:<8}  {r['records']:>12,}  {r['elapsed_min']:>8.2f}  {r['filename']}")
 
     total_records = sum(r["records"] for r in results)
-    logging.info(f"\n  Total records across all files : {total_records:,}")
-    logging.info(f"  Session ended: {datetime.datetime.now().strftime('%Y-%m-%d  %H:%M:%S')}")
-    logging.info("")
+    main_logger.info(f"\n  Total records across all files : {total_records:,}")
+    main_logger.info(f"  Session ended: {datetime.datetime.now().strftime('%Y-%m-%d  %H:%M:%S')}")
+    main_logger.info("")
