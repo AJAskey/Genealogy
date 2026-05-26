@@ -34,7 +34,7 @@ def download_genealogy_blocks(collection_name='reclaimtherecords',
         item_id = result['identifier']
         item = get_item(item_id)
 
-        target_extensions = ('.csv', '.json', '.txt', '*.md', '*.dj*')
+        # target_extensions = ('.csv', '.json', '.txt', '*.md', '*.dj*')
 
         # FIX: Access 'name' as a dictionary key or object attribute safely
         files_to_download = []
@@ -42,8 +42,8 @@ def download_genealogy_blocks(collection_name='reclaimtherecords',
             # Some versions of the API return dicts, some return objects
             filename = f['name'] if isinstance(f, dict) else f.name
 
-            if any(filename.lower().endswith(ext) for ext in target_extensions):
-                files_to_download.append(filename)
+            # if any(filename.lower().endswith(ext) for ext in target_extensions):
+            files_to_download.append(filename)
 
         if files_to_download:
             logging.info(f"Found {len(files_to_download)} data files in: {item_id}")

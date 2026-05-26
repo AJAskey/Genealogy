@@ -36,12 +36,12 @@ def beautify_djvu_text(input_path, output_format='md'):
             current_para = []
 
     # 4. Format for readability
-    if output_format == 'md':
+    if output_format == 'html':
         formatted_output = "\n\n".join(cleaned_paragraphs)
         # Add a basic header based on filename
         title = os.path.basename(input_path).replace('.txt', '').replace('_', ' ').title()
         formatted_output = f"# {title}\n\n{formatted_output}"
-        ext = ".md"
+        ext = ".html"
     else:
         # Simple HTML wrapper
         body = "".join([f"<p>{p}</p>" for p in cleaned_paragraphs])
@@ -57,4 +57,6 @@ def beautify_djvu_text(input_path, output_format='md'):
 
 if __name__ == '__main__':
     # Usage
-    beautify_djvu_text(r"E:\Users\Andy\PycharmProjects\Genealogy\data\Reclaim_djvu.txt", output_format='md')
+    beautify_djvu_text(
+        r"E:\Users\Andy\PycharmProjects\Genealogy\data\Reclaim_The_Records_-_New_Jersey_Death_Index_-_1980_-_Surnames_L-Q_djvu.txt",
+        output_format='html')

@@ -48,9 +48,12 @@ class CreateGoldenRecord:
             cl.ExactMatch("state"),
         ],
         blocking_rules_to_generate_predictions=[
-            block_on("first_name", "last_name"),  # 1. Exact name match
-            block_on("last_name", "birth_year"),  # 2. Catches first-name typos (e.g. Wm vs William)
-            "l.first_name = r.first_name AND l.birth_year = r.birth_year AND substr(l.last_name, 1, 1) = substr(r.last_name, 1, 1)", # 3. Catches last-name typos, safely bounded to the same first letter!
+            # 1. Exact name match, safely bounded to a 10-year birth difference to prevent multi-generational Cartesian explosions
+            "l.first_name = r.first_name AND l.last_name = r.last_name AND (abs(l.birth_year - r.birth_year) <= 10 OR l.birth_year IS NULL OR r.birth_year IS NULL)",
+            # 2. Catches first-name typos: Exact last name, exact birth year, bounded to same first initial
+            "l.last_name = r.last_name AND l.birth_year = r.birth_year AND substr(l.first_name, 1, 1) = substr(r.first_name, 1, 1)",
+            # 3. Catches last-name typos: Exact first name, exact birth year, bounded to same last initial
+            "l.first_name = r.first_name AND l.birth_year = r.birth_year AND substr(l.last_name, 1, 1) = substr(r.last_name, 1, 1)",
         ],
         max_iterations=10,
         em_convergence=0.0001,
@@ -97,7 +100,7 @@ class CreateGoldenRecord:
         db_api = DuckDBAPI(connection=self.con)
         
         import os
-        model_path = r"E:\Data\Genealogy_Data\splink_model.json"
+        model_path = r"D:\Data\Genealogy_Data\splink_model.json"
         
         if os.path.exists(model_path):
             self.logger.info(f"Step 2/5: Found saved model. Loading brain from '{model_path}'...")
@@ -150,15 +153,25 @@ class CreateGoldenRecord:
         We use two training sessions with different blocking rules so the
         model gets a good sample of both matches and non-matches.
         """
+        self.logger.info("          EM Pass 1/3 (Blocking on Last Name & Birth Year)...")
         # Session 1: train on people with identical last name + birth year
         self.linker.training.estimate_u_using_random_sampling(max_pairs=1e7)
         self.linker.training.estimate_parameters_using_expectation_maximisation(
             block_on("last_name", "birth_year")
         )
+        
+        self.logger.info("          EM Pass 2/3 (Blocking on First Name & Birth Year)...")
         # Session 2: second pass with first name + birth year to sharpen weights
         self.linker.training.estimate_parameters_using_expectation_maximisation(
             block_on("first_name", "birth_year")
         )
+        
+        self.logger.info("          EM Pass 3/3 (Blocking on First Name & Last Name)...")
+        # Session 3: third pass with full name to safely train the birth_year weights
+        self.linker.training.estimate_parameters_using_expectation_maximisation(
+            block_on("first_name", "last_name")
+        )
+        
         self.logger.info("          Training complete.")
 
     def _predict_and_cluster(self) -> pd.DataFrame:
