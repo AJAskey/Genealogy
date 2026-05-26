@@ -176,6 +176,35 @@ NEVER compare everyone to everyone. That is combinatorial explosion.  Narrow can
 2. Score only within those blocks
 3. SQL does the blocking. Python does the scoring.
 
+### Real-World Probabilistic Matching (Why we use Splink)
+
+Traditional databases and strict SQL `JOIN`s are completely blind to the reality of human life. If a son grows up in Alabama in 1880, moves to Texas in 1890, and the census taker misspells his name as "Johnsen" instead of "Johnson", a SQL exact match will say: *"These are two different people."*
+
+We use **Splink 4 (developed by the UK Ministry of Justice)** to handle entity resolution probabilistically. Splink uses Expectation-Maximization (EM) to train an AI model on the dataset. It calculates the real-world statistical odds of a typo occurring versus the odds of two random people happening to have the exact same name and birth year. It evaluates partial string matches (Jaro-Winkler, Levenshtein) and demographic shifts to link the same human being across decades and state lines.
+
+### The "Squash" (Handling IPUMS Sample Duplicates)
+
+IPUMS provides various census samples (e.g., a "100% database" and a "5% sample"). Often, these are duplicate records of the exact same human on the exact same line of the original census document. In many cases, IPUMS restored full names onto the smaller 5% sample datasets, while leaving the 100% database names blank.
+
+Because of **Architecture Decision 2** (The Raw DB is never modified), we cannot run a SQL `UPDATE` to permanently merge these names in the vault. Instead, we use an in-memory "Squash" via DuckDB right as the data is extracted for Splink:
+
+```sql
+SELECT 
+    MIN(composite_id) AS unique_id,
+    MAX(namefrst) AS first_name,
+    MAX(namelast) AS last_name
+FROM census.population
+GROUP BY year, serial, pernum
+```
+
+This elegantly collapses the two duplicate rows into one on-the-fly. `MIN(composite_id)` anchors the row to the original 100% base record ID, while `MAX()` ignores `NULL` values and seamlessly absorbs the restored name from the 5% sample.
+
+### Strict Census Anchoring (Survivorship Rules)
+
+During the final survivorship phase, Splink groups matched records into "clusters" representing a single human. We use multiple auxiliary datasets (like the BIRLS Death Index) to fill in missing information such as death dates. 
+
+However, our primary goal is tracking people anchored in the historical US Census. If the AI forms a cluster that is 100% auxiliary data (e.g., a BIRLS death record that matched absolutely no one in the census), it is a "ghost" record. Our survivorship script explicitly drops any cluster where `census_rows.empty` is true. Auxiliary data is strictly used to patch holes in Census records, never to create independent people.
+
 This is the difference between finishing in hours vs. weeks.
 
 ### Anchor Strategy
@@ -276,4 +305,3 @@ Key unique contributions:
 - **Claude:** Human review gate / text file buffer; person-level vs.
   household-level Origin ID distinction; citation tracking for IPUMS
   data use protection
-

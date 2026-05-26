@@ -19,9 +19,9 @@ import argparse
 import csv
 import datetime
 import os
+import re
 import sqlite3
 import time
-import re
 from concurrent.futures import as_completed, ProcessPoolExecutor
 
 import gen_logging
@@ -33,7 +33,7 @@ from project_globals import CODEBOOK
 # ==============================================================================
 MAX_WORKERS = 4
 BATCH_SIZE = 100_000
-MULTIPLE_DATABASE_FILES = True
+MULTIPLE_DATABASE_FILES = False
 db_name1 = r"d:\Data\Genealogy_Data\MasterVault_"
 input_directory = r"D:\Data\Genealogy_Data\CSV"
 CREATE_PERSON_OBJECTS = True
@@ -125,11 +125,19 @@ def ingest_to_vault(input_csv, db_path, logger):
 
                 clean_val = str(value).strip()
 
-                # IPUMS CSVs drop leading zeroes to save space, but the JSON Codebook expects exactly 4 digits.
-                if key in ('COUNTYICP', 'CITY'):
-                    clean_val = clean_val.zfill(4)
+                # Attempt robust lookup handling zero-padding mismatches between CSV and JSON
+                text_val = CODEBOOK.get_code_value(key.upper(), clean_val)
 
-                text_val = CODEBOOK.get_code_value(key, clean_val)
+                # If direct lookup fails, try numeric padding combinations
+                if text_val is None and clean_val.isdigit():
+                    num_str = str(int(clean_val))  # Strip leading zeroes
+                    text_val = CODEBOOK.get_code_value(key.upper(), num_str)
+                    if text_val is None:
+                        text_val = CODEBOOK.get_code_value(key.upper(), num_str.zfill(2))
+                    if text_val is None:
+                        text_val = CODEBOOK.get_code_value(key.upper(), num_str.zfill(3))
+                    if text_val is None:
+                        text_val = CODEBOOK.get_code_value(key.upper(), num_str.zfill(4))
 
                 # Overwrite the row dictionary with the clean/translated value
                 if text_val is not None and str(text_val) != clean_val:

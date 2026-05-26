@@ -75,19 +75,23 @@ def run_analyst_pipeline(logger):
     # We build an in-memory table that maps IPUMS variables to Splink standard names
     con.execute(f"""
         CREATE TABLE population_for_splink AS
-        SELECT 
-            composite_id AS unique_id,
-            namefrst AS first_name,
-            namelast AS last_name,
-            CAST(birthyr AS INTEGER) AS birth_year,
-            stateicp AS state,
-            CAST(year AS INTEGER) AS census_year,
-            CAST(NULL AS VARCHAR) AS death_date,
-            'census' AS source_db
-        FROM census.population
-        WHERE stateicp = '{STATE_FILTER}'
-          AND namelast IS NOT NULL 
-          AND namefrst IS NOT NULL
+        WITH collapsed_census AS (
+            SELECT 
+                MIN(composite_id) AS unique_id,
+                MAX(namefrst) AS first_name,
+                MAX(namelast) AS last_name,
+                CAST(MAX(birthyr) AS INTEGER) AS birth_year,
+                MAX(stateicp) AS state,
+                CAST(year AS INTEGER) AS census_year,
+                CAST(NULL AS VARCHAR) AS death_date,
+                'census' AS source_db
+            FROM census.population
+            WHERE stateicp = '{STATE_FILTER}'
+            GROUP BY year, serial, pernum
+        )
+        SELECT * FROM collapsed_census
+        WHERE last_name IS NOT NULL 
+          AND first_name IS NOT NULL
         UNION ALL
         SELECT 
             'BIRLS_' || CAST(record_id AS VARCHAR) AS unique_id,

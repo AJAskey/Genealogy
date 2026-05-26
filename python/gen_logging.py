@@ -31,22 +31,9 @@ class FlushingFileHandler(logging.FileHandler):
 
 def setup_logging(logger_name=None, year=None):
     """
-    Configures the ROOT logger to write to both the console and a file.
-    Because it configures the root logger, standard calls like `logging.info()`
-    across all your modules will automatically use these handlers.
+    Configures a NAMED logger to write to both the console and a file.
+    This completely isolates thread logs and prevents double logging.
     """
-    # Get the ROOT logger so that logging.info() works globally
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-
-    # Completely wipe out ALL existing handlers (prevents the annoying double log)
-    if logger.hasHandlers():
-        logger.handlers.clear()
-        
-    # Failsafe: Remove handlers attached directly to the root explicitly
-    for handler in logging.root.handlers[:]:
-        logging.root.removeHandler(handler)
-
     # Determine the log filename prefix based on the arguments provided
     if logger_name:
         log_prefix = f"vault_{logger_name}"
@@ -55,26 +42,33 @@ def setup_logging(logger_name=None, year=None):
     else:
         log_prefix = "vault_ALL"
 
-    # --- File Handler (with immediate flushing) ---
-    log_dir = r"E:\Users\Andy\PycharmProjects\Genealogy\log"
-    os.makedirs(log_dir, exist_ok=True)
-    time_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    log_filename = os.path.join(log_dir, f"{log_prefix}_{time_str}.log")
+    # USE A NAMED LOGGER so threads get isolated loggers, completely bypassing root duplication
+    logger = logging.getLogger(log_prefix)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False  # DO NOT pass logs up to the root logger
 
-    # Use our custom flushing handler instead of standard FileHandler
-    file_handler = FlushingFileHandler(log_filename, mode='w', encoding='utf-8')
-    file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(module)s - %(message)s')
-    file_handler.setFormatter(file_formatter)
-    logger.addHandler(file_handler)
+    # Only add handlers if they don't already exist for THIS logger
+    if not logger.handlers:
+        # --- File Handler (with immediate flushing) ---
+        log_dir = r"E:\Users\Andy\PycharmProjects\Genealogy\log"
+        os.makedirs(log_dir, exist_ok=True)
+        time_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        log_filename = os.path.join(log_dir, f"{log_prefix}_{time_str}.log")
 
-    # --- Console Handler (with immediate flushing) ---
-    console_handler = logging.StreamHandler(sys.stdout)
-    # The datefmt="%H:%M:%S" strips the year, month, and day out of the console output
-    console_formatter = logging.Formatter('%(asctime)s - %(message)s', datefmt='%H:%M:%S')
-    console_handler.setFormatter(console_formatter)
-    logger.addHandler(console_handler)
+        # Use our custom flushing handler instead of standard FileHandler
+        file_handler = FlushingFileHandler(log_filename, mode='w', encoding='utf-8')
+        file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(module)s - %(message)s')
+        file_handler.setFormatter(file_formatter)
+        logger.addHandler(file_handler)
 
-    # Log the file location right away
-    logging.info(f"Log file started: {log_filename}")
+        # --- Console Handler (with immediate flushing) ---
+        console_handler = logging.StreamHandler(sys.stdout)
+        # The datefmt="%H:%M:%S" strips the year, month, and day out of the console output
+        console_formatter = logging.Formatter('%(asctime)s - %(message)s', datefmt='%H:%M:%S')
+        console_handler.setFormatter(console_formatter)
+        logger.addHandler(console_handler)
+
+        # Log the file location right away
+        logger.info(f"Log file started: {log_filename}")
 
     return logger
