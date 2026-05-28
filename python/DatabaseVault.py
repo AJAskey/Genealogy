@@ -34,8 +34,9 @@ from project_globals import CODEBOOK
 MAX_WORKERS = 4
 BATCH_SIZE = 100_000
 MULTIPLE_DATABASE_FILES = False
+SINGLE_DB_SUFFIX = "ALL"  # Change to "ALLs" when running the samples CSV!
 db_name1 = r"d:\Data\Genealogy_Data\MasterVault_"
-input_directory = r"D:\Data\Genealogy_Data\CSV"
+input_directory = r"C:\tempc\ShortTermCSVfiles"
 CREATE_PERSON_OBJECTS = True
 WRITE_DEBUG_CSV = True
 DEBUG_CSV_LIMIT = 5000
@@ -118,12 +119,23 @@ def ingest_to_vault(input_csv, db_path, logger):
             # Create the permanent, repeatable St. Joe's ID 
             composite_id = f"{raw_sample}_{raw_serial}_{raw_pernum}"
 
+            # Fields that are pure data/IDs and should NEVER be translated via Codebook
+            DO_NOT_TRANSLATE = {
+                "YEAR", "SAMPLE", "SERIAL", "PERNUM", "NAMELAST", "NAMEFRST", 
+                "HISTID", "REEL", "PAGENO", "LINE", "MICROSEQ", "AGE", "BIRTHYR"
+            }
+
             # 1. Clean and translate the row globally BEFORE doing anything else
             for key, value in row.items():
                 if value is None:
                     continue
 
                 clean_val = str(value).strip()
+
+                # Bypass the codebook for IDs, names, and source locators
+                if key.upper() in DO_NOT_TRANSLATE:
+                    row[key] = clean_val
+                    continue
 
                 # Attempt robust lookup handling zero-padding mismatches between CSV and JSON
                 text_val = CODEBOOK.get_code_value(key.upper(), clean_val)
@@ -186,11 +198,9 @@ def ingest_to_vault(input_csv, db_path, logger):
 def process_file(filename, input_directory):
     file_path = os.path.join(input_directory, filename)
 
-    year = 'ALL'
-    if MULTIPLE_DATABASE_FILES:
-        # Safely extract the 4-digit year from the filename
-        match = re.search(r'\d{4}', filename)
-        year = match.group() if match else 'unknown'
+    # Always extract the year so each thread gets its own distinct log file
+    match = re.search(r'\d{4}', filename)
+    year = match.group() if match else 'unknown'
 
     # Create a unique logger for this specific year/thread
     logger = gen_logging.setup_logging(logger_name=year)
@@ -199,7 +209,7 @@ def process_file(filename, input_directory):
         db_name = db_name1 + year + ".db"
         setup_database(db_name, logger)
     else:
-        db_name = db_name1 + "ALL.db"
+        db_name = db_name1 + f"{SINGLE_DB_SUFFIX}.db"
 
     logger.info(f"\n--- [{filename}]  Thread starting → {db_name} ---")
 
@@ -242,7 +252,7 @@ if __name__ == '__main__':
     main_logger.info("====================================================")
 
     if not MULTIPLE_DATABASE_FILES:
-        db_name = db_name1 + r"ALL.db"
+        db_name = db_name1 + f"{SINGLE_DB_SUFFIX}.db"
         setup_database(db_name, main_logger)
 
     csv_files = [f for f in os.listdir(input_directory) if f.endswith(".csv")]

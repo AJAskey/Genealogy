@@ -16,6 +16,11 @@ os.environ["PYTHONUNBUFFERED"] = "1"
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(line_buffering=True)
 
+# Try to import the global flag. If it fails, default to False.
+try:
+    from config import MULTIPLE_DATABASE_FILES
+except ImportError:
+    MULTIPLE_DATABASE_FILES = False
 
 class FlushingFileHandler(logging.FileHandler):
     """
@@ -29,16 +34,21 @@ class FlushingFileHandler(logging.FileHandler):
         self.flush()
 
 
-def setup_logging(logger_name=None, year=None):
+def setup_logging(logger_name=None, year=None, multiple_db_files=None):
     """
     Configures a NAMED logger to write to both the console and a file.
     This completely isolates thread logs and prevents double logging.
     """
+    # Allow override via parameter, otherwise use the imported global
+    use_multiple = multiple_db_files if multiple_db_files is not None else MULTIPLE_DATABASE_FILES
+
     # Determine the log filename prefix based on the arguments provided
-    if logger_name:
-        log_prefix = f"vault_{logger_name}"
-    elif year:
+    if use_multiple and year:
         log_prefix = f"vault_{year}"
+    elif not use_multiple and year:
+        log_prefix = "vault_ALL"
+    elif logger_name:
+        log_prefix = f"vault_{logger_name}"
     else:
         log_prefix = "vault_ALL"
 
@@ -46,6 +56,12 @@ def setup_logging(logger_name=None, year=None):
     logger = logging.getLogger(log_prefix)
     logger.setLevel(logging.INFO)
     logger.propagate = False  # DO NOT pass logs up to the root logger
+
+    # Fix the duplicate logging issue: 
+    # If scripts accidentally use `logging.info()` instead of `logger.info()`, 
+    # Python auto-creates a root handler. We clear it and control it explicitly.
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
 
     # Only add handlers if they don't already exist for THIS logger
     if not logger.handlers:
@@ -63,10 +79,14 @@ def setup_logging(logger_name=None, year=None):
 
         # --- Console Handler (with immediate flushing) ---
         console_handler = logging.StreamHandler(sys.stdout)
-        # The datefmt="%H:%M:%S" strips the year, month, and day out of the console output
-        console_formatter = logging.Formatter('%(asctime)s - %(message)s', datefmt='%H:%M:%S')
+        # Strictly Hours:Minutes:Seconds for console, as requested
+        console_formatter = logging.Formatter('%(asctime)s | %(message)s', datefmt='%H:%M:%S')
         console_handler.setFormatter(console_formatter)
         logger.addHandler(console_handler)
+
+        # Attach the exact same console handler to root so accidental `logging.info` doesn't double print
+        root_logger.addHandler(console_handler)
+        root_logger.setLevel(logging.INFO)
 
         # Log the file location right away
         logger.info(f"Log file started: {log_filename}")

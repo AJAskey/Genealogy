@@ -25,6 +25,7 @@ Design notes:
 import pandas as pd
 import splink.comparison_library as cl
 from splink import DuckDBAPI, Linker, SettingsCreator, block_on
+from identity_registry import IdentityRegistry
 
 
 class CreateGoldenRecord:
@@ -82,7 +83,7 @@ class CreateGoldenRecord:
     # PUBLIC ENTRY POINT
     # ------------------------------------------------------------------
 
-    def run(self, output_table: str = "clean.golden_records"):
+    def run(self, output_table: str = "clean.golden_records", model_path: str = None):
         """
         Full pipeline: train -> predict -> cluster -> survivorship -> write.
 
@@ -91,6 +92,8 @@ class CreateGoldenRecord:
         output_table : str
             Fully qualified DuckDB table name to write golden records into.
             Must use the 'clean.' prefix so it lands in CleanVault.db.
+        model_path : str
+            File path to the trained Splink JSON model.
         """
         self.logger.info("=" * 60)
         self.logger.info("GoldenRecordGenerator: Starting pipeline")
@@ -100,9 +103,8 @@ class CreateGoldenRecord:
         db_api = DuckDBAPI(connection=self.con)
         
         import os
-        model_path = r"D:\Data\Genealogy_Data\splink_model.json"
         
-        if os.path.exists(model_path):
+        if model_path and os.path.exists(model_path):
             self.logger.info(f"Step 2/5: Found saved model. Loading brain from '{model_path}'...")
             self.linker = Linker(
                 "population_for_splink",
@@ -122,13 +124,14 @@ class CreateGoldenRecord:
             self.logger.info("Step 2/5: Training match weights on sample (unsupervised EM)...")
             self._train()
             
-            self.logger.info(f"          Saving AI brain to '{model_path}' for future runs...")
-            self.linker.misc.save_model_to_json(model_path, overwrite=True)
+            if model_path:
+                self.logger.info(f"          Saving AI brain to '{model_path}' for future runs...")
+                self.linker.misc.save_model_to_json(model_path, overwrite=True)
 
             self.logger.info("          Reloading Linker with full dataset for predictions...")
             self.linker = Linker(
                 "population_for_splink",
-                model_path,
+                model_path if model_path else self.SPLINK_SETTINGS,
                 db_api=db_api,
             )
 
@@ -136,11 +139,13 @@ class CreateGoldenRecord:
         cluster_df = self._predict_and_cluster()
 
         self.logger.info(f"Step 4/5: Applying survivorship rules to {len(cluster_df):,} clustered rows...")
-        golden_df = self._generate_survivor_records(cluster_df)
+        registry = IdentityRegistry(self.logger)
+        golden_df = self._generate_survivor_records(cluster_df, registry)
         self.logger.info(f"          Produced {len(golden_df):,} unique golden records.")
 
         self.logger.info(f"Step 5/5: Writing golden records to {output_table}...")
         self._write_golden_records(golden_df, output_table)
+        registry.save_registry()
         self.logger.info("GoldenRecordGenerator: Pipeline complete.")
 
     # ------------------------------------------------------------------
@@ -193,7 +198,7 @@ class CreateGoldenRecord:
         self.logger.info(f"          Clustering yielded {cluster_df['cluster_id'].nunique():,} unique clusters.")
         return cluster_df
 
-    def _generate_survivor_records(self, cluster_df: pd.DataFrame) -> pd.DataFrame:
+    def _generate_survivor_records(self, cluster_df: pd.DataFrame, registry: IdentityRegistry) -> pd.DataFrame:
         """
         Survivorship Rules — Census is primary, BIRLS only fills blanks.
         
@@ -251,6 +256,8 @@ class CreateGoldenRecord:
                 best_birth_year = None
 
             state = census_winner("state")
+            father_ptr = census_winner("father_pointer")
+            mother_ptr = census_winner("mother_pointer")
 
             birls_dod = None
             birls_dob = None
@@ -272,8 +279,14 @@ class CreateGoldenRecord:
 
             all_pointers = group["unique_id"].astype(str).tolist()
 
+            # ----------------------------------------------------------
+            # PERMANENT HUMAN ID (The Registry Anchor Strategy)
+            # ----------------------------------------------------------
+            full_name = f"{first_name or ''} {last_name or ''}".strip().upper()
+            permanent_golden_id = registry.get_or_mint_master_id(all_pointers, full_name)
+
             golden = {
-                "cluster_id":    cluster_id,
+                "golden_id":     permanent_golden_id,
                 "first_name":    first_name,
                 "last_name":     last_name,
                 "birth_year":    best_birth_year,
@@ -283,6 +296,10 @@ class CreateGoldenRecord:
                 "census_count":  len(census_rows),
                 "birls_count":   len(birls_rows),
                 "vault_pointers": "|".join(all_pointers),
+                "father_pointer": father_ptr,
+                "mother_pointer": mother_ptr,
+                "st_joes_patrilineal_id": None,
+                "st_joes_matrilineal_id": None
             }
             golden_records.append(golden)
 
@@ -298,7 +315,7 @@ class CreateGoldenRecord:
 
         self.con.execute(f"""
             CREATE TABLE IF NOT EXISTS {output_table} (
-                cluster_id      VARCHAR,
+                golden_id       VARCHAR PRIMARY KEY,
                 first_name      VARCHAR,
                 last_name       VARCHAR,
                 birth_year      INTEGER,
@@ -307,14 +324,18 @@ class CreateGoldenRecord:
                 record_count    INTEGER,   -- total rows merged (census + BIRLS)
                 census_count    INTEGER,   -- how many census rows contributed
                 birls_count     INTEGER,   -- how many BIRLS rows contributed
-                vault_pointers  VARCHAR    -- pipe-delimited list of all source unique_ids
+                vault_pointers  VARCHAR,   -- pipe-delimited list of all source unique_ids
+                father_pointer  VARCHAR,
+                mother_pointer  VARCHAR,
+                st_joes_patrilineal_id VARCHAR, -- The Patrilineal Lineage Clan ID (Y-DNA)
+                st_joes_matrilineal_id VARCHAR  -- The Matrilineal Lineage Clan ID (mtDNA)
             );
         """)
 
         self.con.execute(f"""
             INSERT INTO {output_table}
             SELECT
-                cluster_id,
+                golden_id,
                 first_name,
                 last_name,
                 birth_year,
@@ -323,10 +344,19 @@ class CreateGoldenRecord:
                 record_count,
                 census_count,
                 birls_count,
-                vault_pointers
-            FROM golden_records_staging
-            WHERE cluster_id NOT IN (
-                SELECT cluster_id FROM {output_table}
+                vault_pointers,
+                father_pointer,
+                mother_pointer,
+                st_joes_patrilineal_id,
+                st_joes_matrilineal_id
+            FROM (
+                -- Deduplicate the batch before insertion in case IdentityRegistry issued the same ID twice
+                SELECT *, ROW_NUMBER() OVER (PARTITION BY golden_id ORDER BY record_count DESC) as dedupe_rn
+                FROM golden_records_staging
+            ) deduplicated
+            WHERE dedupe_rn = 1
+              AND golden_id NOT IN (
+                SELECT golden_id FROM {output_table}
             );
         """)
 

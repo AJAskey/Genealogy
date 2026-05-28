@@ -23,9 +23,11 @@ from CreateGoldenRecord import CreateGoldenRecord
 # ==============================================================================
 # CONFIGURATION
 # ==============================================================================
-CENSUS_DB = r"D:\Data\Genealogy_Data\MasterVault_ALL.db"
+CENSUS_100_DB = r"D:\Data\Genealogy_Data\MasterVault_ALL.db"
+CENSUS_SAMPLES_DB = r"D:\Data\Genealogy_Data\MasterVault_ALLs.db"
 BIRLS_DB = r"D:\Data\Genealogy_Data\DeathIndexVault.db"
 CLEAN_DB = r"D:\Data\Genealogy_Data\CleanVault.db"
+SPLINK_MODEL_JSON = r"D:\Data\Genealogy_Data\splink_model.json"
 
 # Claude's Safety Filter: Only process one state until the logic is proven!
 STATE_FILTER = "Alabama"
@@ -47,9 +49,12 @@ def run_analyst_pipeline(logger):
     con.execute("INSTALL sqlite;")
     con.execute("LOAD sqlite;")
 
-    # Attach the databases directly from the NVMe drive
-    logger.info(f"Attaching Census Vault: {CENSUS_DB}")
-    con.execute(f"ATTACH '{CENSUS_DB}' AS census (TYPE SQLITE);")
+    # Attach the dual databases directly from the NVMe drive
+    logger.info(f"Attaching 100% Census Base Vault: {CENSUS_100_DB}")
+    con.execute(f"ATTACH '{CENSUS_100_DB}' AS census100 (TYPE SQLITE);")
+
+    logger.info(f"Attaching Census Samples Patch Vault: {CENSUS_SAMPLES_DB}")
+    con.execute(f"ATTACH '{CENSUS_SAMPLES_DB}' AS samples (TYPE SQLITE);")
 
     logger.info(f"Attaching Death Index Vault: {BIRLS_DB}")
     con.execute(f"ATTACH '{BIRLS_DB}' AS birls (TYPE SQLITE);")
@@ -69,25 +74,51 @@ def run_analyst_pipeline(logger):
     logger.info("Pre-filtering death index for relevant names...")
     con.execute(f"""
         CREATE TEMP TABLE target_names AS
-        SELECT DISTINCT namelast FROM census.population WHERE stateicp = '{STATE_FILTER}' AND namelast IS NOT NULL;
+        SELECT DISTINCT namelast FROM census100.population WHERE stateicp = '{STATE_FILTER}' AND namelast IS NOT NULL
+        UNION
+        SELECT DISTINCT namelast FROM samples.population WHERE stateicp = '{STATE_FILTER}' AND namelast IS NOT NULL;
     """)
 
     # We build an in-memory table that maps IPUMS variables to Splink standard names
     con.execute(f"""
         CREATE TABLE population_for_splink AS
-        WITH collapsed_census AS (
-            SELECT 
-                MIN(composite_id) AS unique_id,
-                MAX(namefrst) AS first_name,
-                MAX(namelast) AS last_name,
-                CAST(MAX(birthyr) AS INTEGER) AS birth_year,
-                MAX(stateicp) AS state,
-                CAST(year AS INTEGER) AS census_year,
-                CAST(NULL AS VARCHAR) AS death_date,
-                'census' AS source_db
-            FROM census.population
+                                                                                 WITH base_filtered AS (
+            -- Push filter down to SQLite before bringing into DuckDB
+            SELECT * FROM census100.population 
+            WHERE stateicp = '{STATE_FILTER}'
+        ),
+        samp_filtered AS (
+            -- Pre-filter the samples DB and apply 'The Squash' logic to prevent Cartesian explosion
+            SELECT year, serial, pernum, 
+                   MAX(namefrst) as namefrst, 
+                   MAX(namelast) as namelast,
+                   MAX(birthyr) as birthyr,
+                   MAX(stateicp) as stateicp
+            FROM samples.population 
             WHERE stateicp = '{STATE_FILTER}'
             GROUP BY year, serial, pernum
+        ),
+        collapsed_census AS (
+            SELECT 
+                base.composite_id AS unique_id,
+                COALESCE(samp.namefrst, base.namefrst) AS first_name,
+                COALESCE(samp.namelast, base.namelast) AS last_name,
+                CAST(COALESCE(samp.birthyr, base.birthyr) AS INTEGER) AS birth_year,
+                COALESCE(samp.stateicp, base.stateicp) AS state,
+                CAST(base.year AS INTEGER) AS census_year,
+                CAST(NULL AS VARCHAR) AS death_date,
+                'census' AS source_db,
+                -- Build Father ID pointer: sample_serial_poploc
+                CASE WHEN TRY_CAST(base.poploc AS INTEGER) > 0 
+                     THEN SPLIT_PART(base.composite_id, '_', 1) || '_' || SPLIT_PART(base.composite_id, '_', 2) || '_' || base.poploc 
+                     ELSE NULL END AS father_pointer,
+                -- Build Mother ID pointer: sample_serial_momloc
+                CASE WHEN TRY_CAST(base.momloc AS INTEGER) > 0 
+                     THEN SPLIT_PART(base.composite_id, '_', 1) || '_' || SPLIT_PART(base.composite_id, '_', 2) || '_' || base.momloc 
+                     ELSE NULL END AS mother_pointer
+            FROM base_filtered base
+            LEFT JOIN samp_filtered samp
+              ON base.year = samp.year AND base.serial = samp.serial AND base.pernum = samp.pernum
         )
         SELECT * FROM collapsed_census
         WHERE last_name IS NOT NULL 
@@ -101,7 +132,9 @@ def run_analyst_pipeline(logger):
             CAST(NULL AS VARCHAR) AS state,
             CAST(NULL AS INTEGER) AS census_year,
             dod AS death_date,
-            'birls' AS source_db
+            'birls' AS source_db,
+            CAST(NULL AS VARCHAR) AS father_pointer,
+            CAST(NULL AS VARCHAR) AS mother_pointer
         FROM birls.birls_records
         WHERE last IN (SELECT namelast FROM target_names)
           AND last IS NOT NULL 
@@ -116,7 +149,7 @@ def run_analyst_pipeline(logger):
     # ---------------------------------------------------------
     logger.info("Initializing Splink Linker...")
     generator = CreateGoldenRecord(db_connection=con, logger=logger)
-    generator.run(output_table="clean.golden_records")
+    generator.run(output_table="clean.golden_records", model_path=SPLINK_MODEL_JSON)
 
 
 if __name__ == "__main__":

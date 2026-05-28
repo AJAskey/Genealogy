@@ -23,7 +23,7 @@ import datetime
 import os
 import sqlite3
 
-from python.project_globals import CODEBOOK
+from project_globals import CODEBOOK
 
 # ==============================================================================
 # CONFIGURATION
@@ -33,7 +33,7 @@ OUTPUT_GED = r"E:\Users\Andy\PycharmProjects\Genealogy\output\census_all_export.
 
 # Set this to a St. Joe's ID (e.g., "192001_101_1_1") to ONLY export that 
 # specific individual's household. Leave as None to export everything (up to limit).
-STARTING_ST_JOES_ID = "1910_191002_14029101_1_696312"
+STARTING_ST_JOES_ID = None
 
 
 # ==============================================================================
