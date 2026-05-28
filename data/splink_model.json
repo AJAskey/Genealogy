@@ -5,7 +5,7 @@
     "retain_intermediate_calculation_columns": false,
     "additional_columns_to_retain": [],
     "sql_dialect": "duckdb",
-    "linker_uid": "xu4mbpf3",
+    "linker_uid": "qco5pj8n",
     "em_convergence": 0.0001,
     "max_iterations": 10,
     "bayes_factor_column_prefix": "bf_",
@@ -15,11 +15,11 @@
     "source_dataset_column_name": "source_dataset",
     "blocking_rules_to_generate_predictions": [
         {
-            "blocking_rule": "(l.\"first_name\" = r.\"first_name\") AND (l.\"last_name\" = r.\"last_name\")",
+            "blocking_rule": "l.first_name = r.first_name AND l.last_name = r.last_name AND (abs(l.birth_year - r.birth_year) <= 10 OR l.birth_year IS NULL OR r.birth_year IS NULL)",
             "sql_dialect": "duckdb"
         },
         {
-            "blocking_rule": "(l.\"last_name\" = r.\"last_name\") AND (l.\"birth_year\" = r.\"birth_year\")",
+            "blocking_rule": "l.last_name = r.last_name AND l.birth_year = r.birth_year AND substr(l.first_name, 1, 1) = substr(r.first_name, 1, 1)",
             "sql_dialect": "duckdb"
         },
         {
@@ -41,32 +41,32 @@
                 {
                     "sql_condition": "\"first_name_l\" = \"first_name_r\"",
                     "label_for_charts": "Exact match on first_name",
-                    "m_probability": 1.0,
-                    "u_probability": 0.8415374806122035,
+                    "m_probability": 0.9993228947112551,
+                    "u_probability": 0.017451358918768024,
                     "fix_m_probability": false,
                     "fix_u_probability": false
                 },
                 {
                     "sql_condition": "levenshtein(\"first_name_l\", \"first_name_r\") <= 1",
                     "label_for_charts": "Levenshtein distance of first_name <= 1",
-                    "m_probability": 1.130879096573896e-53,
-                    "u_probability": 0.0012688755789969975,
+                    "m_probability": 4.8498575348901865e-05,
+                    "u_probability": 0.0015535470825349634,
                     "fix_m_probability": false,
                     "fix_u_probability": false
                 },
                 {
                     "sql_condition": "levenshtein(\"first_name_l\", \"first_name_r\") <= 2",
                     "label_for_charts": "Levenshtein distance of first_name <= 2",
-                    "m_probability": 1.039450391522436e-28,
-                    "u_probability": 3.986990597347175e-05,
+                    "m_probability": 0.00016806580739864714,
+                    "u_probability": 0.007815427648378843,
                     "fix_m_probability": false,
                     "fix_u_probability": false
                 },
                 {
                     "sql_condition": "ELSE",
                     "label_for_charts": "All other comparisons",
-                    "m_probability": 4.91438857443107e-43,
-                    "u_probability": 0.15715377390282606,
+                    "m_probability": 0.00046054090599731185,
+                    "u_probability": 0.9731796663503182,
                     "fix_m_probability": false,
                     "fix_u_probability": false
                 }
@@ -86,16 +86,16 @@
                 {
                     "sql_condition": "\"last_name_l\" = \"last_name_r\"",
                     "label_for_charts": "Exact match on last_name",
-                    "m_probability": 1.0,
-                    "u_probability": 0.8414981380859387,
+                    "m_probability": 0.9989827984845865,
+                    "u_probability": 0.016899648737185587,
                     "fix_m_probability": false,
                     "fix_u_probability": false
                 },
                 {
                     "sql_condition": "jaro_winkler_similarity(\"last_name_l\", \"last_name_r\") >= 0.88",
                     "label_for_charts": "Jaro-Winkler distance of last_name >= 0.88",
-                    "m_probability": 2.2665352886362653e-22,
-                    "u_probability": 7.383315921013286e-06,
+                    "m_probability": 6.188710128413899e-05,
+                    "u_probability": 0.0008426628144938004,
                     "fix_m_probability": false,
                     "fix_u_probability": false
                 },
@@ -108,8 +108,8 @@
                 {
                     "sql_condition": "ELSE",
                     "label_for_charts": "All other comparisons",
-                    "m_probability": 4.753767168498402e-34,
-                    "u_probability": 0.15849447859814036,
+                    "m_probability": 0.0009553144141295485,
+                    "u_probability": 0.9822576884483206,
                     "fix_m_probability": false,
                     "fix_u_probability": false
                 }
@@ -129,14 +129,16 @@
                 {
                     "sql_condition": "\"birth_year_l\" = \"birth_year_r\"",
                     "label_for_charts": "Exact match on birth_year",
-                    "u_probability": 0.008748174606983457,
+                    "m_probability": 0.20936167101942166,
+                    "u_probability": 0.01039610751369677,
                     "fix_m_probability": false,
                     "fix_u_probability": false
                 },
                 {
                     "sql_condition": "ELSE",
                     "label_for_charts": "All other comparisons",
-                    "u_probability": 0.9912518253930166,
+                    "m_probability": 0.7906383289805783,
+                    "u_probability": 0.9896038924863032,
                     "fix_m_probability": false,
                     "fix_u_probability": false
                 }
