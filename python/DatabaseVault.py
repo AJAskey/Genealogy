@@ -31,7 +31,7 @@ from project_globals import CODEBOOK
 # ==============================================================================
 # TUNING KNOBS
 # ==============================================================================
-MAX_WORKERS = 4
+MAX_WORKERS = 1
 BATCH_SIZE = 100_000
 MULTIPLE_DATABASE_FILES = False
 SINGLE_DB_SUFFIX = "ALL"  # Change to "ALLs" when running the samples CSV!
@@ -47,10 +47,10 @@ DEBUG_OUTPUT_DIR = r"E:\Users\Andy\PycharmProjects\Genealogy\debug"
 # ==============================================================================
 TARGET_COLUMNS = [
     "YEAR", "SAMPLE", "SERIAL", "PERNUM", "NUMPREC", "SEX", "AGE", "BIRTHYR", "BPLD", "NAMELAST", "NAMEFRST", "HHTYPE",
-    "STATEICP", "COUNTYICP", "METAREAD", "CITY", "FARM", "FAMUNIT", "FAMSIZE", "NMOTHERS", "NFATHERS", "NCHILD",
-    "NSIBS", "MOMLOC", "POPLOC", "SPLOC", "MOMRULE_HIST", "POPRULE_HIST", "SPRULE_HIST",
-    "ELDCH", "YNGCH", "RELATED", "RACED", "HISTID",
-    "REEL", "PAGENO", "LINE", "MICROSEQ"
+    "STATEICP", "COUNTYICP", "METAREA", "METAREAD", "CITY", "GQ", "FARM", "FAMUNIT", "FAMSIZE", "NMOTHERS", "NFATHERS",
+    "NCHILD", "NSIBS", "MOMLOC", "POPLOC", "SPLOC", "MOMRULE_HIST", "POPRULE_HIST", "SPRULE_HIST", "FBPL", "FBPLD",
+    "MBPL", "MBPLD", "ELDCH", "YNGCH", "RELATE", "RELATED", "RACE", "RACED", "BPL", "HISTID", "VERSIONHIST", "HHWT",
+    "PERWT", "REEL", "PAGENO", "LINE", "MICROSEQ"
 ]
 
 
@@ -121,8 +121,8 @@ def ingest_to_vault(input_csv, db_path, logger):
 
             # Fields that are pure data/IDs and should NEVER be translated via Codebook
             DO_NOT_TRANSLATE = {
-                "YEAR", "SAMPLE", "SERIAL", "PERNUM", "NAMELAST", "NAMEFRST", 
-                "HISTID", "REEL", "PAGENO", "LINE", "MICROSEQ", "AGE", "BIRTHYR"
+                "YEAR", "SAMPLE", "SERIAL", "PERNUM", "NAMELAST", "NAMEFRST",
+                "HISTID", "REEL", "PAGENO", "LINE", "MICROSEQ", "AGE", "BIRTHYR", "HHWT", "PERWT", "VERSIONHIST"
             }
 
             # 1. Clean and translate the row globally BEFORE doing anything else

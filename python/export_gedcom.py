@@ -21,19 +21,21 @@ Outputs: .ged file encoded in UTF-8
 import argparse
 import datetime
 import os
-import sqlite3
+import duckdb
+import pandas as pd
 
 from project_globals import CODEBOOK
 
 # ==============================================================================
 # CONFIGURATION
 # ==============================================================================
-DEFAULT_DB = r"D:\Data\Genealogy_Data\MasterVault_ALL.db"
+MASTER_100_DB = r"D:\Data\Genealogy_Data\MasterVault_ALL.db"
+MASTER_SAMP_DB = r"D:\Data\Genealogy_Data\MasterVault_ALLs.db"
+CLEAN_DB = r"D:\Data\Genealogy_Data\CleanVault.db"
 OUTPUT_GED = r"E:\Users\Andy\PycharmProjects\Genealogy\output\census_all_export.ged"
 
-# Set this to a St. Joe's ID (e.g., "192001_101_1_1") to ONLY export that 
-# specific individual's household. Leave as None to export everything (up to limit).
-STARTING_ST_JOES_ID = None
+# Limit the number of Golden Records to export for testing purposes
+EXPORT_LIMIT = 5000
 
 
 # ==============================================================================
@@ -41,6 +43,7 @@ STARTING_ST_JOES_ID = None
 # ==============================================================================
 def map_sex(ipums_sex):
     """Map IPUMS SEX to GEDCOM SEX."""
+    ipums_sex = str(ipums_sex).strip()
     if ipums_sex == '1':
         return 'M'
     elif ipums_sex == '2':
@@ -50,8 +53,8 @@ def map_sex(ipums_sex):
 
 def format_name(first, last):
     """Format name for GEDCOM standard: First /Last/."""
-    first = first.strip() if first else ""
-    last = last.strip() if last else ""
+    first = str(first).strip() if pd.notna(first) else ""
+    last = str(last).strip() if pd.notna(last) else ""
     if not first and not last:
         return "Unknown"
     return f"{first} /{last}/".strip()
@@ -60,136 +63,121 @@ def format_name(first, last):
 # ==============================================================================
 # GEDCOM EXPORTER
 # ==============================================================================
-def export_to_gedcom(db_path, output_path, limit=None, starting_id=None):
-    if not os.path.exists(db_path):
-        print(f"Error: Database not found at {db_path}")
-        return
-
-    # Ensure output directory exists
+def export_to_gedcom(output_path, limit=None, is_test=False):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    print(f"Connecting to {db_path}...")
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    print("Initializing DuckDB Engine...")
+    con = duckdb.connect()
+    con.execute("PRAGMA memory_limit='90GB'")
+    con.execute("INSTALL sqlite; LOAD sqlite;")
 
-    if starting_id:
-        print(f"Looking up household for St. Joe's ID: {starting_id}...")
-        cursor.execute("SELECT serial FROM population WHERE composite_id = ?", (starting_id,))
-        result = cursor.fetchone()
-        if result:
-            serials_to_process = [result['serial']]
-            print(f"Found serial {result['serial']} for individual. Exporting this household.")
-        else:
-            print(f"Error: Could not find individual with St. Joe's ID '{starting_id}'.")
-            return
+    if is_test:
+        print("*** RUNNING IN TEST MODE ***")
+        base_db = r"D:\Data\Genealogy_Data\MasterVault_TEST.db"
+        samp_db = r"D:\Data\Genealogy_Data\MasterVault_TEST.db"
     else:
-        # 1. Get a list of unique household serials
-        print("Fetching unique household serials...")
-        cursor.execute("SELECT DISTINCT serial FROM population")
-        all_serials = [row['serial'] for row in cursor.fetchall()]
+        base_db = MASTER_100_DB
+        samp_db = MASTER_SAMP_DB
 
-        # 2. Limit the number of households to process
-        if limit:
-            serials_to_process = all_serials[:limit]
-            print(f"Limiting to first {limit} households.")
-        else:
-            serials_to_process = all_serials
+    print("Attaching Vaults...")
+    con.execute(f"ATTACH '{CLEAN_DB}' AS clean (TYPE SQLITE, READ_ONLY);")
+    con.execute(f"ATTACH '{base_db}' AS base (TYPE SQLITE, READ_ONLY);")
+    con.execute(f"ATTACH '{samp_db}' AS samp (TYPE SQLITE, READ_ONLY);")
 
-    # 3. Fetch all rows for those selected households
-    print(f"Fetching all records for {len(serials_to_process)} households...")
-    placeholders = ','.join('?' for _ in serials_to_process)
-    query = f"SELECT * FROM population WHERE serial IN ({placeholders})"
-    cursor.execute(query, serials_to_process)
-    rows = cursor.fetchall()
+    limit_clause = f"LIMIT {limit}" if limit else ""
+    
+    print("Unpacking St. Joe's IDs and fetching historical timelines...")
+    query = f"""
+        WITH target_golden AS (
+            SELECT * FROM clean.golden_records 
+            {limit_clause}
+        )
+        SELECT 
+            g.golden_id, g.first_name, g.last_name, g.birth_year, g.birth_place, g.death_date,
+            c.composite_id, c.year, c.age, c.sex, c.serial, c.pernum, c.reel, c.pageno, c.line, c.microseq, c.stateicp
+        FROM target_golden g
+        CROSS JOIN UNNEST(string_split(g.vault_pointers, '|')) AS t(comp_id)
+        JOIN (
+            SELECT composite_id, year, age, sex, serial, pernum, reel, pageno, line, microseq, stateicp FROM base.population
+            UNION ALL
+            SELECT composite_id, year, age, sex, serial, pernum, reel, pageno, line, microseq, stateicp FROM samp.population
+        ) c ON t.comp_id = c.composite_id
+        ORDER BY g.golden_id, c.year ASC;
+    """
+    
+    df = con.execute(query).df()
+    print(f"Loaded {len(df)} historical events. Generating GEDCOM...")
+    
+    if df.empty:
+        print("No records found. Exiting.")
+        return
+        
+    print("Mapping family relationships...")
+    exported_ids_tuple = tuple(df['golden_id'].unique())
+    if len(exported_ids_tuple) == 1:
+        exported_ids_sql = f"('{exported_ids_tuple[0]}')"
+    else:
+        exported_ids_sql = str(exported_ids_tuple)
 
-    print(f"Loaded {len(rows)} records. Generating GEDCOM...")
+    rel_query = f"""
+        WITH unnested AS (
+            SELECT golden_id, UNNEST(string_split(vault_pointers, '|')) AS comp_id
+            FROM clean.golden_records
+        )
+        SELECT 
+            g.golden_id AS child_id,
+            f.golden_id AS father_id,
+            m.golden_id AS mother_id
+        FROM clean.golden_records g
+        LEFT JOIN unnested f ON g.father_pointer = f.comp_id
+        LEFT JOIN unnested m ON g.mother_pointer = m.comp_id
+        WHERE g.golden_id IN {exported_ids_sql}
+          AND (f.golden_id IS NOT NULL OR m.golden_id IS NOT NULL)
+    """
+    rel_df = con.execute(rel_query).df()
 
-    # Organize into families
-    # Key: (year, sample, serial, famunit)
     families = {}
-    individuals = []
-
-    # Map long database IDs to short GEDCOM sequential IDs to avoid FTM 22-char limits
-    indi_id_map = {}
-    fam_id_map = {}
-    indi_counter = 1
-    fam_counter = 1
-
-    for row in rows:
-        individuals.append(row)
-
-        comp_id_safe = str(row['composite_id']).strip().replace(" ", "_")
-        if comp_id_safe not in indi_id_map:
-            indi_id_map[comp_id_safe] = f"@I{indi_counter}@"
-            indi_counter += 1
-
-        fam_unit_safe = str(row['famunit']).strip() if row['famunit'] else "1"
-        fam_key = (row['year'], row['sample'], row['serial'], fam_unit_safe)
-
+    for _, row in rel_df.iterrows():
+        child_id = row['child_id']
+        father_id = row['father_id'] if pd.notna(row['father_id']) else None
+        mother_id = row['mother_id'] if pd.notna(row['mother_id']) else None
+        
+        if father_id not in exported_ids_tuple: father_id = None
+        if mother_id not in exported_ids_tuple: mother_id = None
+        
+        if not father_id and not mother_id:
+            continue
+            
+        fam_key = (father_id, mother_id)
         if fam_key not in families:
             families[fam_key] = []
-        families[fam_key].append(row)
-
-    # Map Family Keys to short GEDCOM IDs
-    for fam_key in families.keys():
-        if fam_key not in fam_id_map:
-            fam_id_map[fam_key] = f"@F{fam_counter}@"
-            fam_counter += 1
-
-    # --- PRE-CALCULATE ALL BIDIRECTIONAL LINKS ---
+        families[fam_key].append(child_id)
+        
+    fam_id_counter = 1
     indi_links = {}
     fam_records = {}
 
-    for fam_key, members in families.items():
-        short_fam_id = fam_id_map[fam_key]
-        fam_records[short_fam_id] = []
-        has_husb = False
-        has_wife = False
-
-        for row in members:
-            comp_id_safe = str(row['composite_id']).strip().replace(" ", "_")
-            short_indi_id = indi_id_map[comp_id_safe]
-
-            relate = str(row['related']).strip() if row['related'] else ""
-            sex = map_sex(row['sex'])
-
-            if short_indi_id not in indi_links:
-                indi_links[short_indi_id] = []
-
-            if (relate.startswith('1') or relate == '0100') and not has_husb:
-                if sex == 'M':
-                    fam_records[short_fam_id].append(f"1 HUSB {short_indi_id}\n")
-                    indi_links[short_indi_id].append(f"1 FAMS {short_fam_id}\n")
-                    has_husb = True
-                elif not has_wife:
-                    fam_records[short_fam_id].append(f"1 WIFE {short_indi_id}\n")
-                    indi_links[short_indi_id].append(f"1 FAMS {short_fam_id}\n")
-                    has_wife = True
-
-            elif (relate.startswith('2') or relate == '0200') and not has_wife:
-                if sex == 'F':
-                    fam_records[short_fam_id].append(f"1 WIFE {short_indi_id}\n")
-                    indi_links[short_indi_id].append(f"1 FAMS {short_fam_id}\n")
-                    has_wife = True
-                elif not has_husb:
-                    fam_records[short_fam_id].append(f"1 HUSB {short_indi_id}\n")
-                    indi_links[short_indi_id].append(f"1 FAMS {short_fam_id}\n")
-                    has_husb = True
-
-            elif relate.startswith('3') or relate == '0300':
-                state = CODEBOOK.get_code_value("RELATED", relate)
-                fam_records[short_fam_id].append(f"1 CHIL {short_indi_id}\n")
-                indi_links[short_indi_id].append(f"1 FAMC {short_fam_id}\n")
-            else:
-                pass
+    for (father_id, mother_id), children in families.items():
+        fam_id = f"@F{fam_id_counter}@"
+        fam_id_counter += 1
+        
+        fam_tags = []
+        if father_id:
+            fam_tags.append(f"1 HUSB @{father_id}@\n")
+            indi_links.setdefault(father_id, []).append(f"1 FAMS {fam_id}\n")
+        if mother_id:
+            fam_tags.append(f"1 WIFE @{mother_id}@\n")
+            indi_links.setdefault(mother_id, []).append(f"1 FAMS {fam_id}\n")
+            
+        for child_id in children:
+            fam_tags.append(f"1 CHIL @{child_id}@\n")
+            indi_links.setdefault(child_id, []).append(f"1 FAMC {fam_id}\n")
+            
+        fam_records[fam_id] = fam_tags
 
     now = datetime.datetime.now()
 
     with open(output_path, 'w', encoding='utf-8') as f:
-        # -----------------------------
-        # HEAD RECORD
-        # -----------------------------
         f.write("0 HEAD\n")
         f.write("1 SOUR GENEALOGY_PIPELINE\n")
         f.write("2 VERS 1.0\n")
@@ -201,99 +189,74 @@ def export_to_gedcom(db_path, output_path, limit=None, starting_id=None):
         f.write("1 COPR Copyright 2026\n")
         f.write("1 GEDC\n")
         f.write("2 VERS 7.0.18\n")
-
-        # -----------------------------
-        # SUBMITTER RECORD
-        # -----------------------------
         f.write("0 @SUBM1@ SUBM\n")
         f.write("1 NAME Andy Askey\n")
 
-        # -----------------------------
-        # INDIVIDUAL (INDI) RECORDS
-        # -----------------------------
-        for row in individuals:
-            comp_id_safe = str(row['composite_id']).strip().replace(" ", "_")
-            short_indi_id = indi_id_map[comp_id_safe]
-            f.write(f"0 {short_indi_id} INDI\n")
-
-            name = format_name(row['namefrst'], row['namelast'])
+        for golden_id, group in df.groupby("golden_id"):
+            core = group.iloc[0]
+            
+            f.write(f"0 @{golden_id}@ INDI\n")
+            
+            name = format_name(core['first_name'], core['last_name'])
             f.write(f"1 NAME {name}\n")
 
-            sex = map_sex(row['sex'])
-            f.write(f"1 SEX {sex}\n")
+            sex_val = core.get('sex')
+            sex_code = map_sex(sex_val) if pd.notna(sex_val) else 'U'
+            f.write(f"1 SEX {sex_code}\n")
 
-            if row['age'] or row['birthyr'] or row['bpld']:
+            if pd.notna(core['birth_year']) or pd.notna(core['birth_place']):
                 f.write("1 BIRT\n")
-                if row['birthyr']:
-                    f.write(f"2 DATE {row['birthyr']}\n")
-                if row['bpld']:
-                    f.write(f"2 PLAC {row['bpld']}\n")
+                if pd.notna(core['birth_year']):
+                    f.write(f"2 DATE ABT {int(core['birth_year'])}\n")
+                if pd.notna(core['birth_place']):
+                    f.write(f"2 PLAC {core['birth_place']}\n")
+                    
+            if pd.notna(core['death_date']):
+                f.write("1 DEAT\n")
+                f.write(f"2 DATE {core['death_date']}\n")
 
-            # --- Census (CENS) Event using the master source ---
-            year = str(row['year']).strip() if row['year'] else ""
-            age = str(row['age']).strip() if row['age'] else ""
-            serial = str(row['serial']).strip() if row['serial'] else ""
-            pernum = str(row['pernum']).strip() if row['pernum'] else ""
-            reel = str(row['reel']).strip() if row['reel'] else ""
-            pageno = str(row['pageno']).strip() if row['pageno'] else ""
-            line = str(row['line']).strip() if row['line'] else ""
-            microseq = str(row['microseq']).strip() if row['microseq'] else ""
+            for _, event in group.iterrows():
+                year = str(event['year']).strip() if pd.notna(event['year']) else ""
+                age = str(event['age']).strip() if pd.notna(event['age']) else ""
+                serial = str(event['serial']).strip() if pd.notna(event['serial']) else ""
+                pernum = str(event['pernum']).strip() if pd.notna(event['pernum']) else ""
+                reel = str(event['reel']).strip() if pd.notna(event['reel']) else ""
+                pageno = str(event['pageno']).strip() if pd.notna(event['pageno']) else ""
+                line = str(event['line']).strip() if pd.notna(event['line']) else ""
+                comp_id = str(event['composite_id']).strip()
+                
+                state_code = str(event['stateicp']).strip() if pd.notna(event['stateicp']) else ""
+                place = CODEBOOK.get_code_value("STATEICP", state_code) or "USA"
+                
+                f.write("1 CENS\n")
+                if year: f.write(f"2 DATE {year}\n")
+                if place: f.write(f"2 PLAC {place}\n")
+                
+                f.write("2 SOUR @S1@\n")
+                
+                page_parts = [p for p in [f"Serial: {serial}", f"Person: {pernum}", f"Reel: {reel}", f"Page: {pageno}", f"Line: {line}"] if not p.endswith(": ")]
+                if page_parts:
+                    f.write(f"3 PAGE {', '.join(page_parts)}\n")
+                
+                if age:
+                    f.write("3 DATA\n")
+                    f.write(f"4 TEXT Age in census: {age}\n")
+                    
+                f.write(f"1 REFN {comp_id}\n")
+                f.write("2 TYPE ST_JOES_ID\n")
 
-            # Lookup state name for the PLAC field
-            state_code = str(row['stateicp']).strip() if row['stateicp'] else ""
-            state_name = CODEBOOK.get_code_value("STATEICP", state_code)
-            place = state_name if state_name else "USA"
-
-            f.write("1 CENS\n")
-            if year:
-                f.write(f"2 DATE {year}\n")
-            if place:
-                f.write(f"2 PLAC {place}\n")
-            f.write("2 SOUR @S1@\n")
-
-            page_parts = []
-            if serial: page_parts.append(f"Serial: {serial}")
-            if pernum: page_parts.append(f"Person: {pernum}")
-            if reel: page_parts.append(f"Reel: {reel}")
-            if pageno: page_parts.append(f"Page: {pageno}")
-            if line: page_parts.append(f"Line: {line}")
-            if microseq: page_parts.append(f"Microseq: {microseq}")
-
-            if page_parts:
-                f.write(f"3 PAGE {', '.join(page_parts)}\n")
-
-            if age:
-                f.write("3 DATA\n")
-                f.write(f"4 TEXT Age in census: {age}\n")
-
-            # Instead of a custom tag, we use the universally compliant REFN tag
-            f.write(f"1 REFN {comp_id_safe}\n")
-            f.write(f"2 TYPE ST_JOES_ID\n")
-
-            if short_indi_id in indi_links:
-                for link in indi_links[short_indi_id]:
+            if golden_id in indi_links:
+                for link in indi_links[golden_id]:
                     f.write(link)
 
-        # -----------------------------
-        # FAMILY (FAM) RECORDS
-        # -----------------------------
-        for fam_key, short_fam_id in fam_id_map.items():
-            roles = fam_records.get(short_fam_id, [])
-            if len(roles) > 0:
-                f.write(f"0 {short_fam_id} FAM\n")
-                for role in roles:
-                    f.write(role)
+        for fam_id, tags in fam_records.items():
+            f.write(f"0 {fam_id} FAM\n")
+            for tag in tags:
+                f.write(tag)
 
-        # -----------------------------
-        # SOURCE (SOUR) RECORDS
-        # -----------------------------
         f.write("0 @S1@ SOUR\n")
         f.write("1 TITL U.S. Federal Census\n")
         f.write("1 PUBL National Archives and Records Administration\n")
-
-        # -----------------------------
-        # TRAILER
-        # -----------------------------
         f.write("0 TRLR\n")
 
     print(f"GEDCOM export complete: {output_path}")
@@ -301,10 +264,9 @@ def export_to_gedcom(db_path, output_path, limit=None, starting_id=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Export database to GEDCOM")
-    parser.add_argument("--db", default=DEFAULT_DB, help="Path to SQLite database")
     parser.add_argument("--out", default=OUTPUT_GED, help="Output GEDCOM file path")
-    parser.add_argument("--limit", type=int, default=100, help="Max number of HOUSEHOLDS to export for testing")
-    parser.add_argument("--start", default=STARTING_ST_JOES_ID, help="St. Joe's ID to export specific household")
+    parser.add_argument("--limit", type=int, default=EXPORT_LIMIT, help="Max number of Golden Records to export")
+    parser.add_argument("--test", action="store_true", help="Run against MasterVault_TEST.db")
     args = parser.parse_args()
 
-    export_to_gedcom(args.db, args.out, args.limit, args.start)
+    export_to_gedcom(args.out, args.limit, args.test)

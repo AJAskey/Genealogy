@@ -33,7 +33,7 @@ def is_likely_living(person_dict: dict) -> bool:
     # If there is any death data, they are not living.
     if person_dict.get("death_date") or person_dict.get("death_place"):
         return False
-        
+
     # Try to extract a 4-digit birth year
     b_date = person_dict.get("birth_date", "")
     match = re.search(r'\d{4}', b_date)
@@ -43,10 +43,12 @@ def is_likely_living(person_dict: dict) -> bool:
         # Using the 72-year rule (similar to US Census record releases)
         if current_year - b_year < 72:
             return True
-            
+
     return False
 
-def convert_gedcom_to_csv(gedcom_path: str, csv_path: str, logger, extract_media: bool = False, exclude_living: bool = True):
+
+def convert_gedcom_to_csv(gedcom_path: str, csv_path: str, logger, extract_media: bool = False,
+                          exclude_living: bool = True):
     """Reads a GEDCOM file and extracts individuals into a flat CSV."""
 
     if not os.path.exists(gedcom_path):
@@ -119,10 +121,10 @@ def convert_gedcom_to_csv(gedcom_path: str, csv_path: str, logger, extract_media
     if not records:
         logger.warning("No individuals found in GEDCOM.")
         return
-        
+
     if not extract_media and skipped_media_count > 0:
         logger.info(f"Privacy Mode ON: Ignored {skipped_media_count} media links found in the GEDCOM.")
-        
+
     if exclude_living and skipped_living_count > 0:
         logger.info(f"Privacy Mode ON: Excluded {skipped_living_count} potentially living individuals.")
 
@@ -143,7 +145,8 @@ if __name__ == "__main__":
     main_logger = gen_logging.setup_logging("GEDCOM_TO_CSV")
 
     # You can change these paths when you are ready to process an external file!
-    input_file = r"E:\Haley\Documents\CaptThom\CaptThom-ftm.ged"
+    input_file = r"E:\Users\Andy\PycharmProjects\Genealogy\data\AskeyWorking_20150125.ged"
     output_file = r"E:\Users\Andy\PycharmProjects\Genealogy\output\thom.csv"
 
-    convert_gedcom_to_csv(input_file, output_file, main_logger, extract_media=EXTRACT_MEDIA, exclude_living=EXCLUDE_LIVING)
+    convert_gedcom_to_csv(input_file, output_file, main_logger, extract_media=EXTRACT_MEDIA,
+                          exclude_living=EXCLUDE_LIVING)

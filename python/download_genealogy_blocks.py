@@ -35,6 +35,9 @@ def download_genealogy_blocks(collection_name='reclaimtherecords',
 
         main_logger.info(f"item:_id {item_id}")
 
+        if item_id[:1] < "O ":
+            continue
+
         # List the exact extensions you want to SKIP here. 
         # Note: Because we use .endswith(), do not use asterisks (e.g., use '.zip', not '*.zip')
         excluded_extensions = ('.zip', '.tar', '.gz', '.mp4', '.iso', '.sqlite', '.sqlite3', '.db', '.pdf',
@@ -47,9 +50,9 @@ def download_genealogy_blocks(collection_name='reclaimtherecords',
             # Some versions of the API return dicts, some return objects
             filename = f['name'] if isinstance(f, dict) else f.name
 
-            if not any(filename.lower().endswith(ext) for ext in excluded_extensions):
-                if not ('baltimore' in filename.lower()):
-                    files_to_download.append(filename)
+            # if not any(filename.lower().endswith(ext) for ext in excluded_extensions):
+            #     if not ('baltimore' in filename.lower()):
+            #         files_to_download.append(filename)
 
         if files_to_download:
             main_logger.info(f"Found {len(files_to_download)} data files in: {item_id}")

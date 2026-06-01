@@ -47,6 +47,7 @@ class CreateGoldenRecord:
             cl.JaroWinklerAtThresholds("last_name", [0.88, 0.95]),
             cl.ExactMatch("birth_year"),
             cl.ExactMatch("state"),
+            cl.ExactMatch("birth_place"),
         ],
         blocking_rules_to_generate_predictions=[
             # 1. Exact name match, safely bounded to a 10-year birth difference to prevent multi-generational Cartesian explosions
@@ -83,70 +84,82 @@ class CreateGoldenRecord:
     # PUBLIC ENTRY POINT
     # ------------------------------------------------------------------
 
-    def run(self, output_table: str = "clean.golden_records", model_path: str = None):
+    def run(self, mode: str = "link", output_table: str = "clean.golden_records", model_path: str = None):
         """
-        Full pipeline: train -> predict -> cluster -> survivorship -> write.
+        Runs the specified parts of the pipeline.
 
         Parameters
         ----------
+        mode : str
+            'train' to only train and save the model.
+            'link' to load a saved model, cluster, and write.
+            'both' to train, predict, cluster, and write.
         output_table : str
             Fully qualified DuckDB table name to write golden records into.
-            Must use the 'clean.' prefix so it lands in CleanVault.db.
         model_path : str
             File path to the trained Splink JSON model.
         """
         self.logger.info("=" * 60)
-        self.logger.info("GoldenRecordGenerator: Starting pipeline")
+        self.logger.info(f"GoldenRecordGenerator: Starting pipeline (Mode: {mode.upper()})")
         self.logger.info("=" * 60)
 
-        self.logger.info("Step 1/5: Initializing Splink linker...")
         db_api = DuckDBAPI(connection=self.con)
-        
         import os
-        
-        if model_path and os.path.exists(model_path):
-            self.logger.info(f"Step 2/5: Found saved model. Loading brain from '{model_path}'...")
-            self.linker = Linker(
-                "population_for_splink",
-                model_path,
-                db_api=db_api,
-            )
-        else:
-            self.logger.info("Step 2/5: Extracting 500k sample to prevent EM training Cartesian explosion...")
+
+        if mode in ("train", "both"):
+            self.logger.info("Phase: TRAINING")
+            self.logger.info("  Extracting 100k skewed sample (67% male) for EM training...")
             self.con.execute("DROP TABLE IF EXISTS sample_for_splink;")
-            self.con.execute("CREATE TABLE sample_for_splink AS SELECT * FROM population_for_splink USING SAMPLE 500000 ROWS;")
+            self.con.execute("""
+                CREATE TABLE sample_for_splink AS 
+                (SELECT * FROM population_for_splink WHERE sex = '1' AND SPLIT_PART(unique_id, '_', 3) = '1' USING SAMPLE 67000 ROWS)
+                UNION ALL
+                (SELECT * FROM population_for_splink WHERE (sex != '1' OR sex IS NULL) AND SPLIT_PART(unique_id, '_', 3) = '1' USING SAMPLE 33000 ROWS);
+            """)
 
             self.linker = Linker(
                 "sample_for_splink",
                 self.SPLINK_SETTINGS,
                 db_api=db_api,
             )
-            self.logger.info("Step 2/5: Training match weights on sample (unsupervised EM)...")
+            self.logger.info("  Training match weights on sample (unsupervised EM)...")
             self._train()
             
             if model_path:
-                self.logger.info(f"          Saving AI brain to '{model_path}' for future runs...")
+                self.logger.info(f"  Saving AI brain to '{model_path}' for future runs...")
                 self.linker.misc.save_model_to_json(model_path, overwrite=True)
 
-            self.logger.info("          Reloading Linker with full dataset for predictions...")
-            self.linker = Linker(
-                "population_for_splink",
-                model_path if model_path else self.SPLINK_SETTINGS,
-                db_api=db_api,
-            )
+            if mode == "train":
+                self.logger.info("GoldenRecordGenerator: Training complete. Exiting as requested.")
+                return
+                
+        if mode in ("link", "both"):
+            self.logger.info("Phase: LINKING")
+            
+            if mode == "link" and model_path and os.path.exists(model_path):
+                self.logger.info(f"  Loading saved model from '{model_path}'...")
+                self.linker = Linker("population_for_splink", model_path, db_api=db_api)
+            else:
+                if mode == "link":
+                    self.logger.warning(f"  Model not found at '{model_path}', falling back to default settings.")
+                self.linker = Linker("population_for_splink", model_path if (model_path and os.path.exists(model_path)) else self.SPLINK_SETTINGS, db_api=db_api)
+                
+            self.logger.info("  Predicting match scores and clustering...")
+            cluster_df = self._predict_and_cluster()
 
-        self.logger.info("Step 3/5: Predicting match scores and clustering...")
-        cluster_df = self._predict_and_cluster()
+            self.logger.info(f"  Applying survivorship rules to {len(cluster_df):,} clustered rows...")
+            registry = IdentityRegistry(self.logger)
+            golden_df = self._generate_survivor_records(cluster_df, registry)
+            self.logger.info(f"  Produced {len(golden_df):,} unique golden records.")
 
-        self.logger.info(f"Step 4/5: Applying survivorship rules to {len(cluster_df):,} clustered rows...")
-        registry = IdentityRegistry(self.logger)
-        golden_df = self._generate_survivor_records(cluster_df, registry)
-        self.logger.info(f"          Produced {len(golden_df):,} unique golden records.")
+            if not golden_df.empty:
+                self.logger.info(f"  Writing golden records to {output_table}...")
+                self._write_golden_records(golden_df, output_table)
+            else:
+                self.logger.warning("  No golden records to write. Skipping database insertion.")
 
-        self.logger.info(f"Step 5/5: Writing golden records to {output_table}...")
-        self._write_golden_records(golden_df, output_table)
-        registry.save_registry()
-        self.logger.info("GoldenRecordGenerator: Pipeline complete.")
+            registry.save_registry()
+            self.logger.info("GoldenRecordGenerator: Pipeline complete.")
 
     # ------------------------------------------------------------------
     # PRIVATE STEPS
@@ -158,26 +171,26 @@ class CreateGoldenRecord:
         We use two training sessions with different blocking rules so the
         model gets a good sample of both matches and non-matches.
         """
-        self.logger.info("          EM Pass 1/3 (Blocking on Last Name & Birth Year)...")
+        self.logger.info("    -> EM Pass 1/3 (Blocking on Last Name & Birth Year)...")
         # Session 1: train on people with identical last name + birth year
         self.linker.training.estimate_u_using_random_sampling(max_pairs=1e7)
         self.linker.training.estimate_parameters_using_expectation_maximisation(
             block_on("last_name", "birth_year")
         )
         
-        self.logger.info("          EM Pass 2/3 (Blocking on First Name & Birth Year)...")
+        self.logger.info("    -> EM Pass 2/3 (Blocking on First Name & Birth Year)...")
         # Session 2: second pass with first name + birth year to sharpen weights
         self.linker.training.estimate_parameters_using_expectation_maximisation(
             block_on("first_name", "birth_year")
         )
         
-        self.logger.info("          EM Pass 3/3 (Blocking on First Name & Last Name)...")
+        self.logger.info("    -> EM Pass 3/3 (Blocking on First Name & Last Name)...")
         # Session 3: third pass with full name to safely train the birth_year weights
         self.linker.training.estimate_parameters_using_expectation_maximisation(
             block_on("first_name", "last_name")
         )
         
-        self.logger.info("          Training complete.")
+        self.logger.info("    -> Training complete.")
 
     def _predict_and_cluster(self) -> pd.DataFrame:
         """
@@ -195,7 +208,7 @@ class CreateGoldenRecord:
         # Materialize to pandas. This is the only point where data
         # comes off DuckDB into RAM — only the clustered subset, not all 844M rows.
         cluster_df = clusters.as_pandas_dataframe()
-        self.logger.info(f"          Clustering yielded {cluster_df['cluster_id'].nunique():,} unique clusters.")
+        self.logger.info(f"    -> Clustering yielded {cluster_df['cluster_id'].nunique():,} unique clusters.")
         return cluster_df
 
     def _generate_survivor_records(self, cluster_df: pd.DataFrame, registry: IdentityRegistry) -> pd.DataFrame:
@@ -214,7 +227,8 @@ class CreateGoldenRecord:
 
             # Split into census rows and BIRLS rows
             census_rows = group[group["source_db"] == "census"].copy()
-            birls_rows  = group[group["source_db"] == "birls"].copy()
+            death_rows  = group[group["source_db"] == "death_index"].copy()
+            gedcom_rows = group[group["source_db"] == "gedcom"].copy()
 
             # ----------------------------------------------------------
             # STEP 2: Best census value via frequency + recency tiebreak
@@ -256,26 +270,39 @@ class CreateGoldenRecord:
                 best_birth_year = None
 
             state = census_winner("state")
+            birth_place = census_winner("birth_place")
             father_ptr = census_winner("father_pointer")
             mother_ptr = census_winner("mother_pointer")
 
-            birls_dod = None
-            birls_dob = None
-            if not birls_rows.empty:
-                if "dod" in birls_rows.columns:
-                    dod_vals = birls_rows["dod"].dropna()
-                    birls_dod = dod_vals.iloc[0] if len(dod_vals) > 0 else None
-                if "dob" in birls_rows.columns:
-                    dob_vals = birls_rows["dob"].dropna()
-                    birls_dob = dob_vals.iloc[0] if len(dob_vals) > 0 else None
+            death_dod = None
+            death_dob = None
+            if not death_rows.empty:
+                if "dod" in death_rows.columns:
+                    dod_vals = death_rows["dod"].dropna()
+                    death_dod = dod_vals.iloc[0] if len(dod_vals) > 0 else None
+                if "dob" in death_rows.columns:
+                    dob_vals = death_rows["dob"].dropna()
+                    death_dob = dob_vals.iloc[0] if len(dob_vals) > 0 else None
+                    
+            if not gedcom_rows.empty:
+                if "death_date" in gedcom_rows.columns:
+                    dod_vals = gedcom_rows["death_date"].dropna()
+                    death_dod = dod_vals.iloc[0] if len(dod_vals) > 0 else death_dod
 
-            if best_birth_year is None and birls_dob is not None:
+            if best_birth_year is None and death_dob is not None:
                 try:
-                    birls_year = int(str(birls_dob).strip()[-4:])
-                    if 1800 <= birls_year <= 1945:
-                        best_birth_year = birls_year
+                    death_year = int(str(death_dob).strip()[-4:])
+                    if 1800 <= death_year <= 1945:
+                        best_birth_year = death_year
                 except (ValueError, TypeError):
                     pass
+
+            # Collect all unique census years this person appeared in
+            if not census_rows.empty and "census_year" in census_rows.columns:
+                years_list = sorted(census_rows["census_year"].dropna().unique().tolist())
+                census_years_str = "|".join(str(int(y)) for y in years_list)
+            else:
+                census_years_str = None
 
             all_pointers = group["unique_id"].astype(str).tolist()
 
@@ -290,11 +317,14 @@ class CreateGoldenRecord:
                 "first_name":    first_name,
                 "last_name":     last_name,
                 "birth_year":    best_birth_year,
+                "birth_place":   birth_place,
                 "state":         state,
-                "death_date":    birls_dod,
+                "death_date":    death_dod,
+                "census_years":  census_years_str,
                 "record_count":  len(group),
                 "census_count":  len(census_rows),
-                "birls_count":   len(birls_rows),
+                "death_record_count": len(death_rows),
+                "gedcom_count":  len(gedcom_rows),
                 "vault_pointers": "|".join(all_pointers),
                 "father_pointer": father_ptr,
                 "mother_pointer": mother_ptr,
@@ -319,11 +349,14 @@ class CreateGoldenRecord:
                 first_name      VARCHAR,
                 last_name       VARCHAR,
                 birth_year      INTEGER,
+                birth_place     VARCHAR,
                 state           VARCHAR,
-                death_date      VARCHAR,   -- from BIRLS only; census has none
-                record_count    INTEGER,   -- total rows merged (census + BIRLS)
+                death_date      VARCHAR,   -- from Death Index only; census has none
+                census_years    VARCHAR,   -- pipe-delimited list of all census years found
+                record_count    INTEGER,   -- total rows merged (census + Death Index)
                 census_count    INTEGER,   -- how many census rows contributed
-                birls_count     INTEGER,   -- how many BIRLS rows contributed
+                death_record_count INTEGER, -- how many Death Index rows contributed
+                gedcom_count    INTEGER,   -- how many GEDCOM rows contributed
                 vault_pointers  VARCHAR,   -- pipe-delimited list of all source unique_ids
                 father_pointer  VARCHAR,
                 mother_pointer  VARCHAR,
@@ -339,11 +372,14 @@ class CreateGoldenRecord:
                 first_name,
                 last_name,
                 birth_year,
+                birth_place,
                 state,
                 death_date,
+                census_years,
                 record_count,
                 census_count,
-                birls_count,
+                death_record_count,
+                gedcom_count,
                 vault_pointers,
                 father_pointer,
                 mother_pointer,
@@ -360,4 +396,4 @@ class CreateGoldenRecord:
             );
         """)
 
-        self.logger.info(f"          Write to {output_table} complete.")
+        self.logger.info(f"    -> Write to {output_table} complete.")
