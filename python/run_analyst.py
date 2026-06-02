@@ -31,6 +31,9 @@ CLEAN_DB = r"D:\Data\Genealogy_Data\CleanVault.db"
 GEDCOM_DB = r"D:\Data\Genealogy_Data\GedcomVault.db"
 SPLINK_MODEL_JSON = r"D:\Data\Genealogy_Data\splink_model.json"
 
+# Point this to whatever drive has the MOST free space (e.g., hundreds of GBs)
+DUCKDB_TEMP_DIR = r"D:\Data\Genealogy_Data\DuckDB_Temp"
+
 def run_analyst_pipeline(logger, mode="link", is_test=False):
     logger.info("Initializing DuckDB In-Memory Engine...")
     con = duckdb.connect(database=':memory:')
@@ -39,9 +42,8 @@ def run_analyst_pipeline(logger, mode="link", is_test=False):
     # forcing overflow to your lightning-fast NVMe drive instead.
     logger.info("Configuring DuckDB memory safety limits...")
     con.execute("PRAGMA memory_limit='90GB';")
-    temp_dir = r"D:\Data\Genealogy_Data\DuckDB_Temp"
-    os.makedirs(temp_dir, exist_ok=True)
-    con.execute(f"PRAGMA temp_directory='{temp_dir}';")
+    os.makedirs(DUCKDB_TEMP_DIR, exist_ok=True)
+    con.execute(f"PRAGMA temp_directory='{DUCKDB_TEMP_DIR}';")
 
     # Install and load the SQLite extension for DuckDB
     logger.info("Loading SQLite scanner extension...")
@@ -60,35 +62,19 @@ def run_analyst_pipeline(logger, mode="link", is_test=False):
 
     # Attach the dual databases directly from the NVMe drive
     logger.info(f"Attaching 100% Census Base Vault: {db_100}")
-    con.execute(f"ATTACH '{db_100}' AS census100 (TYPE SQLITE);")
+    con.execute(f"ATTACH '{db_100}' AS census100 (TYPE SQLITE, READ_ONLY);")
 
     logger.info(f"Attaching Census Samples Patch Vault: {db_samples}")
-    con.execute(f"ATTACH '{db_samples}' AS samples (TYPE SQLITE);")
+    con.execute(f"ATTACH '{db_samples}' AS samples (TYPE SQLITE, READ_ONLY);")
 
     logger.info(f"Attaching Death Index Vault: {BIRLS_DB}")
-    con.execute(f"ATTACH '{BIRLS_DB}' AS birls (TYPE SQLITE);")
+    con.execute(f"ATTACH '{BIRLS_DB}' AS birls (TYPE SQLITE, READ_ONLY);")
 
     logger.info(f"Attaching Clean Vault: {db_clean}")
     con.execute(f"ATTACH '{db_clean}' AS clean (TYPE SQLITE);")
 
     logger.info(f"Attaching Gedcom Vault: {GEDCOM_DB}")
-    con.execute(f"ATTACH '{GEDCOM_DB}' AS gedcom (TYPE SQLITE);")
-
-    # Safety check: Create the table if it doesn't exist yet so the pipeline doesn't crash
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS gedcom.gedcom_records (
-            gedcom_id TEXT PRIMARY KEY,
-            full_name VARCHAR,
-            first_name VARCHAR,
-            last_name VARCHAR,
-            birth_date VARCHAR,
-            birth_year INTEGER,
-            birth_place VARCHAR,
-            death_date VARCHAR,
-            death_place VARCHAR,
-            picture_url VARCHAR
-        );
-    """)
+    con.execute(f"ATTACH '{GEDCOM_DB}' AS gedcom (TYPE SQLITE, READ_ONLY);")
 
     logger.info("All vaults successfully attached! Engine is primed.")
 
