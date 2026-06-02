@@ -1,2 +1,20 @@
-/output/*
-/log/*
+# Ignore SQLite Databases and Temp files
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Ignore Massive Output Files
+*.ged
+*.out
+output/
+data/
+
+# Ignore Logs
+log/
+*.log
+
+# Python cache
+__pycache__/
+*.pyc

@@ -27,7 +27,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Concatenate state archive files for NotebookLLM")
     parser.add_argument("--dir", default=r"E:\Data\Genealogy_Data\Ingestion\usgw_archives_pa",
                         help="Input directory to search")
-    parser.add_argument("--out", default=r"../output/pa_archives.out", help="Output file name")
+    parser.add_argument("--out", default=r"../output/pa_archives-askeyerskine.txt", help="Output file name")
     args = parser.parse_args()
 
     input_directory = args.dir
@@ -52,6 +52,9 @@ if __name__ == '__main__':
             for file in files:
                 if file.lower().endswith(".txt"):
                     file_path = os.path.join(root, file)
+                    sub_path = file_path.removeprefix(r"E:\Data\Genealogy_Data\Ingestion")
+                    sub_path_len = len(sub_path) + 3
+
                     # errors='ignore' prevents crashes if a scraped text file has weird encoding
                     try:
                         with open(file_path, "r", encoding="utf-8", errors="ignore") as f_in:
@@ -60,8 +63,8 @@ if __name__ == '__main__':
                         # CONDITION 1: Does the filename contain Askey or Erskine?
                         if filename_pattern.search(file):
                             print(f"[FULL FILE] {file_path}")
-                            subpath = file_path[33:]
-                            header_str = f"\n{'=' * 60}\n  {subpath}\n  (FULL FILE MATCH)\n{'=' * 60}\n"
+
+                            header_str = f"\n{'=' * sub_path_len}\n  .{sub_path}\n  (FULL FILE MATCH)\n{'=' * sub_path_len}\n"
                             fo.write(header_str)
                             for line in lines:
                                 fo.write(line)
@@ -85,7 +88,7 @@ if __name__ == '__main__':
                             # Outdented one tab so it only writes once per file!
                             if match_found:
                                 print(f"[CONTEXT]   {file_path}")
-                                header_str = f"\n{'=' * 60}\n  {file_path}\n  (CONTEXT MATCH)\n{'=' * 60}\n"
+                                header_str = f"\n{'=' * sub_path_len}\n  .{sub_path}\n  (CONTEXT MATCH)\n{'=' * sub_path_len}\n"
                                 fo.write(header_str)
 
                                 sorted_indices = sorted(list(lines_to_print))
