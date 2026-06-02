@@ -1,64 +1,16 @@
 import os
 import time
 import urllib.parse
+import json
 
 import requests
 from bs4 import BeautifulSoup
 
 import gen_logging
 
-# Base configuration
-BASE_URL = "http://files.usgwarchives.net/oh/"
-LOCAL_OUTPUT_DIR = r"E:\Data\Genealogy_Data\Ingestion/usgw_archives_oh"
 DELAY_SECONDS = 0.5  # Polite scraping interval
-
-s1 = r"http://files.usgwarchives.net/al/"  # Alabama </a></td>
-s2 = r"http://files.usgwarchives.net/az/"  # Arizona </a></td>
-s3 = r"http://files.usgwarchives.net/ar/"  # Arkansas </a></td>
-s31 = r"http://files.usgwarchives.net/ca/"  # California </a></td>
-s4 = r"http://files.usgwarchives.net/co/"  # Colorado </a></td>
-s1 = r"http://files.usgwarchives.net/ct/"  # Connecticut </a></td>
-s5 = r"http://files.usgwarchives.net/dc/"  # District of Columbia </a></td>
-s6 = r"http://files.usgwarchives.net/ga/"  # Georgia </a></td>
-s7 = r"http://files.usgwarchives.net/hi/"  # Hawaii </a></td>
-s8 = r"http://files.usgwarchives.net/id/"  # Idaho </a></td>
-s9 = r"http://files.usgwarchives.net/il/"  # Illinois </a></td>
-s10 = "http://files.usgwarchives.net/in/"  # Indiana </a></td>
-s11 = "http://files.usgwarchives.net/ia/"  # Iowa </a></td>
-s12 = "http://files.usgwarchives.net/ks/"  # Kansas </a></td>
-s13 = "http://files.usgwarchives.net/ky/"  # Kentucky </a></td>
-s14 = "http://files.usgwarchives.net/la/"  # Louisiana </a></td>
-s15 = "http://files.usgwarchives.net/me/"  # Maine </a></td>
-s16 = r"http://files.usgwarchives.net/md/"  # Maryland</a></td>
-s17 = r"http://files.usgwarchives.net/ma/"  # Massachusetts </a></td>
-s18 = r"http://files.usgwarchives.net/mi/"  # Michigan </a></td>
-s19 = r"http://files.usgwarchives.net/mn/"  # Minnesota </a></td>
-s20 = r"http://files.usgwarchives.net/ms/"  # Mississippi </a></td>
-s21 = r"http://files.usgwarchives.net/mo/"  # Missouri </a></td>
-s22 = r"http://files.usgwarchives.net/mt/"  # Montana </a></td>
-s23 = r"http://files.usgwarchives.net/ne/"  # Nebraska </a></td>
-s24 = r"http://files.usgwarchives.net/nv/"  # Nevada</a></td>
-s25 = r"http://files.usgwarchives.net/nh/"  # New Hampshire </a></td>
-s26 = r"http://files.usgwarchives.net/nj/"  # New Jersey </a></td>
-s27 = r"http://files.usgwarchives.net/nm/"  # New Mexico </a></td>
-s28 = r"http://files.usgwarchives.net/ny/"  # New York </a></td>
-s29 = r"http://files.usgwarchives.net/nd/"  # North Dakota </a></td>
-s30 = r"http://files.usgwarchives.net/oh/"  # Ohio </a></td>
-s31 = r"http://files.usgwarchives.net/ok/"  # Oklahoma </a></td>
-s32 = r"http://files.usgwarchives.net/or/"  # Oregon </a></td>
-s33 = r"http://files.usgwarchives.net/pa/"  # Pennsylvania </a></td>
-s34 = r"http://files.usgwarchives.net/ri/"  # Rhode Island </a></td>
-s35 = r"http://files.usgwarchives.net/sc/"  # South Carolina </a></td>
-s36 = r"http://files.usgwarchives.net/sd/"  # South Dakota </a></td>
-s37 = r"http://files.usgwarchives.net/tn/"  # Tennessee </a></td>
-s38 = r"http://files.usgwarchives.net/tx/"  # Texas </a></td>
-s39 = r"http://files.usgwarchives.net/ut/"  # Utah </a></td>
-s40 = r"http://files.usgwarchives.net/vt/"  # Vermont </a></td>
-s41 = r"http://files.usgwarchives.net/va/"  # Virginia </a></td>
-s42 = r"http://files.usgwarchives.net/wa/"  # Washington </a></td>
-s43 = r"http://files.usgwarchives.net/wv/"  # West Virginia </a></td>
-s44 = r"http://files.usgwarchives.net/wi/"  # Wisconsin </a></td>
-s45 = r"http://files.usgwarchives.net/wy/"  # Wyoming </a></td>
+CONFIG_FILE = "scrape_config.json"
+LOCAL_ROOT_DIR = r"E:\Data\Genealogy_Data\Ingestion"
 
 
 def download_file(url, local_path):
@@ -83,12 +35,12 @@ def download_file(url, local_path):
         logger.info(f"Error downloading {url}: {e}")
 
 
-def crawl_archive(current_url):
+def crawl_archive(current_url, base_url, local_output_dir):
     """Recursively crawls directories and triggers file downloads."""
     try:
         response = requests.get(current_url, timeout=15)
         if response.status_code != 200:
-            prilogger.infont(f"Skipping directory {current_url}: Status {response.status_code}")
+            logger.info(f"Skipping directory {current_url}: Status {response.status_code}")
             return
     except Exception as e:
         logger.info(f"Error accessing directory {current_url}: {e}")
@@ -106,7 +58,7 @@ def crawl_archive(current_url):
         full_url = urllib.parse.urljoin(current_url, href)
 
         # Safety catch: Ensure we aren't escaping the base archive tree
-        if not full_url.startswith(BASE_URL):
+        if not full_url.startswith(base_url):
             continue
 
         # Skip parent directory navigations and sorting headers
@@ -114,14 +66,14 @@ def crawl_archive(current_url):
             continue
 
         # Calculate where this file/folder should sit on the local disk
-        relative_path = full_url.replace(BASE_URL, "")
-        local_path = os.path.join(LOCAL_OUTPUT_DIR, relative_path)
+        relative_path = full_url.replace(base_url, "")
+        local_path = os.path.normpath(os.path.join(local_output_dir, relative_path))
 
         # If the link ends with a slash, it's a directory -> Drill down
         if href.endswith("/"):
             logger.info(f"Entering directory: {relative_path}")
             time.sleep(DELAY_SECONDS)
-            crawl_archive(full_url)
+            crawl_archive(full_url, base_url, local_output_dir)
         else:
             # It's a file (text data, index, etc.) -> Save it
             download_file(full_url, local_path)
@@ -130,6 +82,47 @@ def crawl_archive(current_url):
 if __name__ == "__main__":
     logger = gen_logging.setup_logging(logger_name="USGenWEeb")
 
-    logger.info(f"Starting mass download from: {BASE_URL}")
-    crawl_archive(BASE_URL)
+    # Create a dummy config if it doesn't exist
+    if not os.path.exists(CONFIG_FILE):
+        dummy_config = {
+            "oh": {
+                "enabled": True,
+                "counties": {
+                    "adams": True,
+                    "allen": False
+                }
+            },
+            "pa": {
+                "enabled": False,
+                "counties": {}
+            }
+        }
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(dummy_config, f, indent=4)
+        logger.info(f"Created dummy configuration file at {CONFIG_FILE}. Please edit it and re-run.")
+        exit()
+
+    with open(CONFIG_FILE, "r") as f:
+        config = json.load(f)
+
+    for state, state_data in config.items():
+        if not state_data.get("enabled", False):
+            logger.info(f"Skipping state: {state} (disabled in config)")
+            continue
+
+        state_base_url = f"http://files.usgwarchives.net/{state}/"
+        state_local_dir = os.path.join(LOCAL_ROOT_DIR, f"usgw_archives_{state}")
+
+        counties = state_data.get("counties", {})
+        enabled_counties = [c for c, is_enabled in counties.items() if is_enabled]
+        
+        if not counties:
+            logger.info(f"Starting mass download for FULL state: {state}")
+            crawl_archive(state_base_url, state_base_url, state_local_dir)
+        else:
+            for county in enabled_counties:
+                county_url = f"{state_base_url}{county}/"
+                logger.info(f"Starting download for: {state.upper()} -> {county} county")
+                crawl_archive(county_url, state_base_url, state_local_dir)
+
     logger.info("Download pipeline complete.")

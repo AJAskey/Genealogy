@@ -1,0 +1,60 @@
+us_state_data = [
+    {"abbr": "al", "name": "alabama"},
+    {"abbr": "ak", "name": "alaska"},
+    {"abbr": "az", "name": "arizona"},
+    {"abbr": "ar", "name": "arkansas"},
+    {"abbr": "ca", "name": "california"},
+    {"abbr": "co", "name": "colorado"},
+    {"abbr": "ct", "name": "connecticut"},
+    {"abbr": "de", "name": "delaware"},
+    {"abbr": "fl", "name": "florida"},
+    {"abbr": "ga", "name": "georgia"},
+    {"abbr": "hi", "name": "hawaii"},
+    {"abbr": "id", "name": "idaho"},
+    {"abbr": "il", "name": "illinois"},
+    {"abbr": "in", "name": "indiana"},
+    {"abbr": "ia", "name": "iowa"},
+    {"abbr": "ks", "name": "kansas"},
+    {"abbr": "ky", "name": "kentucky"},
+    {"abbr": "la", "name": "louisiana"},
+    {"abbr": "me", "name": "maine"},
+    {"abbr": "md", "name": "maryland"},
+    {"abbr": "ma", "name": "massachusetts"},
+    {"abbr": "mi", "name": "michigan"},
+    {"abbr": "mn", "name": "minnesota"},
+    {"abbr": "ms", "name": "mississippi"},
+    {"abbr": "mo", "name": "missouri"},
+    {"abbr": "mt", "name": "montana"},
+    {"abbr": "ne", "name": "nebraska"},
+    {"abbr": "nv", "name": "nevada"},
+    {"abbr": "nh", "name": "new hampshire"},
+    {"abbr": "nj", "name": "new jersey"},
+    {"abbr": "nm", "name": "new mexico"},
+    {"abbr": "ny", "name": "new york"},
+    {"abbr": "nc", "name": "north carolina"},
+    {"abbr": "nd", "name": "north dakota"},
+    {"abbr": "oh", "name": "ohio"},
+    {"abbr": "ok", "name": "oklahoma"},
+    {"abbr": "or", "name": "oregon"},
+    {"abbr": "pa", "name": "pennsylvania"},
+    {"abbr": "ri", "name": "rhode island"},
+    {"abbr": "sc", "name": "south carolina"},
+    {"abbr": "sd", "name": "south dakota"},
+    {"abbr": "tn", "name": "tennessee"},
+    {"abbr": "tx", "name": "texas"},
+    {"abbr": "ut", "name": "utah"},
+    {"abbr": "vt", "name": "vermont"},
+    {"abbr": "va", "name": "virginia"},
+    {"abbr": "wa", "name": "washington"},
+    {"abbr": "wv", "name": "west virginia"},
+    {"abbr": "wi", "name": "wisconsin"},
+    {"abbr": "wy", "name": "wyoming"}
+]
+
+# Example usage:
+# To find the name for a specific abbreviation:
+# print(us_state_data[4]['name']) # Output: california
+
+# To iterate through and print all pairs:
+# for state in us_state_data:
+#     print(f"{state['abbr']}: {state['name']}")
