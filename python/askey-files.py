@@ -1,21 +1,3 @@
-"""
------------------------------------
-File: askey-files.py
-
-Summary:
-
-Design:
-
-Inputs:
-
-Outputs:
-
-Comments for G:
-
---------------------------------
-
-"""
-
 import argparse
 import os
 import re
@@ -25,13 +7,15 @@ import re
 # ==============================================================================
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Concatenate state archive files for NotebookLLM")
-    parser.add_argument("--dir", default=r"E:\Data\Genealogy_Data\Ingestion\usgw_archives_pa",
+    parser.add_argument("--dir", default=r"E:\Data\Genealogy_Data\Ingestion\usgw_archives_oh",
                         help="Input directory to search")
-    parser.add_argument("--out", default=r"../output/pa_archives-askeyerskine.txt", help="Output file name")
+    parser.add_argument("--out", default=r"../output/usgw_oh_archives-askeyerskine.txt", help="Output file name")
     args = parser.parse_args()
 
     input_directory = args.dir
     output_file = args.out
+
+    sec = ["fl", "ga", "al", "sc", "nc", "tn", "ky", "va", "wv"]
 
     # Compile the regex pattern once for speed.
     # \b(askey|erskine)\b looks for either Askey OR Erskine as a whole word.

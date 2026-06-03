@@ -1,7 +1,7 @@
+import json
 import os
 import time
 import urllib.parse
-import json
 
 import requests
 from bs4 import BeautifulSoup
@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 import gen_logging
 
 DELAY_SECONDS = 0.5  # Polite scraping interval
-CONFIG_FILE = "scrape_config.json"
+CONFIG_FILE = "../JSON/scrape_config.json"
 LOCAL_ROOT_DIR = r"E:\Data\Genealogy_Data\Ingestion"
 
 
@@ -115,7 +115,7 @@ if __name__ == "__main__":
 
         counties = state_data.get("counties", {})
         enabled_counties = [c for c, is_enabled in counties.items() if is_enabled]
-        
+
         if not counties:
             logger.info(f"Starting mass download for FULL state: {state}")
             crawl_archive(state_base_url, state_base_url, state_local_dir)

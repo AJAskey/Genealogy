@@ -203,6 +203,10 @@ def export_to_gedcom(output_path, limit=None, is_test=False):
             sex_val = core.get('sex')
             sex_code = map_sex(sex_val) if pd.notna(sex_val) else 'U'
             f.write(f"1 SEX {sex_code}\n")
+            
+            # Expose the permanent St. Joe's ID so it is easily searchable in software
+            f.write(f"1 REFN {golden_id}\n")
+            f.write("2 TYPE ST_JOES_ID\n")
 
             if pd.notna(core['birth_year']) or pd.notna(core['birth_place']):
                 f.write("1 BIRT\n")
@@ -243,7 +247,7 @@ def export_to_gedcom(output_path, limit=None, is_test=False):
                     f.write(f"4 TEXT Age in census: {age}\n")
                     
                 f.write(f"1 REFN {comp_id}\n")
-                f.write("2 TYPE ST_JOES_ID\n")
+                f.write("2 TYPE IPUMS_ID\n")
 
             if golden_id in indi_links:
                 for link in indi_links[golden_id]:
