@@ -22,6 +22,7 @@ try:
 except ImportError:
     MULTIPLE_DATABASE_FILES = False
 
+
 class FlushingFileHandler(logging.FileHandler):
     """
     A FileHandler that flushes the buffer after every log record is emitted.
@@ -65,8 +66,14 @@ def setup_logging(logger_name=None, year=None, multiple_db_files=None):
 
     # Only add handlers if they don't already exist for THIS logger
     if not logger.handlers:
+        # 1. Get the absolute path of the directory where this specific script lives
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # 2. Step up two folder levels ('..') to reach the main project root
+        project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
+
         # --- File Handler (with immediate flushing) ---
-        log_dir = r"E:\Users\Andy\PycharmProjects\Genealogy\log"
+        log_dir = os.path.join(project_root, "log")
         os.makedirs(log_dir, exist_ok=True)
         time_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         log_filename = os.path.join(log_dir, f"{log_prefix}_{time_str}.log")

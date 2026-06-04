@@ -15,11 +15,12 @@ Design:
 """
 
 import argparse
-import time
 import os
+
 import duckdb
-import gen_logging
+
 from CreateGoldenRecord import CreateGoldenRecord
+from python.utils import gen_logging
 
 # ==============================================================================
 # CONFIGURATION
@@ -34,10 +35,11 @@ SPLINK_MODEL_JSON = r"D:\Data\Genealogy_Data\splink_model.json"
 # Point this to whatever drive has the MOST free space (e.g., hundreds of GBs)
 DUCKDB_TEMP_DIR = r"D:\Data\Genealogy_Data\DuckDB_Temp"
 
+
 def run_analyst_pipeline(logger, mode="link", is_test=False):
     logger.info("Initializing DuckDB In-Memory Engine...")
     con = duckdb.connect(database=':memory:')
-    
+
     # Set memory limits to prevent 100% RAM usage crashes during massive runs, 
     # forcing overflow to your lightning-fast NVMe drive instead.
     logger.info("Configuring DuckDB memory safety limits...")
@@ -159,6 +161,24 @@ def run_analyst_pipeline(logger, mode="link", is_test=False):
           AND first IS NOT NULL AND REGEXP_MATCHES(first, '[a-zA-Z]')
         UNION ALL
         SELECT 
+            'UNIDEATH_' || record_id AS unique_id,
+            first_name,
+            last_name,
+            birth_year,
+            CAST(NULL AS VARCHAR) AS state,
+            CAST(NULL AS VARCHAR) AS sex,
+            CAST(NULL AS VARCHAR) AS birth_place,
+            CAST(NULL AS INTEGER) AS census_year,
+            CAST(death_year AS VARCHAR) AS death_date,
+            'death_index' AS source_db,
+            CAST(NULL AS VARCHAR) AS father_pointer,
+            CAST(NULL AS VARCHAR) AS mother_pointer
+        FROM birls.universal_death_index
+        WHERE last_name IN (SELECT namelast FROM target_names)
+          AND last_name IS NOT NULL AND REGEXP_MATCHES(last_name, '[a-zA-Z]')
+          AND first_name IS NOT NULL AND REGEXP_MATCHES(first_name, '[a-zA-Z]')
+        UNION ALL
+        SELECT 
             'GED_' || gedcom_id AS unique_id,
             first_name,
             last_name,
@@ -184,7 +204,7 @@ def run_analyst_pipeline(logger, mode="link", is_test=False):
     # ---------------------------------------------------------
     logger.info("Initializing Splink Linker...")
     import string
-    
+
     if mode in ("train", "both"):
         logger.info("Setting up view for TRAINING (using full dataset)...")
         con.execute("CREATE OR REPLACE VIEW population_for_splink AS SELECT * FROM population_master;")
@@ -192,13 +212,14 @@ def run_analyst_pipeline(logger, mode="link", is_test=False):
         generator.run(mode="train", output_table="clean.golden_records", model_path=SPLINK_MODEL_JSON)
         if mode == "train":
             return
-            
+
     if mode in ("link", "both"):
         slices = list(string.ascii_uppercase) + ["OTHER"]
-        
+
         # Auto-Resume Logic: Find which letters are already finished in the Clean Vault
         try:
-            completed_letters = [r[0] for r in con.execute("SELECT DISTINCT UPPER(SUBSTR(last_name, 1, 1)) FROM clean.golden_records").fetchall()]
+            completed_letters = [r[0] for r in con.execute(
+                "SELECT DISTINCT UPPER(SUBSTR(last_name, 1, 1)) FROM clean.golden_records").fetchall()]
         except Exception:
             completed_letters = []
 
@@ -207,26 +228,27 @@ def run_analyst_pipeline(logger, mode="link", is_test=False):
                 logger.info(f"*** Slice '{letter}' already exists in Clean Vault. Skipping! (Auto-Resume) ***")
                 continue
 
-            logger.info(f"\n{'='*60}\n--- Slicing Data: Last Names starting with '{letter}' ---\n{'='*60}")
-            
+            logger.info(f"\n{'=' * 60}\n--- Slicing Data: Last Names starting with '{letter}' ---\n{'=' * 60}")
+
             if letter == "OTHER":
                 # Catch names starting with numbers, quotes, or special characters
                 letters_list = "', '".join(list(string.ascii_uppercase))
                 condition = f"UPPER(SUBSTR(last_name, 1, 1)) NOT IN ('{letters_list}')"
             else:
                 condition = f"UPPER(SUBSTR(last_name, 1, 1)) = '{letter}'"
-                
-            con.execute(f"CREATE OR REPLACE VIEW population_for_splink AS SELECT * FROM population_master WHERE {condition};")
-            
+
+            con.execute(
+                f"CREATE OR REPLACE VIEW population_for_splink AS SELECT * FROM population_master WHERE {condition};")
+
             slice_count = con.execute("SELECT COUNT(*) FROM population_for_splink").fetchone()[0]
             if slice_count == 0:
                 logger.info(f"  -> No records found for '{letter}'. Skipping.")
                 continue
-                
+
             logger.info(f"  -> Processing {slice_count:,} records for slice '{letter}'...")
             generator = CreateGoldenRecord(db_connection=con, logger=logger)
             generator.run(mode="link", output_table="clean.golden_records", model_path=SPLINK_MODEL_JSON)
-            
+
         logger.info("\nAll alphabetical slices completed successfully!")
 
 

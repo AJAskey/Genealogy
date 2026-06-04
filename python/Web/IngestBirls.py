@@ -113,8 +113,16 @@ def ingest_birls_file(input_csv, logger):
                 continue
 
             count += 1
-            row_data = tuple(str(row.get(col, '')).strip() for col in TARGET_COLUMNS)
-            batch.append(row_data)
+
+            row_data = []
+            for col in TARGET_COLUMNS:
+                val = str(row.get(col, '')).strip()
+                if col == 'ssn':
+                    val = val.replace('-', '')
+                    if val in ('999999999', '000000000', ''):
+                        val = None
+                row_data.append(val if val else None)
+            batch.append(tuple(row_data))
 
             if count % BATCH_SIZE == 0:
                 cursor.executemany(insert_query, batch)

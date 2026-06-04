@@ -17,7 +17,7 @@ import sqlite3
 from pathlib import Path
 
 # ── Configuration ──────────────────────────────────────────────────────────────
-BASIC_FILE = r"E:\Users\Andy\PycharmProjects\Genealogy\data\basic-all.txt"
+BASIC_FILE = r"/data/basic-all.txt"
 CODEBOOK_DB = r"D:\Data\Genealogy_Data\codebook.db"
 VERBOSE = True  # Print progress as it runs
 # ───────────────────────────────────────────────────────────────────────────────

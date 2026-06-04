@@ -20,7 +20,7 @@ import os
 
 # Assuming the Codebook class is in a file named codebook_lookup.py
 # in the same directory.
-import CodebookReader
+from python.utils import CodebookReader
 
 # --- Define Absolute Paths ---
 # Get the absolute path of the directory where this file is located (the 'python' directory)

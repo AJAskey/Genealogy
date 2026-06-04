@@ -12,7 +12,7 @@ import time
 
 from internetarchive import search_items, get_item
 
-import gen_logging
+from python.utils import gen_logging
 
 
 # reclaimtherecords
@@ -35,8 +35,8 @@ def download_genealogy_blocks(collection_name='reclaimtherecords',
 
         main_logger.info(f"item:_id {item_id}")
 
-        if item_id[:1] < "O ":
-            continue
+        # if item_id[:1] < "O ":
+        #     continue
 
         # List the exact extensions you want to SKIP here. 
         # Note: Because we use .endswith(), do not use asterisks (e.g., use '.zip', not '*.zip')
@@ -50,9 +50,9 @@ def download_genealogy_blocks(collection_name='reclaimtherecords',
             # Some versions of the API return dicts, some return objects
             filename = f['name'] if isinstance(f, dict) else f.name
 
-            # if not any(filename.lower().endswith(ext) for ext in excluded_extensions):
-            #     if not ('baltimore' in filename.lower()):
-            #         files_to_download.append(filename)
+            if not any(filename.lower().endswith(ext) for ext in excluded_extensions):
+                if not ('baltimore' in filename.lower()):
+                    files_to_download.append(filename)
 
         if files_to_download:
             main_logger.info(f"Found {len(files_to_download)} data files in: {item_id}")
@@ -64,12 +64,12 @@ def download_genealogy_blocks(collection_name='reclaimtherecords',
 if __name__ == "__main__":
     main_logger = gen_logging.setup_logging(logger_name="SCRAPE")
 
-    target_path = r"E:\Data\Genealogy_Data\Ingestion"
+    target_path = r"d:\Data\Genealogy_Data\Ingestion"
 
     total_records = 0
 
     # Range (1, 4) would give you blocks 1, 2, and 3
-    for i in range(1, 4):
+    for i in range(1, 2):
         success = False
         retries = 0
 

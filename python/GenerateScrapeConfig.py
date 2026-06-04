@@ -17,9 +17,9 @@ import time
 
 import requests
 from bs4 import BeautifulSoup
-from us_states import us_state_data
 
-import gen_logging
+from python.utils import gen_logging
+from python.utils.us_states import us_state_data
 
 CONFIG_FILE = "scrape_config.json"
 HEADERS = {

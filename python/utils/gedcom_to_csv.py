@@ -145,8 +145,8 @@ if __name__ == "__main__":
     main_logger = gen_logging.setup_logging("GEDCOM_TO_CSV")
 
     # You can change these paths when you are ready to process an external file!
-    input_file = r"E:\Users\Andy\PycharmProjects\Genealogy\data\AskeyWorking_20150125.ged"
-    output_file = r"E:\Users\Andy\PycharmProjects\Genealogy\output\thom.csv"
+    input_file = r"/data/AskeyWorking_20150125.ged"
+    output_file = r"/output/thom.csv"
 
     convert_gedcom_to_csv(input_file, output_file, main_logger, extract_media=EXTRACT_MEDIA,
                           exclude_living=EXCLUDE_LIVING)

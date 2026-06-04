@@ -24,9 +24,9 @@ import sqlite3
 import time
 from concurrent.futures import as_completed, ProcessPoolExecutor
 
-import gen_logging
 from genealogy_classes import Person
 from project_globals import CODEBOOK
+from python.utils import gen_logging
 
 # ==============================================================================
 # TUNING KNOBS

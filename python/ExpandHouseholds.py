@@ -18,7 +18,7 @@ import uuid
 import duckdb
 import pandas as pd
 
-import gen_logging
+from python.utils import gen_logging
 
 # ==============================================================================
 # CONFIGURATION

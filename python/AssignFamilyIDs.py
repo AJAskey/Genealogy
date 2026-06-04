@@ -12,9 +12,11 @@ Summary: Uses a Union-Find (Disjoint Set) graph algorithm to group every
 """
 
 import os
+
 import duckdb
 import pandas as pd
-import gen_logging
+
+from python.utils import gen_logging
 
 # ==============================================================================
 # CONFIGURATION
@@ -31,6 +33,7 @@ CLEAN_DB = os.path.join(BASE_DATA_DIR, "CleanVault.db")
 
 class UnionFind:
     """Blazing fast memory-efficient graph clustering."""
+
     def __init__(self):
         self.parent = {}
 
@@ -39,14 +42,14 @@ class UnionFind:
         root = i
         while self.parent.setdefault(root, root) != root:
             root = self.parent[root]
-            
+
         # 2. Path compression: point all traversed nodes directly to the root
         curr = i
         while curr != root:
             nxt = self.parent[curr]
             self.parent[curr] = root
             curr = nxt
-            
+
         return root
 
     def union(self, i, j):
@@ -76,24 +79,44 @@ def assign_global_families(logger):
     # ---------------------------------------------------------
     # EDGE TYPE 1: Intra-Household (No Names Required)
     # ---------------------------------------------------------
+    logger.info("Isolating target households from Golden Records...")
+    con.execute("""
+                CREATE
+                TEMP TABLE target_hhs AS
+                SELECT DISTINCT SPLIT_PART(comp_id, '_', 1) AS sample,
+                                SPLIT_PART(comp_id, '_', 2) AS serial
+                FROM (SELECT UNNEST(string_split(vault_pointers, '|')) AS comp_id
+                      FROM clean.golden_records);
+                """)
+
     logger.info("Extracting household structures (The Intra-Decade Glue)...")
     query_households = """
-        SELECT 
-            composite_id, 
-            sample || '_' || serial || '_' || COALESCE(famunit, '1') AS household_id
-        FROM base.population
-        UNION ALL
-        SELECT 
-            composite_id, 
-            sample || '_' || serial || '_' || COALESCE(famunit, '1') AS household_id
-        FROM samp.population;
-    """
-    # Using fetchall() to stream directly into the Python graph
-    result = con.execute(query_households).fetchall()
-    
-    logger.info(f"Applying {len(result):,} household edges to the graph...")
-    for comp_id, household_id in result:
-        uf.union(comp_id, f"HH_{household_id}")
+                       SELECT p.composite_id,
+                              p.sample || '_' || p.serial || '_' || COALESCE(p.famunit, '1') AS household_id
+                       FROM base.population p
+                                JOIN target_hhs t ON p.sample = t.sample AND p.serial = t.serial
+                       UNION ALL
+                       SELECT p.composite_id,
+                              p.sample || '_' || p.serial || '_' || COALESCE(p.famunit, '1') AS household_id
+                       FROM samp.population p
+                                JOIN target_hhs t ON p.sample = t.sample AND p.serial = t.serial; \
+                       """
+
+    # Stream the results in manageable chunks to prevent Python memory thrashing
+    cursor = con.execute(query_households)
+    chunk_size = 5_000_000
+    processed_count = 0
+
+    while True:
+        chunk = cursor.fetchmany(chunk_size)
+        if not chunk:
+            break  # No more rows to fetch
+
+        for comp_id, household_id in chunk:
+            uf.union(comp_id, f"HH_{household_id}")
+
+        processed_count += len(chunk)
+        logger.info(f"  -> Processed {processed_count:,} household edges into the graph...")
 
     # ---------------------------------------------------------
     # EDGE TYPE 2: Cross-Decade (The 25% Bridges)
@@ -116,7 +139,7 @@ def assign_global_families(logger):
     logger.info("Calculating Universal Family IDs...")
     # Group everything by its root node
     family_map = []
-    
+
     # We only care about saving the actual people (composite_ids), not our temporary HH_ nodes
     for node in uf.parent.keys():
         if not str(node).startswith("HH_"):
@@ -126,18 +149,21 @@ def assign_global_families(logger):
             family_map.append((node, family_id))
 
     df_families = pd.DataFrame(family_map, columns=['composite_id', 'family_id'])
-    
+
     logger.info(f"Saving {len(df_families):,} Family assignments to the Clean Vault...")
     con.register("df_families", df_families)
-    
+
+    con.execute("DROP TABLE IF EXISTS clean.universal_families;")
     con.execute("""
-        CREATE TABLE IF NOT EXISTS clean.universal_families (
-            composite_id VARCHAR PRIMARY KEY,
-            family_id VARCHAR
-        );
-    """)
-    con.execute("INSERT OR REPLACE INTO clean.universal_families SELECT * FROM df_families;")
+                CREATE TABLE clean.universal_families
+                (
+                    composite_id VARCHAR PRIMARY KEY,
+                    family_id    VARCHAR
+                );
+                """)
+    con.execute("INSERT INTO clean.universal_families SELECT * FROM df_families;")
     logger.info("Complete! Every record now belongs to a Universal Family ID.")
+
 
 if __name__ == "__main__":
     main_logger = gen_logging.setup_logging(logger_name="FAM_GRAPH")

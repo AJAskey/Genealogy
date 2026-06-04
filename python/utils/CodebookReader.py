@@ -65,7 +65,7 @@ class Codebook:
 # ==============================================================================
 if __name__ == '__main__':
     # 1. Instantiate the class with your codebook file
-    codebook = Codebook('../JSON/codebook.json')
+    codebook = Codebook('../../JSON/codebook.json')
 
     # 2. Look up values using the new method
 

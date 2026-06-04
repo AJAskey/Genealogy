@@ -41,7 +41,7 @@ def fragment_csv(input_csv, rows_per_file=50000):
 if __name__ == "__main__":
     # Point this to one of your freshly converted CSVs
     big_death_file = \
-        r"E:\Users\Andy\PycharmProjects\Genealogy\data\BIRLS_database\Reclaim_The_Records_-_BIRLS_database_-_update_file_received_from_the_VA_for_2020-2023.csv"
+        r"/data/BIRLS_database/Reclaim_The_Records_-_BIRLS_database_-_update_file_received_from_the_VA_for_2020-2023.csv"
 
     # 50,000 rows is a 'sweet spot' for quick opening in Excel
     fragment_csv(big_death_file, rows_per_file=150000)

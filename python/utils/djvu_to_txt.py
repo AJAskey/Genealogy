@@ -58,5 +58,5 @@ def beautify_djvu_text(input_path, output_format='md'):
 if __name__ == '__main__':
     # Usage
     beautify_djvu_text(
-        r"E:\Users\Andy\PycharmProjects\Genealogy\data\Reclaim_The_Records_-_New_Jersey_Death_Index_-_1980_-_Surnames_L-Q_djvu.txt",
+        r"/data/Reclaim_The_Records_-_New_Jersey_Death_Index_-_1980_-_Surnames_L-Q_djvu.txt",
         output_format='html')

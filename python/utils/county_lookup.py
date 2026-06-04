@@ -123,8 +123,8 @@ class CountyByCode:
 # ===========================================================================
 
 if __name__ == '__main__':
-    CSV_PATH = '../data/icpsrcnt.csv'
-    OUTPUT_PATH = '../JSON/county_by_codes.json'
+    CSV_PATH = '../../data/icpsrcnt.csv'
+    OUTPUT_PATH = '../../JSON/county_by_codes.json'
 
     # Build the JSON
     build_county_by_codes_json(CSV_PATH, OUTPUT_PATH)

@@ -194,9 +194,9 @@ S`1
 # ===========================================================================
 
 if __name__ == '__main__':
-    CSV_PATH = '../data/icpsrcnt.csv'
-    NAMES_TO_CODES_PATH = '../JSON/county_names_to_codes.json'
-    CODES_TO_NAMES_PATH = '../JSON/county_codes_to_names.json'
+    CSV_PATH = '../../data/icpsrcnt.csv'
+    NAMES_TO_CODES_PATH = '../../JSON/county_names_to_codes.json'
+    CODES_TO_NAMES_PATH = '../../JSON/county_codes_to_names.json'
 
     # Step 1: Build the JSON files
     build_json_files(CSV_PATH, NAMES_TO_CODES_PATH, CODES_TO_NAMES_PATH)

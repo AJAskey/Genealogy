@@ -39,7 +39,7 @@ import pandas as pd
 
 # ── CONFIGURE THESE PATHS ─────────────────────────────────────────────────────
 INPUT_DIR = r"E:\Census\IPUMS\Original"
-OUTPUT_DIR = r"E:\Users\Andy\PycharmProjects\Genealogy\output"
+OUTPUT_DIR = r"/output"
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Census years to process

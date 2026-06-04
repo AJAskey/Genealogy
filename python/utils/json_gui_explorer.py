@@ -150,6 +150,6 @@ class JsonGuiExplorer:
 if __name__ == "__main__":
     root = tk.Tk()
     # Path relative to project root
-    json_path = os.path.join("../JSON", "codebook.json")
+    json_path = os.path.join("../../JSON", "codebook.json")
     app = JsonGuiExplorer(root, json_path)
     root.mainloop()

@@ -13,7 +13,7 @@ import os
 import re
 import sqlite3
 
-import gen_logging
+from python.utils import gen_logging
 
 # ==============================================================================
 # CONFIGURATION
@@ -25,6 +25,7 @@ if os.name == 'nt':
     GEDCOM_DB = r"D:\Data\Genealogy_Data\GedcomVault.db"
 else:
     GEDCOM_DB = os.path.expanduser("~/Genealogy_Data/GedcomVault.db")
+
 
 def normalize_gedcom_date(date_str):
     """
@@ -154,27 +155,41 @@ def ingest_to_db(records, logger):
     with sqlite3.connect(GEDCOM_DB) as conn:
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute('''
-            CREATE TABLE IF NOT EXISTS gedcom_records (
-                gedcom_id TEXT PRIMARY KEY,
-                full_name TEXT,
-                first_name TEXT,
-                last_name TEXT,
-                birth_date TEXT,
-                birth_year INTEGER,
-                birth_place TEXT,
-                death_date TEXT,
-                death_place TEXT,
-                picture_url TEXT
-            )
-        ''')
+                     CREATE TABLE IF NOT EXISTS gedcom_records
+                     (
+                         gedcom_id
+                         TEXT
+                         PRIMARY
+                         KEY,
+                         full_name
+                         TEXT,
+                         first_name
+                         TEXT,
+                         last_name
+                         TEXT,
+                         birth_date
+                         TEXT,
+                         birth_year
+                         INTEGER,
+                         birth_place
+                         TEXT,
+                         death_date
+                         TEXT,
+                         death_place
+                         TEXT,
+                         picture_url
+                         TEXT
+                     )
+                     ''')
         # Clear old data if re-running to avoid primary key conflicts
         conn.execute("DELETE FROM gedcom_records")
 
         conn.executemany('''
-            INSERT INTO gedcom_records
-            (gedcom_id, full_name, first_name, last_name, birth_date, birth_year, birth_place, death_date, death_place, picture_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', valid_records)
+                         INSERT INTO gedcom_records
+                         (gedcom_id, full_name, first_name, last_name, birth_date, birth_year, birth_place, death_date,
+                          death_place, picture_url)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         ''', valid_records)
 
     logger.info(f"Successfully saved {len(valid_records)} records to {GEDCOM_DB}.")
 
