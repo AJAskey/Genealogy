@@ -24,7 +24,7 @@ if __name__ == '__main__':
         parser = argparse.ArgumentParser(description="Concatenate state archive files for NotebookLLM")
         parser.add_argument("--dir", default=r"E:\Data\Genealogy_Data",
                             help="Input directory to search")
-        parser.add_argument("--out", default=r"../output/usgw_archives-askeyerskine.txt", help="Output file name")
+        parser.add_argument("--out", default=r"../../output/usgw_archives-askeyerskine.txt", help="Output file name")
         args = parser.parse_args()
 
         input_directory = args.dir
