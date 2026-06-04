@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 import gen_logging
 
 DELAY_SECONDS = 0.5  # Polite scraping interval
-CONFIG_FILE = "../JSON/scrape_config.json"
+CONFIG_FILE = "./JSON/scrape_config.json"
 LOCAL_ROOT_DIR = r"E:\Data\Genealogy_Data\Ingestion"
 
 

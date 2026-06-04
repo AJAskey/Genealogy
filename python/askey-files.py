@@ -1,13 +1,11 @@
 import argparse
-import os
-import re
 
 # ==============================================================================
 # MAIN
 # ==============================================================================
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Concatenate state archive files for NotebookLLM")
-    parser.add_argument("--dir", default=r"E:\Data\Genealogy_Data\Ingestion\usgw_archives_oh",
+    parser.add_argument("--dir", default=r"E:\Data\Genealogy_Data\Ingestion\usgw",
                         help="Input directory to search")
     parser.add_argument("--out", default=r"../output/usgw_oh_archives-askeyerskine.txt", help="Output file name")
     args = parser.parse_args()
@@ -15,79 +13,100 @@ if __name__ == '__main__':
     input_directory = args.dir
     output_file = args.out
 
-    sec = ["fl", "ga", "al", "sc", "nc", "tn", "ky", "va", "wv"]
+    import argparse
+    import os
+    import re
 
-    # Compile the regex pattern once for speed.
-    # \b(askey|erskine)\b looks for either Askey OR Erskine as a whole word.
-    search_pattern = re.compile(r"\b(askey|erskine)\b", re.IGNORECASE)
+    # ==============================================================================
+    # MAIN
+    # ==============================================================================
+    if __name__ == '__main__':
+        parser = argparse.ArgumentParser(description="Concatenate state archive files for NotebookLLM")
+        parser.add_argument("--dir", default=r"E:\Data\Genealogy_Data",
+                            help="Input directory to search")
+        parser.add_argument("--out", default=r"../output/usgw_archives-askeyerskine.txt", help="Output file name")
+        args = parser.parse_args()
 
-    # Pattern for filename checking (no word boundaries, in case it's named 'askeyfamily.txt')
-    filename_pattern = re.compile(r"(askey|erskine)", re.IGNORECASE)
+        input_directory = args.dir
+        output_file = args.out
 
-    matching_txt_files = []
-    file_count = 0
+        sec = ["fl", "ga", "al", "sc", "nc", "tn", "ky", "va", "wv"]
 
-    with open(output_file, "w", encoding="utf-8", errors="ignore") as fo:
+        # Compile the regex pattern once for speed.
+        # \b(askey|erskine)\b looks for either Askey OR Erskine as a whole word.
+        search_pattern = re.compile(r"\b(askey|erskine)\b", re.IGNORECASE)
 
-        fo.write(f"CONTEX Match or FULL FILE Match: askey OR erskine\n\n")
+        # Pattern for filename checking (no word boundaries, in case it's named 'askeyfamily.txt')
+        filename_pattern = re.compile(r"(askey|erskine)", re.IGNORECASE)
 
-        # os.walk automatically and recursively traverses all subdirectories
-        for root, _, files in os.walk(input_directory):
-            for file in files:
-                if file.lower().endswith(".txt"):
-                    file_path = os.path.join(root, file)
-                    sub_path = file_path.removeprefix(r"E:\Data\Genealogy_Data\Ingestion")
-                    sub_path_len = len(sub_path) + 3
+        matching_txt_files = []
+        file_count = 0
 
-                    # errors='ignore' prevents crashes if a scraped text file has weird encoding
-                    try:
-                        with open(file_path, "r", encoding="utf-8", errors="ignore") as f_in:
-                            lines = f_in.readlines()
+        with open(output_file, "w", encoding="utf-8", errors="ignore") as fo:
 
-                        # CONDITION 1: Does the filename contain Askey or Erskine?
-                        if filename_pattern.search(file):
-                            print(f"[FULL FILE] {file_path}")
+            fo.write(f"CONTEX Match or FULL FILE Match: askey OR erskine\n\n")
 
-                            header_str = f"\n{'=' * sub_path_len}\n  .{sub_path}\n  (FULL FILE MATCH)\n{'=' * sub_path_len}\n"
-                            fo.write(header_str)
-                            for line in lines:
-                                fo.write(line)
-                            fo.write("\n")
-                            file_count += 1
+            # os.walk automatically and recursively traverses all subdirectories
+            for root, _, files in os.walk(input_directory):
+                for file in files:
+                    if file.lower().endswith(".txt"):
+                        file_path = os.path.join(root, file)
 
-                        # CONDITION 2: If not, grep the contents line by line
-                        else:
-                            lines_to_print = set()
-                            match_found = False
+                        # Dynamically strip the base directory so the output labels are always clean
+                        sub_path = file_path.replace(input_directory, "")
+                        if sub_path.startswith("\\") or sub_path.startswith("/"):
+                            sub_path = sub_path[10:]
+                        sub_path_len = len(sub_path) + 3
 
-                            for i, line in enumerate(lines):
-                                if search_pattern.search(line):
-                                    match_found = True
-                                    # Add previous 3 lines and following 9 lines (context)
-                                    start_idx = max(0, i - 3)
-                                    end_idx = min(len(lines), i + 10)  # +10 because range is exclusive
-                                    for j in range(start_idx, end_idx):
-                                        lines_to_print.add(j)
+                        # errors='ignore' prevents crashes if a scraped text file has weird encoding
+                        try:
+                            with open(file_path, "r", encoding="utf-8", errors="ignore") as f_in:
+                                lines = f_in.readlines()
 
-                            # Outdented one tab so it only writes once per file!
-                            if match_found:
-                                print(f"[CONTEXT]   {file_path}")
-                                header_str = f"\n{'=' * sub_path_len}\n  .{sub_path}\n  (CONTEXT MATCH)\n{'=' * sub_path_len}\n"
+                            # CONDITION 1: Does the filename contain Askey or Erskine?
+                            if filename_pattern.search(file):
+                                print(f"[FULL FILE] {file_path}")
+
+                                header_str = f"\n{'=' * sub_path_len}\n  .{sub_path}\n  (FULL FILE MATCH)\n{'=' * sub_path_len}\n"
                                 fo.write(header_str)
-
-                                sorted_indices = sorted(list(lines_to_print))
-                                last_idx = -2
-                                for idx in sorted_indices:
-                                    # Insert a divider if we skipped lines between matches (like grep's '--')
-                                    if last_idx != -2 and idx > last_idx + 1:
-                                        fo.write("---\n")
-                                    fo.write(lines[idx])
-                                    last_idx = idx
-
+                                for line in lines:
+                                    fo.write(line)
                                 fo.write("\n")
                                 file_count += 1
 
-                    except Exception:
-                        pass
+                            # CONDITION 2: If not, grep the contents line by line
+                            else:
+                                lines_to_print = set()
+                                match_found = False
 
-    print(f"\nSuccess! Concatenated {file_count} files (Askey & Erskine) into {output_file} ready for NotebookLLM.")
+                                for i, line in enumerate(lines):
+                                    if search_pattern.search(line):
+                                        match_found = True
+                                        # Add previous 3 lines and following 9 lines (context)
+                                        start_idx = max(0, i - 3)
+                                        end_idx = min(len(lines), i + 10)  # +10 because range is exclusive
+                                        for j in range(start_idx, end_idx):
+                                            lines_to_print.add(j)
+
+                                # Outdented one tab so it only writes once per file!
+                                if match_found:
+                                    print(f"[CONTEXT]   {file_path}")
+                                    header_str = f"\n{'=' * sub_path_len}\n  .{sub_path}\n  (CONTEXT MATCH)\n{'=' * sub_path_len}\n"
+                                    fo.write(header_str)
+
+                                    sorted_indices = sorted(list(lines_to_print))
+                                    last_idx = -2
+                                    for idx in sorted_indices:
+                                        # Insert a divider if we skipped lines between matches (like grep's '--')
+                                        if last_idx != -2 and idx > last_idx + 1:
+                                            fo.write("---\n")
+                                        fo.write(lines[idx])
+                                        last_idx = idx
+
+                                    fo.write("\n")
+                                    file_count += 1
+
+                        except Exception:
+                            pass
+
+        print(f"\nSuccess! Concatenated {file_count} files (Askey & Erskine) into {output_file} ready for NotebookLLM.")
