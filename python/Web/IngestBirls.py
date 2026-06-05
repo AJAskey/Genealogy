@@ -20,10 +20,16 @@ import csv
 import datetime
 import os
 import sqlite3
+import sys
 import time
 from concurrent.futures import as_completed, ProcessPoolExecutor
 
-import gen_logging
+script_dir = os.path.dirname(os.path.abspath(__file__))
+python_dir = os.path.abspath(os.path.join(script_dir, '..'))
+if python_dir not in sys.path:
+    sys.path.append(python_dir)
+
+from utils import gen_logging
 
 # ==============================================================================
 # CONFIGURATION
@@ -136,7 +142,8 @@ def ingest_birls_file(input_csv, logger):
 
     conn.close()
     elapsed = round((time.time() - start_time) / 60, 2)
-    logger.info(f"  [{os.path.basename(input_csv)}]  DONE — {count:,} inserted | {skipped:,} blanks skipped | {elapsed} min.")
+    logger.info(
+        f"  [{os.path.basename(input_csv)}]  DONE — {count:,} inserted | {skipped:,} blanks skipped | {elapsed} min.")
     return count, elapsed
 
 
@@ -160,7 +167,8 @@ def process_file(filename, input_dir):
     return {"filename": filename, "records": record_count, "elapsed_min": elapsed_min}
 
 
-if __name__ == '__main__':
+def main():
+    """Main entry point for BIRLS Death File Ingestion."""
     main_logger = gen_logging.setup_logging(logger_name="MAIN_BIRLS")
     main_logger.info("====================================================")
     main_logger.info("  BIRLS / DEATH INDEX INGESTION STARTING")
@@ -204,3 +212,7 @@ if __name__ == '__main__':
 
     main_logger.info(f"\n  Total records successfully ingested: {total_records:,}")
     main_logger.info(f"  Session ended: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+
+if __name__ == '__main__':
+    main()

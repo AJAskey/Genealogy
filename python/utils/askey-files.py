@@ -37,6 +37,7 @@ if __name__ == '__main__':
     # Define exclusions as a clean Python list so it's super easy to manage
     excluded_names = [
         r"hazard[\s_]*erskine",
+        r"caskey",
         r"erskine[\s_]*thompson",
         r"erskine[\s_]*hazard",
         r"hazard[\s_]*erskine",
@@ -44,13 +45,16 @@ if __name__ == '__main__':
         r"erskine[\s_]*Tyrone",
         r"Robertson[\s_]*Erskine",
         r"Mansfield[\s_]*Erskine",
+        r"Abbott[\s_]*Erskine",
         r"HADLOCK[\s_]*Erskine",
         r"john[\s_]*Erskine",
         r"Edgerton[\s_]*Erskine",
         r"ERSKINE W.[\s_]*JOHNSTON",
         r"Johnston,[\s_]*ERSKINE",
         r"MCKINLAY,[\s_]*ERSKINE",
-        r"ERSKINE[\s_]*Mansfield"
+        r"ERSKINE[\s_]*Mansfield",
+        r"Hewitt,[\s_]*Mansfield",
+        r"ERSKINE[\s_]*Martin"
 
     ]
 

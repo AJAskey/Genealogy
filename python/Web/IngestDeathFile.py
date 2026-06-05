@@ -13,15 +13,19 @@ Summary: Parses pipe-delimited death index files (e.g., from Reclaim the Records
 import csv
 import os
 import sqlite3
+import sys
 
-import gen_logging
+# 1 Add the 'python' directory to sys.path so we can import from 'utils'
+script_dir = os.path.dirname(os.path.abspath(__file__))
+python_dir = os.path.abspath(os.path.join(script_dir, '..'))
+if python_dir not in sys.path:
+    sys.path.append(python_dir)
+
+from utils import gen_logging
 
 # ==============================================================================
 # CONFIGURATION
 # ==============================================================================
-# 1. Get the absolute path of the directory where this specific script lives
-script_dir = os.path.dirname(os.path.abspath(__file__))
-
 # 2. Step up two folder levels ('..') to reach the main project root
 project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
 
@@ -337,6 +341,11 @@ def ingest_death_directory(logger):
         logger.info(f"Actual UNIQUE records safely locked in Database: {actual_count:,}")
 
 
-if __name__ == "__main__":
+def main():
+    """Main entry point for Death File Ingestion."""
     main_logger = gen_logging.setup_logging(logger_name="DEATH_INGEST")
     ingest_death_directory(main_logger)
+
+
+if __name__ == "__main__":
+    main()

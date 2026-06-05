@@ -21,8 +21,17 @@ Outputs: .ged file encoded in UTF-8
 import argparse
 import datetime
 import os
+import sys
 import duckdb
 import pandas as pd
+
+# Add the 'python' directory and project root to sys.path so we can import properly
+script_dir = os.path.dirname(os.path.abspath(__file__))
+python_dir = os.path.abspath(os.path.join(script_dir, '..'))
+project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
+for p in [python_dir, project_root]:
+    if p not in sys.path:
+        sys.path.append(p)
 
 from project_globals import CODEBOOK
 

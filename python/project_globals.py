@@ -1,6 +1,6 @@
 """
 -----------------------------------
-File: project_globals.py
+File: project_globals.py   
 
 Summary: A central module to initialize and hold global objects that can be
          shared across the entire application, such as the codebook lookup.
