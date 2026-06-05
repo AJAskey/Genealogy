@@ -22,6 +22,7 @@ import argparse
 import datetime
 import os
 import sys
+
 import duckdb
 import pandas as pd
 
@@ -41,7 +42,7 @@ from project_globals import CODEBOOK
 MASTER_100_DB = r"D:\Data\Genealogy_Data\MasterVault_ALL.db"
 MASTER_SAMP_DB = r"D:\Data\Genealogy_Data\MasterVault_ALLs.db"
 CLEAN_DB = r"D:\Data\Genealogy_Data\CleanVault.db"
-OUTPUT_GED = r"E:\Users\Andy\PycharmProjects\Genealogy\output\census_all_export.ged"
+OUTPUT_GED = r"E:\Users\Andy\PycharmProjects\Genealogy\output\TheStJoesExperiment.ged"
 
 # Limit the number of Golden Records to export for testing purposes
 EXPORT_LIMIT = 5000
@@ -72,7 +73,7 @@ def format_name(first, last):
 # ==============================================================================
 # GEDCOM EXPORTER
 # ==============================================================================
-def export_to_gedcom(output_path, limit=None, is_test=False):
+def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     print("Initializing DuckDB Engine...")
@@ -93,13 +94,23 @@ def export_to_gedcom(output_path, limit=None, is_test=False):
     con.execute(f"ATTACH '{base_db}' AS base (TYPE SQLITE, READ_ONLY);")
     con.execute(f"ATTACH '{samp_db}' AS samp (TYPE SQLITE, READ_ONLY);")
 
-    limit_clause = f"LIMIT {limit}" if limit else ""
-    
-    print("Unpacking St. Joe's IDs and fetching historical timelines...")
+    if family_id:
+        print(f"Extracting self-contained family tree for: {family_id}")
+        target_cte = f"""
+            SELECT DISTINCT g.* 
+            FROM clean.golden_records g
+            CROSS JOIN UNNEST(string_split(g.vault_pointers, '|')) AS t(comp_id)
+            JOIN clean.universal_families uf ON t.comp_id = uf.composite_id
+            WHERE uf.family_id LIKE '{family_id}%'
+        """
+    else:
+        print("Unpacking St. Joe's IDs and fetching historical timelines...")
+        limit_clause = f"LIMIT {limit}" if limit else ""
+        target_cte = f"SELECT * FROM clean.golden_records {limit_clause}"
+
     query = f"""
         WITH target_golden AS (
-            SELECT * FROM clean.golden_records 
-            {limit_clause}
+            {target_cte}
         )
         SELECT 
             g.golden_id, g.first_name, g.last_name, g.birth_year, g.birth_place, g.death_date,
@@ -113,14 +124,14 @@ def export_to_gedcom(output_path, limit=None, is_test=False):
         ) c ON t.comp_id = c.composite_id
         ORDER BY g.golden_id, c.year ASC;
     """
-    
+
     df = con.execute(query).df()
     print(f"Loaded {len(df)} historical events. Generating GEDCOM...")
-    
+
     if df.empty:
         print("No records found. Exiting.")
         return
-        
+
     print("Mapping family relationships...")
     exported_ids_tuple = tuple(df['golden_id'].unique())
     if len(exported_ids_tuple) == 1:
@@ -150,18 +161,18 @@ def export_to_gedcom(output_path, limit=None, is_test=False):
         child_id = row['child_id']
         father_id = row['father_id'] if pd.notna(row['father_id']) else None
         mother_id = row['mother_id'] if pd.notna(row['mother_id']) else None
-        
+
         if father_id not in exported_ids_tuple: father_id = None
         if mother_id not in exported_ids_tuple: mother_id = None
-        
+
         if not father_id and not mother_id:
             continue
-            
+
         fam_key = (father_id, mother_id)
         if fam_key not in families:
             families[fam_key] = []
         families[fam_key].append(child_id)
-        
+
     fam_id_counter = 1
     indi_links = {}
     fam_records = {}
@@ -169,7 +180,7 @@ def export_to_gedcom(output_path, limit=None, is_test=False):
     for (father_id, mother_id), children in families.items():
         fam_id = f"@F{fam_id_counter}@"
         fam_id_counter += 1
-        
+
         fam_tags = []
         if father_id:
             fam_tags.append(f"1 HUSB @{father_id}@\n")
@@ -177,11 +188,11 @@ def export_to_gedcom(output_path, limit=None, is_test=False):
         if mother_id:
             fam_tags.append(f"1 WIFE @{mother_id}@\n")
             indi_links.setdefault(mother_id, []).append(f"1 FAMS {fam_id}\n")
-            
+
         for child_id in children:
             fam_tags.append(f"1 CHIL @{child_id}@\n")
             indi_links.setdefault(child_id, []).append(f"1 FAMC {fam_id}\n")
-            
+
         fam_records[fam_id] = fam_tags
 
     now = datetime.datetime.now()
@@ -203,16 +214,16 @@ def export_to_gedcom(output_path, limit=None, is_test=False):
 
         for golden_id, group in df.groupby("golden_id"):
             core = group.iloc[0]
-            
+
             f.write(f"0 @{golden_id}@ INDI\n")
-            
+
             name = format_name(core['first_name'], core['last_name'])
             f.write(f"1 NAME {name}\n")
 
             sex_val = core.get('sex')
             sex_code = map_sex(sex_val) if pd.notna(sex_val) else 'U'
             f.write(f"1 SEX {sex_code}\n")
-            
+
             # Expose the permanent St. Joe's ID so it is easily searchable in software
             f.write(f"1 REFN {golden_id}\n")
             f.write("2 TYPE ST_JOES_ID\n")
@@ -223,7 +234,7 @@ def export_to_gedcom(output_path, limit=None, is_test=False):
                     f.write(f"2 DATE ABT {int(core['birth_year'])}\n")
                 if pd.notna(core['birth_place']):
                     f.write(f"2 PLAC {core['birth_place']}\n")
-                    
+
             if pd.notna(core['death_date']):
                 f.write("1 DEAT\n")
                 f.write(f"2 DATE {core['death_date']}\n")
@@ -237,24 +248,25 @@ def export_to_gedcom(output_path, limit=None, is_test=False):
                 pageno = str(event['pageno']).strip() if pd.notna(event['pageno']) else ""
                 line = str(event['line']).strip() if pd.notna(event['line']) else ""
                 comp_id = str(event['composite_id']).strip()
-                
+
                 state_code = str(event['stateicp']).strip() if pd.notna(event['stateicp']) else ""
                 place = CODEBOOK.get_code_value("STATEICP", state_code) or "USA"
-                
+
                 f.write("1 CENS\n")
                 if year: f.write(f"2 DATE {year}\n")
                 if place: f.write(f"2 PLAC {place}\n")
-                
+
                 f.write("2 SOUR @S1@\n")
-                
-                page_parts = [p for p in [f"Serial: {serial}", f"Person: {pernum}", f"Reel: {reel}", f"Page: {pageno}", f"Line: {line}"] if not p.endswith(": ")]
+
+                page_parts = [p for p in [f"Serial: {serial}", f"Person: {pernum}", f"Reel: {reel}", f"Page: {pageno}",
+                                          f"Line: {line}"] if not p.endswith(": ")]
                 if page_parts:
                     f.write(f"3 PAGE {', '.join(page_parts)}\n")
-                
+
                 if age:
                     f.write("3 DATA\n")
                     f.write(f"4 TEXT Age in census: {age}\n")
-                    
+
                 f.write(f"1 REFN {comp_id}\n")
                 f.write("2 TYPE IPUMS_ID\n")
 
@@ -280,6 +292,7 @@ if __name__ == "__main__":
     parser.add_argument("--out", default=OUTPUT_GED, help="Output GEDCOM file path")
     parser.add_argument("--limit", type=int, default=EXPORT_LIMIT, help="Max number of Golden Records to export")
     parser.add_argument("--test", action="store_true", help="Run against MasterVault_TEST.db")
+    parser.add_argument("--family_id", default=None, help="Export a specific Universal Family (e.g. FAM_12345)")
     args = parser.parse_args()
 
-    export_to_gedcom(args.out, args.limit, args.test)
+    export_to_gedcom(args.out, args.limit, args.test, args.family_id)

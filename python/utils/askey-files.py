@@ -1,11 +1,36 @@
 import argparse
 import os
 import re
+import sys
 
-# ==============================================================================
-# MAIN
-# ==============================================================================
-if __name__ == '__main__':
+
+def find(w1, w2, line):
+    ret = False
+    m1 = re.compile(w1, re.IGNORECASE)
+    f1 = m1.search(line)
+    if f1:
+        m2 = re.compile(w2, re.IGNORECASE)
+        f2 = m2.search(line)
+        if f2: ret = True
+        main_logger.info(f"\t\tfind matched: '{w1}' and '{w2}' in line: {line}")
+    return ret
+
+    # ==============================================================================
+    # MAIN
+    # ==============================================================================
+
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+python_dir = os.path.abspath(os.path.join(script_dir, '..'))
+if python_dir not in sys.path:
+    sys.path.append(python_dir)
+
+from utils import gen_logging
+
+
+def main():
+    main_logger = gen_logging.setup_logging(logger_name="ASKEYS")
+
     # 1. Get the absolute path of the directory where this specific script lives
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -19,13 +44,13 @@ if __name__ == '__main__':
                         help="Output file name")
     args = parser.parse_args()
 
-    print(f"Project Root is: {project_root}")
+    main_logger.info(f"Project Root is: {project_root}")
 
     input_directory = args.dir
     output_file = args.out
 
     if not os.path.exists(input_directory):
-        print(f"ERROR: The input directory '{input_directory}' does not exist!")
+        main_logger.info(f"ERROR: The input directory '{input_directory}' does not exist!")
         exit(1)
 
     # Compile the regex pattern once for speed.
@@ -35,32 +60,31 @@ if __name__ == '__main__':
     filename_pattern = re.compile(r"(askey|erskine)", re.IGNORECASE)
 
     # Define exclusions as a clean Python list so it's super easy to manage
-    excluded_names = [
-        r"hazard[\s_]*erskine",
-        r"caskey",
-        r"erskine[\s_]*thompson",
-        r"erskine[\s_]*hazard",
-        r"hazard[\s_]*erskine",
-        r"Wrightson[\s_]*erskine",
-        r"erskine[\s_]*Tyrone",
-        r"Robertson[\s_]*Erskine",
-        r"Mansfield[\s_]*Erskine",
-        r"Abbott[\s_]*Erskine",
-        r"HADLOCK[\s_]*Erskine",
-        r"john[\s_]*Erskine",
-        r"Edgerton[\s_]*Erskine",
-        r"ERSKINE W.[\s_]*JOHNSTON",
-        r"Johnston,[\s_]*ERSKINE",
-        r"MCKINLAY,[\s_]*ERSKINE",
-        r"ERSKINE[\s_]*Mansfield",
-        r"Hewitt,[\s_]*Mansfield",
-        r"ERSKINE[\s_]*Martin"
+    name_pairs = [
+        ("caskey", "caskey"),
+        ("erskine", "thompson"),
+        ("erskine", "hazard"),
+        ("erskine", "holbert"),
+        ("erskine", "wrightson"),
+        ("erskine", "tyrone"),
+        ("erskine", "robertson"),
+        ("erskine", "mansfield"),
+        ("erskine", "johnston"),
+        ("erskine", "martin"),
+        ("erskine", "abbott"),
+        ("erskine", "mckinlay"),
+        ("erskine", "edgerton"),
+        ("erskine", "gordon"),
+        ("erskine", "hamilton"),
+        ("erskine", "macoubray"),
+        ("erskine", "reese"),
+        ("erskine", "westinghouse"),
+        ("erskine", "carlisle"),
+        ("erskine", "hadlock"),
+        ("erskine", "black"),
+        ("erskine", "cittings"),
 
     ]
-
-    # Automatically join the list with the OR operator (|) and wrap in parentheses
-    excl_str = r"(" + r"|".join(excluded_names) + r")"
-    exclude_pattern = re.compile(excl_str, re.IGNORECASE)
 
     matching_txt_files = []
     file_count = 0
@@ -71,8 +95,10 @@ if __name__ == '__main__':
         # os.walk automatically and recursively traverses all subdirectories
         for root, _, files in os.walk(input_directory):
             for file in files:
+                main_logger.info(f"Examining file: {file}")
                 if file.lower().endswith(".txt"):
                     file_path = os.path.join(root, file)
+                    main_logger.info(f"\tProcessing file: {file_path}")
 
                     # Dynamically strip the base directory so the output labels are always clean
                     sub_path = file_path.replace(input_directory, "")
@@ -86,8 +112,8 @@ if __name__ == '__main__':
                             lines = f_in.readlines()
 
                         # CONDITION 1: Does the filename contain Askey or Erskine?
-                        if filename_pattern.search(file) and not exclude_pattern.search(file):
-                            print(f"[FULL FILE] {file_path}")
+                        if filename_pattern.search(file):
+                            main_logger.info(f"[FULL FILE] {file_path}")
 
                             header_str = f"\n{'=' * sub_path_len}\n  .{sub_path}\n  (FULL FILE MATCH)\n{'=' * sub_path_len}\n"
                             fo.write(header_str)
@@ -102,7 +128,13 @@ if __name__ == '__main__':
                             match_found = False
 
                             for i, line in enumerate(lines):
-                                if search_pattern.search(line) and not exclude_pattern.search(line):
+                                found = False
+                                for w1, w2 in name_pairs:
+                                    found = find(w1, w2, line.strip())
+                                    if found:
+                                        break
+
+                                if search_pattern.search(line) and not found:
                                     match_found = True
                                     # Add previous 3 lines and following 9 lines (context)
                                     start_idx = max(0, i - 3)
@@ -112,7 +144,7 @@ if __name__ == '__main__':
 
                             # Outdented one tab so it only writes once per file!
                             if match_found:
-                                print(f"[CONTEXT]   {file_path}")
+                                main_logger.info(f"[CONTEXT]   {file_path}")
                                 header_str = f"\n{'=' * sub_path_len}\n  .{sub_path}\n  (CONTEXT MATCH)\n{'=' * sub_path_len}\n"
                                 fo.write(header_str)
 
@@ -127,7 +159,13 @@ if __name__ == '__main__':
 
                                 fo.write("\n")
                                 file_count += 1
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        main_logger.error(f"Error processing {file_path}: {e}")
 
-    print(f"\nSuccess! Concatenated {file_count} files (Askey & Erskine) into {output_file} ready for NotebookLLM.")
+        main_logger.info(
+            f"\nSuccess! Concatenated {file_count} files (Askey & Erskine) into {output_file} ready for NotebookLLM.")
+
+
+if __name__ == "__main__":
+    main_logger = gen_logging.setup_logging(logger_name="ASKEYS")
+    main()

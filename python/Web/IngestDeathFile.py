@@ -298,9 +298,14 @@ def ingest_death_directory(logger):
                     parser_func = parse_nebraska_csv_file
                 elif "DATE OF DEATH" in header_upper and "MIDDLE INITIAL" in header_upper:
                     parser_func = parse_missouri_csv_file
-                else:
+                elif len(header.split(',')) > 30:
+                    # The old broken Reclaim CSVs have 32+ columns, so we can safely guess based on width
                     parser_func = parse_reclaim_csv_file
+                else:
+                    logger.warning(f"  -> WARNING: Unrecognized CSV format for {file}. No adapter found. Skipping.")
+                    continue
             else:
+                logger.warning(f"  -> WARNING: Unrecognized file extension for {file}. Skipping.")
                 continue
 
             logger.info(f"\nProcessing file: {file}")
