@@ -10,6 +10,7 @@
 *.out
 output/
 data/
+RawForDB/
 
 # Ignore Logs
 log/
