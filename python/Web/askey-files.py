@@ -4,7 +4,17 @@ import re
 import sys
 
 
-def find(w1, w2, line):
+def find1(w1, line):
+    ret = False
+    m1 = re.compile(w1, re.IGNORECASE)
+    f1 = m1.search(line)
+    if f1:
+        main_logger.debug(f"\t\tfind matched: '{w1}' in line: {line}")
+        ret = True
+    return ret
+
+
+def find2(w1, w2, line):
     ret = False
     m1 = re.compile(w1, re.IGNORECASE)
     f1 = m1.search(line)
@@ -12,7 +22,7 @@ def find(w1, w2, line):
         m2 = re.compile(w2, re.IGNORECASE)
         f2 = m2.search(line)
         if f2: ret = True
-        main_logger.info(f"\t\tfind matched: '{w1}' and '{w2}' in line: {line}")
+        main_logger.debug(f"\t\tfind matched: '{w1}' and '{w2}' in line: {line}")
     return ret
 
     # ==============================================================================
@@ -54,51 +64,91 @@ def main():
         exit(1)
 
     # Compile the regex pattern once for speed.
-    search_pattern = re.compile(r"\b(askey|erskine)\b", re.IGNORECASE)
+    search_pattern = re.compile(r"\b(askey|\baskay|erskine)\b", re.IGNORECASE)
 
     # Pattern for filename checking
     filename_pattern = re.compile(r"(askey|erskine)", re.IGNORECASE)
+    filename_not_pattern = re.compile(r"(caskey|mccaskey)", re.IGNORECASE)
 
     # Define exclusions as a clean Python list so it's super easy to manage
     name_pairs = [
         ("caskey", "caskey"),
-        ("erskine", "thompson"),
-        ("erskine", "hazard"),
-        ("erskine", "holbert"),
-        ("erskine", "wrightson"),
-        ("erskine", "tyrone"),
-        ("erskine", "robertson"),
-        ("erskine", "mansfield"),
-        ("erskine", "johnston"),
-        ("erskine", "martin"),
         ("erskine", "abbott"),
-        ("erskine", "mckinlay"),
-        ("erskine", "edgerton"),
-        ("erskine", "gordon"),
-        ("erskine", "hamilton"),
-        ("erskine", "macoubray"),
-        ("erskine", "reese"),
-        ("erskine", "westinghouse"),
-        ("erskine", "carlisle"),
-        ("erskine", "hadlock"),
+        ("erskine", "w."),
+        ("erskine", "ruth"),
+        ("erskine", "hume"),
+        ("erskine", "cruse"),
+        ("erskine", "MAXWELL"),
+        ("erskine", "baskin"),
         ("erskine", "black"),
+        ("erskine", "bynoe"),
+        ("erskine", "carlisle"),
         ("erskine", "cittings"),
+        ("erskine", "cochran"),
+        ("erskine", "davis"),
+        ("erskine", "LANDS"),
+        ("erskine", "howard"),
+        ("erskine", "Trammell"),
+        ("erskine", "dean"),
+        ("erskine", "Crowe"),
+        ("erskine", "Holleman"),
+        ("erskine", "young"),
+        ("erskine", "gant"),
+        ("erskine", "KENNAMER"),
+        ("erskine", "ebenezer"),
+        ("erskine", "edgerton"),
+        ("erskine", "gillock"),
+        ("erskine", "gordon"),
+        ("erskine", "hadlock"),
+        ("erskine", "hamilton"),
+        ("erskine", "hazard"),
+        ("erskine", "HILYER"),
+        ("erskine", "caine"),
+        ("erskine", "Davenport"),
+        ("erskine", "doss"),
+        ("erskine", "mullins"),
+        ("erskine", "holt"),
+        ("erskine", "russel"),
+        ("erskine", "hewitt"),
+        ("erskine", "holbert"),
+        ("erskine", "johnston"),
+        ("erskine", "macoubray"),
+        ("erskine", "mansfield"),
+        ("erskine", "martin"),
+        ("erskine", "mckinlay"),
+        ("erskine", "miles"),
+        ("erskine", "miller"),
+        ("erskine", "rakestraw"),
+        ("erskine", "reese"),
+        ("erskine", "robertson"),
+        ("erskine", "scott"),
+        ("erskine", "scott"),
+        ("erskine", "solomon"),
+        ("erskine", "suber"),
+        ("erskine", "thompson"),
+        ("erskine", "turner"),
+        ("erskine", "tyrone"),
+        ("erskine", "wade"),
+        ("erskine", "rogers"),
+        ("erskine", "mcdaniel"),
 
+        ("erskine", "westinghouse"),
+        ("erskine", "wrightson"),
     ]
 
     matching_txt_files = []
     file_count = 0
 
     with open(output_file, "w", encoding="utf-8", errors="ignore") as fo:
-        fo.write("CONTEXT Match or FULL FILE Match: askey OR erskine\n\n")
+        fo.write("CONTEXT Match or FULL FILE Match: askey OR askay OR erskine\n\n")
 
         # os.walk automatically and recursively traverses all subdirectories
         for root, _, files in os.walk(input_directory):
             for file in files:
-                main_logger.info(f"Examining file: {file}")
+                main_logger.debug(f"Examining file: {file}")
                 if file.lower().endswith(".txt"):
                     file_path = os.path.join(root, file)
-                    main_logger.info(f"\tProcessing file: {file_path}")
+                    main_logger.debug(f"\tProcessing file: {file_path}")
 
                     # Dynamically strip the base directory so the output labels are always clean
                     sub_path = file_path.replace(input_directory, "")
@@ -112,7 +162,7 @@ def main():
                             lines = f_in.readlines()
 
                         # CONDITION 1: Does the filename contain Askey or Erskine?
-                        if filename_pattern.search(file):
+                        if filename_pattern.search(file) and not filename_notpattern.search(file):
                             main_logger.info(f"[FULL FILE] {file_path}")
 
                             header_str = f"\n{'=' * sub_path_len}\n  .{sub_path}\n  (FULL FILE MATCH)\n{'=' * sub_path_len}\n"
@@ -130,7 +180,7 @@ def main():
                             for i, line in enumerate(lines):
                                 found = False
                                 for w1, w2 in name_pairs:
-                                    found = find(w1, w2, line.strip())
+                                    found = find2(w1, w2, line.strip())
                                     if found:
                                         break
 

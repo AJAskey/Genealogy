@@ -21,7 +21,7 @@ from bs4 import BeautifulSoup
 from python.utils import gen_logging
 from python.utils.us_states import us_state_data
 
-CONFIG_FILE = "scrape_config.json"
+CONFIG_FILE = "../../JSON/scrape_config.json"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ConfigGenerator/1.0"
 }
@@ -30,6 +30,7 @@ HEADERS = {
 def get_county_dirs(state_abbr, logger):
     # Crawls a state's root directory and returns a list of its county subdirectories.
 
+    ccnt = 0
     county_dirs = []
     base_url = f"http://files.usgwarchives.net/{state_abbr}/"
     try:
@@ -44,6 +45,12 @@ def get_county_dirs(state_abbr, logger):
                     # Ignore parent directory links or empty names
                     if county_name and ".." not in county_name:
                         county_dirs.append(county_name)
+                        ccnt += 1
+                        if ccnt > 100:
+                            logger.info(
+                                f"Found {ccnt} counties at {state_abbr.upper()}, {county_name.upper}. Resting 5 seconds")
+                            time.sleep(5)
+                            ccnt = 0
     except Exception as e:
         logger.error(f"Could not get counties for {state_abbr.upper()}: {e}")
     # Return a unique, sorted list

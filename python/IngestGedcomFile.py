@@ -12,14 +12,23 @@ Summary: Reads a standard GEDCOM file, extracts all individuals,
 import os
 import re
 import sqlite3
+import sys
 
-from python.utils import gen_logging
+# Ensure we can import from the utils directory
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(script_dir, '..'))
+if project_root not in sys.path:
+    sys.path.append(project_root)
+if script_dir not in sys.path:
+    sys.path.append(script_dir)
+
+from utils import gen_logging
 
 # ==============================================================================
 # CONFIGURATION
 # ==============================================================================
 # -> UPDATE THIS to point to your massive 10,000 person GEDCOM or your Askey GEDCOM
-INPUT_GEDCOM = r"E:\Users\Andy\PycharmProjects\Genealogy\design\ThomasAskey.ged"
+INPUT_GEDCOM = r"E:\Users\Andy\PycharmProjects\Genealogy\design\wm_francis.ged"
 
 if os.name == 'nt':
     GEDCOM_DB = r"D:\Data\Genealogy_Data\GedcomVault.db"

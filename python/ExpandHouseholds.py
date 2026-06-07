@@ -12,6 +12,7 @@ Summary: Post-processing graph traversal script.
 -----------------------------------
 """
 
+import argparse
 import os
 import uuid
 
@@ -26,14 +27,14 @@ from python.utils import gen_logging
 if os.name == 'nt':
     MASTER_100_DB = r"D:\Data\Genealogy_Data\MasterVault_ALL.db"
     MASTER_SAMP_DB = r"D:\Data\Genealogy_Data\MasterVault_ALLs.db"
-    CLEAN_DB = r"D:\Data\Genealogy_Data\CleanVault.db"
+    DEFAULT_CLEAN_DB = r"D:\Data\Genealogy_Data\CleanVault.db"
 else:
     MASTER_100_DB = os.path.expanduser("~/Genealogy_Data/MasterVault_ALL.db")
     MASTER_SAMP_DB = os.path.expanduser("~/Genealogy_Data/MasterVault_ALLs.db")
-    CLEAN_DB = os.path.expanduser("~/Genealogy_Data/CleanVault.db")
+    DEFAULT_CLEAN_DB = os.path.expanduser("~/Genealogy_Data/CleanVault.db")
 
 
-def expand_households(logger):
+def expand_households(logger, clean_db_path=DEFAULT_CLEAN_DB):
     """
     Executes the POPLOC/MOMLOC graph traversal to discover un-named children
     and insert them into the Clean Vault.
@@ -45,7 +46,7 @@ def expand_households(logger):
 
     logger.info("Attaching Vaults...")
     # Clean DB needs to be writable so we can insert the new records
-    con.execute(f"ATTACH '{CLEAN_DB}' AS clean (TYPE SQLITE);")
+    con.execute(f"ATTACH '{clean_db_path}' AS clean (TYPE SQLITE);")
     con.execute(f"ATTACH '{MASTER_100_DB}' AS base (TYPE SQLITE, READ_ONLY);")
     con.execute(f"ATTACH '{MASTER_SAMP_DB}' AS samp (TYPE SQLITE, READ_ONLY);")
 
@@ -160,5 +161,8 @@ def expand_households(logger):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Expand households from Golden Records")
+    parser.add_argument("--vault", default=DEFAULT_CLEAN_DB, help="Specific CleanVault database to read/write from")
+    args = parser.parse_args()
     logger = gen_logging.setup_logging(logger_name="EXPANDER")
-    expand_households(logger)
+    expand_households(logger, args.vault)

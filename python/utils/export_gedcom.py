@@ -41,7 +41,7 @@ from project_globals import CODEBOOK
 # ==============================================================================
 MASTER_100_DB = r"D:\Data\Genealogy_Data\MasterVault_ALL.db"
 MASTER_SAMP_DB = r"D:\Data\Genealogy_Data\MasterVault_ALLs.db"
-CLEAN_DB = r"D:\Data\Genealogy_Data\CleanVault.db"
+DEFAULT_CLEAN_DB = r"D:\Data\Genealogy_Data\CleanVault.db"
 OUTPUT_GED = r"E:\Users\Andy\PycharmProjects\Genealogy\output\TheStJoesExperiment.ged"
 
 # Limit the number of Golden Records to export for testing purposes
@@ -73,7 +73,7 @@ def format_name(first, last):
 # ==============================================================================
 # GEDCOM EXPORTER
 # ==============================================================================
-def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None):
+def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, clean_vault_path=DEFAULT_CLEAN_DB):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     print("Initializing DuckDB Engine...")
@@ -90,7 +90,7 @@ def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None):
         samp_db = MASTER_SAMP_DB
 
     print("Attaching Vaults...")
-    con.execute(f"ATTACH '{CLEAN_DB}' AS clean (TYPE SQLITE, READ_ONLY);")
+    con.execute(f"ATTACH '{clean_vault_path}' AS clean (TYPE SQLITE, READ_ONLY);")
     con.execute(f"ATTACH '{base_db}' AS base (TYPE SQLITE, READ_ONLY);")
     con.execute(f"ATTACH '{samp_db}' AS samp (TYPE SQLITE, READ_ONLY);")
 
@@ -293,6 +293,7 @@ if __name__ == "__main__":
     parser.add_argument("--limit", type=int, default=EXPORT_LIMIT, help="Max number of Golden Records to export")
     parser.add_argument("--test", action="store_true", help="Run against MasterVault_TEST.db")
     parser.add_argument("--family_id", default=None, help="Export a specific Universal Family (e.g. FAM_12345)")
+    parser.add_argument("--vault", default=DEFAULT_CLEAN_DB, help="Specific CleanVault database to read from")
     args = parser.parse_args()
 
-    export_to_gedcom(args.out, args.limit, args.test, args.family_id)
+    export_to_gedcom(args.out, args.limit, args.test, args.family_id, args.vault)
