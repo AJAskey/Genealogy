@@ -15,11 +15,20 @@ Summary: Post-processing graph traversal script.
 import argparse
 import os
 import uuid
+import sys
 
 import duckdb
 import pandas as pd
 
-from python.utils import gen_logging
+# Ensure we can import from the utils directory
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(script_dir, '..'))
+if project_root not in sys.path:
+    sys.path.append(project_root)
+if script_dir not in sys.path:
+    sys.path.append(script_dir)
+
+from utils import gen_logging
 
 # ==============================================================================
 # CONFIGURATION
@@ -50,45 +59,97 @@ def expand_households(logger, clean_db_path=DEFAULT_CLEAN_DB):
     con.execute(f"ATTACH '{MASTER_100_DB}' AS base (TYPE SQLITE, READ_ONLY);")
     con.execute(f"ATTACH '{MASTER_SAMP_DB}' AS samp (TYPE SQLITE, READ_ONLY);")
 
+    logger.info("Extracting target households from Golden Records...")
+    con.execute("""
+        CREATE TEMP TABLE expanded_golden AS
+        SELECT parent_golden_id, parent_last_name, comp_id, 
+               SPLIT_PART(comp_id, '_', 1) AS sample_id, 
+               SPLIT_PART(comp_id, '_', 2) AS serial, 
+               TRY_CAST(SPLIT_PART(comp_id, '_', 3) AS INTEGER) AS pernum
+        FROM (
+            SELECT golden_id AS parent_golden_id, 
+                   last_name AS parent_last_name, 
+                   UNNEST(string_split(vault_pointers, '|')) AS comp_id 
+            FROM clean.golden_records
+        )
+        WHERE comp_id NOT LIKE 'GED_%' 
+          AND comp_id NOT LIKE 'DEATH_%' 
+          AND comp_id NOT LIKE 'UNIDEATH_%';
+    """)
+
+    unique_serials = [r[0] for r in con.execute("SELECT DISTINCT serial FROM expanded_golden").fetchall()]
+    logger.info(f"Targeting {len(unique_serials):,} unique households...")
+
+    if not unique_serials:
+        logger.info("No households found in CleanVault. Exiting.")
+        return
+
+    if len(unique_serials) < 50000:
+        logger.info("   -> Streaming Base records via chunked UNION ALL B-Tree seeks...")
+        con.execute("CREATE TEMP TABLE base_raw AS SELECT * FROM base.population LIMIT 0;")
+        
+        chunk_size = 200
+        num_chunks = (len(unique_serials) + chunk_size - 1) // chunk_size
+        
+        for i in range(0, len(unique_serials), chunk_size):
+            chunk = unique_serials[i:i + chunk_size]
+            if (i // chunk_size + 1) % 10 == 0:
+                logger.info(f"      ...processed chunk {i // chunk_size + 1}/{num_chunks}")
+                
+            union_queries = [f"SELECT * FROM base.population WHERE serial = '{s_val}'" for s_val in chunk]
+            union_sql = " UNION ALL ".join(union_queries)
+            
+            con.execute(f"""
+                INSERT INTO base_raw
+                {union_sql};
+            """)
+            
+        logger.info("   -> Streaming Sample Patch records via chunked UNION ALL B-Tree seeks...")
+        con.execute("CREATE TEMP TABLE samp_raw AS SELECT * FROM samp.population LIMIT 0;")
+        for i in range(0, len(unique_serials), chunk_size):
+            chunk = unique_serials[i:i + chunk_size]
+            union_queries = [f"SELECT * FROM samp.population WHERE serial = '{s_val}'" for s_val in chunk]
+            union_sql = " UNION ALL ".join(union_queries)
+            
+            con.execute(f"""
+                INSERT INTO samp_raw
+                {union_sql};
+            """)
+            
+        pop_source_base = "base_raw"
+        pop_source_samp = "samp_raw"
+    else:
+        logger.info("   -> Streaming 816M Base records (THIS WILL TAKE 2 TO 6 MINUTES)...")
+        pop_source_base = "base.population"
+        pop_source_samp = "samp.population"
+
     logger.info("Running POPLOC/MOMLOC graph traversal across all known Golden Records...")
 
-    query = """
-            WITH parsed_golden AS (SELECT golden_id                                 AS parent_golden_id, \
-                                          last_name                                 AS parent_last_name, \
-                                          UNNEST(string_split(vault_pointers, '|')) AS comp_id \
-                                   FROM clean.golden_records),
-                 expanded_golden AS (SELECT parent_golden_id, \
-                                            parent_last_name, \
-                                            comp_id, \
-                                            SPLIT_PART(comp_id, '_', 1) AS sample_id, \
-                                            SPLIT_PART(comp_id, '_', 2) AS serial, \
-                                            SPLIT_PART(comp_id, '_', 3) AS pernum \
-                                     FROM parsed_golden),
-                 raw_pop \
-                     AS (SELECT composite_id, CAST(year AS INTEGER) AS year, TRY_CAST(age AS INTEGER) AS age, sex, bpld, poploc, momloc, stateicp
-            FROM base.population
-            UNION ALL
-            SELECT composite_id, CAST(year AS INTEGER) AS year, TRY_CAST(age AS INTEGER) AS age, sex, bpld, poploc, momloc, stateicp
-            FROM samp.population
-                )
-            SELECT g.parent_golden_id, \
-                   g.parent_last_name, \
-                   g.comp_id                     AS parent_comp_id, \
-                   CAST(g.pernum AS INTEGER)     AS parent_pernum, \
-                   r.composite_id                AS child_comp_id, \
-                   r.year, \
-                   r.age, \
-                   r.sex, \
-                   r.bpld, \
-                   r.stateicp, \
-                   TRY_CAST(r.poploc AS INTEGER) AS poploc, \
+    query = f"""
+            WITH raw_pop AS (
+                SELECT composite_id, CAST(year AS INTEGER) AS year, TRY_CAST(age AS INTEGER) AS age, sex, bpld, poploc, momloc, stateicp, sample, serial
+                FROM {pop_source_base}
+                UNION ALL
+                SELECT composite_id, CAST(year AS INTEGER) AS year, TRY_CAST(age AS INTEGER) AS age, sex, bpld, poploc, momloc, stateicp, sample, serial
+                FROM {pop_source_samp}
+            )
+            SELECT g.parent_golden_id, 
+                   g.parent_last_name, 
+                   g.comp_id                     AS parent_comp_id, 
+                   g.pernum                      AS parent_pernum, 
+                   r.composite_id                AS child_comp_id, 
+                   r.year, 
+                   r.age, 
+                   r.sex, 
+                   r.bpld, 
+                   r.stateicp, 
+                   TRY_CAST(r.poploc AS INTEGER) AS poploc, 
                    TRY_CAST(r.momloc AS INTEGER) AS momloc
             FROM expanded_golden g
-                     JOIN raw_pop r
-                          ON SPLIT_PART(r.composite_id, '_', 1) = g.sample_id
-                              AND SPLIT_PART(r.composite_id, '_', 2) = g.serial
-            WHERE (TRY_CAST(r.poploc AS INTEGER) = CAST(g.pernum AS INTEGER)
-                OR TRY_CAST(r.momloc AS INTEGER) = CAST(g.pernum AS INTEGER)) \
+            JOIN raw_pop r
+              ON r.sample = g.sample_id AND r.serial = g.serial
+            WHERE (TRY_CAST(r.poploc AS INTEGER) = g.pernum
+                OR TRY_CAST(r.momloc AS INTEGER) = g.pernum)
             """
 
     df = con.execute(query).df()

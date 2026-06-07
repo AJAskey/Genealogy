@@ -48,7 +48,7 @@ def main():
     project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
 
     parser = argparse.ArgumentParser(description="Concatenate state archive files for NotebookLLM")
-    parser.add_argument("--dir", default=r"E:\Data\Genealogy_Data\Ingestion",
+    parser.add_argument("--dir", default=r"c:\Data\Ingestion",
                         help="Input directory to search")
     parser.add_argument("--out", default=os.path.join(project_root, "output", "usgw_archives-askeyerskine.txt"),
                         help="Output file name")
@@ -67,8 +67,16 @@ def main():
     search_pattern = re.compile(r"\b(askey|\baskay|erskine)\b", re.IGNORECASE)
 
     # Pattern for filename checking
-    filename_pattern = re.compile(r"(askey|erskine)", re.IGNORECASE)
+    filename_pattern = re.compile(r"(askey|askay|erskine)", re.IGNORECASE)
     filename_not_pattern = re.compile(r"(caskey|mccaskey)", re.IGNORECASE)
+
+    askey_pattern = re.compile(r"(askey|askay)", re.IGNORECASE)
+    erskine_pattern = re.compile(r"(erskine)", re.IGNORECASE)
+
+    askey_file_cnt = 0
+    erskine_file_cnt = 0
+    askey_line_cnt = 0
+    erskine_line_cnt = 0
 
     # Define exclusions as a clean Python list so it's super easy to manage
     name_pairs = [
@@ -165,6 +173,11 @@ def main():
                         if filename_pattern.search(file) and not filename_notpattern.search(file):
                             main_logger.info(f"[FULL FILE] {file_path}")
 
+                            if askey_pattern.search(file):
+                                askey_file_cnt += 1
+                            elif erskine_pattern.search(file):
+                                erskine_file_cnt += 1
+
                             header_str = f"\n{'=' * sub_path_len}\n  .{sub_path}\n  (FULL FILE MATCH)\n{'=' * sub_path_len}\n"
                             fo.write(header_str)
                             for line in lines:
@@ -185,6 +198,12 @@ def main():
                                         break
 
                                 if search_pattern.search(line) and not found:
+
+                                    if askey_pattern.search(line):
+                                        askey_line_cnt += 1
+                                    elif erskine_pattern.search(line):
+                                        erskine_line_cnt += 1
+
                                     match_found = True
                                     # Add previous 3 lines and following 9 lines (context)
                                     start_idx = max(0, i - 3)
@@ -212,8 +231,12 @@ def main():
                     except Exception as e:
                         main_logger.error(f"Error processing {file_path}: {e}")
 
-        main_logger.info(
-            f"\nSuccess! Concatenated {file_count} files (Askey & Erskine) into {output_file} ready for NotebookLLM.")
+    main_logger.info(
+        f"\nSuccess! Concatenated {file_count} files (Askey & Erskine) into {output_file} ready for NotebookLLM.")
+    main_logger.info(
+        f"Askey files: {askey_file_cnt} \nErskine files:: {erskine_file_cnt}")
+    main_logger.info(
+        f"Askey line matches: {askey_line_cnt} \nErskine line matches:: {erskine_line_cnt}")
 
 
 if __name__ == "__main__":

@@ -73,7 +73,7 @@ def format_name(first, last):
 # ==============================================================================
 # GEDCOM EXPORTER
 # ==============================================================================
-def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, clean_vault_path=DEFAULT_CLEAN_DB):
+def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, clean_vault_path=DEFAULT_CLEAN_DB, gedcom_only=False):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     print("Initializing DuckDB Engine...")
@@ -103,30 +103,93 @@ def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, cle
             JOIN clean.universal_families uf ON t.comp_id = uf.composite_id
             WHERE uf.family_id LIKE '{family_id}%'
         """
+        con.execute(f"CREATE TEMP TABLE target_golden AS {target_cte}")
+    elif gedcom_only:
+        print("Extracting ONLY Golden Records linked to the imported GEDCOM and their direct dependents...")
+        target_cte = """
+            WITH gedcom_anchor_pointers AS (
+                SELECT UNNEST(string_split(vault_pointers, '|')) AS comp_id
+                FROM clean.golden_records 
+                WHERE vault_pointers LIKE '%GED_%'
+            )
+            SELECT * FROM clean.golden_records WHERE vault_pointers LIKE '%GED_%'
+            
+            UNION
+            
+            SELECT d.* FROM clean.golden_records d
+            JOIN gedcom_anchor_pointers a ON d.father_pointer = a.comp_id
+            
+            UNION
+            
+            SELECT d.* FROM clean.golden_records d
+            JOIN gedcom_anchor_pointers a ON d.mother_pointer = a.comp_id
+        """
+        con.execute(f"CREATE TEMP TABLE target_golden AS {target_cte}")
     else:
         print("Unpacking St. Joe's IDs and fetching historical timelines...")
         limit_clause = f"LIMIT {limit}" if limit else ""
         target_cte = f"SELECT * FROM clean.golden_records {limit_clause}"
+        con.execute(f"CREATE TEMP TABLE target_golden AS {target_cte}")
 
-    query = f"""
-        WITH target_golden AS (
-            {target_cte}
-        )
-        SELECT 
-            g.golden_id, g.first_name, g.last_name, g.birth_year, g.birth_place, g.death_date,
-            c.composite_id, c.year, c.age, c.sex, c.serial, c.pernum, c.reel, c.pageno, c.line, c.microseq, c.stateicp
+    print("Target Golden Records extracted. Materializing Pointers...")
+    con.execute("""
+        CREATE TEMP TABLE target_pointers AS
+        SELECT g.golden_id, g.first_name, g.last_name, g.birth_year, g.birth_place, g.death_date,
+               t.comp_id
         FROM target_golden g
         CROSS JOIN UNNEST(string_split(g.vault_pointers, '|')) AS t(comp_id)
-        JOIN (
-            SELECT composite_id, year, age, sex, serial, pernum, reel, pageno, line, microseq, stateicp FROM base.population
-            UNION ALL
-            SELECT composite_id, year, age, sex, serial, pernum, reel, pageno, line, microseq, stateicp FROM samp.population
-        ) c ON t.comp_id = c.composite_id
-        ORDER BY g.golden_id, c.year ASC;
+        WHERE t.comp_id NOT LIKE 'GED_%' 
+          AND t.comp_id NOT LIKE 'DEATH_%' 
+          AND t.comp_id NOT LIKE 'UNIDEATH_%';
+    """)
+
+    print("Fetching historical census timelines...")
+    targets = con.execute("SELECT DISTINCT SPLIT_PART(comp_id, '_', 2) AS serial, comp_id FROM target_pointers").fetchall()
+    print(f"Targeting {len(targets):,} unique historical records...")
+
+    con.execute("CREATE TEMP TABLE base_raw AS SELECT * FROM base.population LIMIT 0;")
+    con.execute("CREATE TEMP TABLE samp_raw AS SELECT * FROM samp.population LIMIT 0;")
+    
+    if targets:
+        print("   -> Streaming Base records via chunked UNION ALL B-Tree seeks...")
+        chunk_size = 200
+        num_chunks = (len(targets) + chunk_size - 1) // chunk_size
+        
+        for i in range(0, len(targets), chunk_size):
+            chunk = targets[i:i+chunk_size]
+            if (i // chunk_size + 1) % 10 == 0:
+                print(f"      ...processed chunk {i // chunk_size + 1}/{num_chunks}")
+            union_queries = [f"SELECT * FROM base.population WHERE serial = '{s_val}' AND composite_id = '{c_val}'" for s_val, c_val in chunk]
+            union_sql = " UNION ALL ".join(union_queries)
+            con.execute(f"INSERT INTO base_raw {union_sql};")
+
+        print("   -> Streaming Sample Patch records via chunked UNION ALL B-Tree seeks...")
+        for i in range(0, len(targets), chunk_size):
+            chunk = targets[i:i+chunk_size]
+            union_queries = [f"SELECT * FROM samp.population WHERE serial = '{s_val}' AND composite_id = '{c_val}'" for s_val, c_val in chunk]
+            union_sql = " UNION ALL ".join(union_queries)
+            con.execute(f"INSERT INTO samp_raw {union_sql};")
+
+    query = """
+        SELECT 
+            p.golden_id, p.first_name, p.last_name, p.birth_year, p.birth_place, p.death_date,
+            c.composite_id, c.year, c.age, c.sex, c.serial, c.pernum, c.reel, c.pageno, c.line, c.microseq, c.stateicp
+        FROM target_pointers p
+        JOIN base_raw c ON p.comp_id = c.composite_id
+        
+        UNION ALL
+        
+        SELECT 
+            p.golden_id, p.first_name, p.last_name, p.birth_year, p.birth_place, p.death_date,
+            c.composite_id, c.year, c.age, c.sex, c.serial, c.pernum, c.reel, c.pageno, c.line, c.microseq, c.stateicp
+        FROM target_pointers p
+        JOIN samp_raw c ON p.comp_id = c.composite_id
+        
+        ORDER BY golden_id, year ASC;
     """
 
     df = con.execute(query).df()
-    print(f"Loaded {len(df)} historical events. Generating GEDCOM...")
+    print(f"Loaded {len(df):,} historical events. Generating GEDCOM...")
 
     if df.empty:
         print("No records found. Exiting.")
@@ -294,6 +357,7 @@ if __name__ == "__main__":
     parser.add_argument("--test", action="store_true", help="Run against MasterVault_TEST.db")
     parser.add_argument("--family_id", default=None, help="Export a specific Universal Family (e.g. FAM_12345)")
     parser.add_argument("--vault", default=DEFAULT_CLEAN_DB, help="Specific CleanVault database to read from")
+    parser.add_argument("--gedcom_only", action="store_true", help="Export only Golden Records that contain GEDCOM anchors and their dependents")
     args = parser.parse_args()
 
-    export_to_gedcom(args.out, args.limit, args.test, args.family_id, args.vault)
+    export_to_gedcom(args.out, args.limit, args.test, args.family_id, args.vault, args.gedcom_only)

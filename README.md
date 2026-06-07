@@ -1,4 +1,4 @@
- Genealogy Pipeline — Project Notes
+Genealogy Pipeline — Project Notes
 
 **Project:** Census Data → GEDCOM Family Tree  
 **Repository:** https://github.com/AJAskey/Genealogy  
@@ -15,40 +15,40 @@ individuals using scoring logic, and produce a family tree with proper
 source citations.
 
 My personal objective is to find all relatives of Captain Thomas Erskine/Askey (1727-1806) from 1850-1950 census data.
-There are many family trees created and the goal is to find the best existing tree. I have been working on this for 
-over 20 years by hand and longed for the day computers could help. That day is here. 
- This software can be cloned and used by others in similar family situations.
+There are many family trees created and the goal is to find the best existing tree. I have been working on this for
+over 20 years by hand and longed for the day computers could help. That day is here.
+This software can be cloned and used by others in similar family situations.
 
 ![CaptThom.jpg](assets/CaptThom.jpg)
 
 ---
 
 ## Data flow of the system
+
 ![Census Data Processing.png](design/Census Data Processing.png)
 
 ---
 
 ## Current State (as of late May 2026)
 
-- Raw CSV files downloaded from IPUMS: 1850–1950, one file per census year 
+- Raw CSV files downloaded from IPUMS: 1850–1950, one file per census year
 - Files stored locally at: `E:\Storage\Census\IPUMS\Original`
 - SQLite databases created (one per decade): `D:\Data\Genealogy_Data`
 - Ingest pipeline working: approximately 8 hours to process all years
 - DB Browser being used for data exploration
 
 **Known Data Issues:**
-- Approximately 75% of records are missing name data (illegible handwriting  in original census documents or held back by IPUMS to force payment to the 
+
+- Approximately 75% of records are missing name data (illegible handwriting in original census documents or held back by
+  IPUMS to force payment to the
   commercial companies involved.)
 - Records with missing names are otherwise high quality — the gap is names only
-- MOMLOC and POPLOC fields in IPUMS already link parents to children withina household — 
+- MOMLOC and POPLOC fields in IPUMS already link parents to children withina household —
   this is check completeness before building custom matching logic
-
-
 
 ---
 
 ## Architecture Decisions (Locked)
-
 
 All four AI advisors and project lead agreed unanimously: do NOT process
 matching logic during CSV ingest. Reasons:
@@ -62,19 +62,20 @@ matching logic during CSV ingest. Reasons:
 
 ### Decision 2: Two-Tier Database Architecture
 
-| Database | Purpose |
-| --- | --- |
-| Raw DB | Exact IPUMS import, never modified |
+| Database | Purpose                                    |
+|----------|--------------------------------------------|
+| Raw DB   | Exact IPUMS import, never modified         |
 | Clean DB | Resolved identities, Origin IDs, citations |
 
 The Raw DB is the vault. The Clean DB is the output. They never mix.
 
 ### Decision 3: Human Review Gate (Text File Buffer)
 
-Matching candidates will be written to human-readable TEXT FILES before anything is written to the Clean DB. 
+Matching candidates will be written to human-readable TEXT FILES before anything is written to the Clean DB.
 Andy reviews and edits these files, then a second script reads the approved files and writes to the Clean DB.
 
-This eliminates all concurrency and write-contention concerns. It also provides a permanent audit trail of every matching decision made.
+This eliminates all concurrency and write-contention concerns. It also provides a permanent audit trail of every
+matching decision made.
 
 Text file format (proposed):
 
@@ -88,7 +89,8 @@ MATCH CANDIDATE - Score: 8/13
 
 ### Decision 4: Permanent Person ID (Origin ID / "St. Joe's ID")
 
-Every individual gets a unique integer ID that never changes, never gets reused, and encodes no data about the person. This is assigned once, at
+Every individual gets a unique integer ID that never changes, never gets reused, and encodes no data about the person.
+This is assigned once, at
 the moment a match is approved.
 
 - Use a simple sequential integer starting at 1
@@ -96,8 +98,9 @@ the moment a match is approved.
 
 **Critical:** Origin ID must be at the PERSON level and a composite of  (SAMPLE + SERIAL + PERNUM + ID integer),
 not the household level. Households split and merge across decades.
-The incremental ID points to the line in the CSV file if one ever needs to go back and reference where the data came from.
-SAMPLE identifies the IPUMS sample from which the case is drawn. Each sample receives a unique 6-digit code. 
+The incremental ID points to the line in the CSV file if one ever needs to go back and reference where the data came
+from.
+SAMPLE identifies the IPUMS sample from which the case is drawn. Each sample receives a unique 6-digit code.
 The codes are structured as follows:
 The first four digits are the year of the census/survey.
 The next two digits identify the sample within the year.
@@ -106,10 +109,11 @@ composite_id = sample_serial_pernum}_{count}
 
 ### Decision 5: Citation Tracking
 
-Every record in the Clean DB must have a citation row linking it to its source. This is both good genealogy practice 
+Every record in the Clean DB must have a citation row linking it to its source. This is both good genealogy practice
 and provides protection if IPUMS data use questions arise later.
 
 Citation table structure:
+
 ```
 PersonID  | Source   | SourceDetail                   
 191001_12345_1_1356    | IPUMS    | census-1880.csv, row 4,521,307  
@@ -145,32 +149,35 @@ If IPUMS data use agreement becomes a concern, citations can be switched to refe
 
 ### Scoring Components (agreed across all AI advisors)
 
-| Component | Points | Notes |
-| --- | --- | --- |
-| Age Consistency | 0–3 | Expected age ± tolerance across 10 years |
-| Household Structure | 0–5 | Household vector comparison (see below) |
-| Geography | 0–3 | Same county > same state > different state |
-| Name Match | 0–2 | When available: exact, phonetic (Soundex) |
-| **Total** | **0–13** |  |
+| Component           | Points   | Notes                                      |
+|---------------------|----------|--------------------------------------------|
+| Age Consistency     | 0–3      | Expected age ± tolerance across 10 years   |
+| Household Structure | 0–5      | Household vector comparison (see below)    |
+| Geography           | 0–3      | Same county > same state > different state |
+| Name Match          | 0–2      | When available: exact, phonetic (Soundex)  |
+| **Total**           | **0–13** |                                            |
 
 Thresholds:
+
 - 10–13: Strong match — likely approve
 - 7–9: Probable match — review carefully
 - Below 7: Reject
 
-**Always store the score** in the output file. Never make a hard match without a score. Some records will be genuinely unresolvable — that is OK.
+**Always store the score** in the output file. Never make a hard match without a score. Some records will be genuinely
+unresolvable — that is OK.
 
 ### Household Vector (ChatGPT recommendation — adopt this)
 
 Instead of just counting siblings, create a household signature:
 `[FatherAge, MotherAge, ChildAges-sorted]` → `[45, 42, 18, 16, 12, 8]`
 
-Compare vectors across decades using delta scoring. This is your strongest cross-census fingerprint because the whole family structure must match,
+Compare vectors across decades using delta scoring. This is your strongest cross-census fingerprint because the whole
+family structure must match,
 not just one person.
 
 ### Blocking Strategy (CoPilot recommendation — adopt this)
 
-NEVER compare everyone to everyone. That is combinatorial explosion.  Narrow candidates first, then score:
+NEVER compare everyone to everyone. That is combinatorial explosion. Narrow candidates first, then score:
 
 1. Block by: State + County + Birth Year range (± 2 years)
 2. Score only within those blocks
@@ -178,38 +185,52 @@ NEVER compare everyone to everyone. That is combinatorial explosion.  Narrow can
 
 ### Real-World Probabilistic Matching (Why we use Splink)
 
-Traditional databases and strict SQL `JOIN`s are completely blind to the reality of human life. If a son grows up in Alabama in 1880, moves to Texas in 1890, and the census taker misspells his name as "Johnsen" instead of "Johnson", a SQL exact match will say: *"These are two different people."*
+Traditional databases and strict SQL `JOIN`s are completely blind to the reality of human life. If a son grows up in
+Alabama in 1880, moves to Texas in 1890, and the census taker misspells his name as "Johnsen" instead of "Johnson", a
+SQL exact match will say: *"These are two different people."*
 
-We use **Splink 4 (developed by the UK Ministry of Justice)** to handle entity resolution probabilistically. Splink uses Expectation-Maximization (EM) to train an AI model on the dataset. It calculates the real-world statistical odds of a typo occurring versus the odds of two random people happening to have the exact same name and birth year. It evaluates partial string matches (Jaro-Winkler, Levenshtein) and demographic shifts to link the same human being across decades and state lines.
+We use **Splink 4 (developed by the UK Ministry of Justice)** to handle entity resolution probabilistically. Splink uses
+Expectation-Maximization (EM) to train an AI model on the dataset. It calculates the real-world statistical odds of a
+typo occurring versus the odds of two random people happening to have the exact same name and birth year. It evaluates
+partial string matches (Jaro-Winkler, Levenshtein) and demographic shifts to link the same human being across decades
+and state lines.
 
 ### The "Squash" (Handling IPUMS Sample Duplicates)
 
-IPUMS provides various census samples (e.g., a "100% database" and a "5% sample"). Often, these are duplicate records of the exact same human on the exact same line of the original census document. In many cases, IPUMS restored full names onto the smaller 5% sample datasets, while leaving the 100% database names blank.
+IPUMS provides various census samples (e.g., a "100% database" and a "5% sample"). Often, these are duplicate records of
+the exact same human on the exact same line of the original census document. In many cases, IPUMS restored full names
+onto the smaller 5% sample datasets, while leaving the 100% database names blank.
 
-Because of **Architecture Decision 2** (The Raw DB is never modified), we cannot run a SQL `UPDATE` to permanently merge these names in the vault. Instead, we use an in-memory "Squash" via DuckDB right as the data is extracted for Splink:
+Because of **Architecture Decision 2** (The Raw DB is never modified), we cannot run a SQL `UPDATE` to permanently merge
+these names in the vault. Instead, we use an in-memory "Squash" via DuckDB right as the data is extracted for Splink:
 
 ```sql
-SELECT 
-    MIN(composite_id) AS unique_id,
-    MAX(namefrst) AS first_name,
-    MAX(namelast) AS last_name
+SELECT MIN(composite_id) AS unique_id,
+       MAX(namefrst)     AS first_name,
+       MAX(namelast)     AS last_name
 FROM census.population
 GROUP BY year, serial, pernum
 ```
 
-This elegantly collapses the two duplicate rows into one on-the-fly. `MIN(composite_id)` anchors the row to the original 100% base record ID, while `MAX()` ignores `NULL` values and seamlessly absorbs the restored name from the 5% sample.
+This elegantly collapses the two duplicate rows into one on-the-fly. `MIN(composite_id)` anchors the row to the original
+100% base record ID, while `MAX()` ignores `NULL` values and seamlessly absorbs the restored name from the 5% sample.
 
 ### Strict Census Anchoring (Survivorship Rules)
 
-During the final survivorship phase, Splink groups matched records into "clusters" representing a single human. We use multiple auxiliary datasets (like the BIRLS Death Index) to fill in missing information such as death dates. 
+During the final survivorship phase, Splink groups matched records into "clusters" representing a single human. We use
+multiple auxiliary datasets (like the BIRLS Death Index) to fill in missing information such as death dates.
 
-However, our primary goal is tracking people anchored in the historical US Census. If the AI forms a cluster that is 100% auxiliary data (e.g., a BIRLS death record that matched absolutely no one in the census), it is a "ghost" record. Our survivorship script explicitly drops any cluster where `census_rows.empty` is true. Auxiliary data is strictly used to patch holes in Census records, never to create independent people.
+However, our primary goal is tracking people anchored in the historical US Census. If the AI forms a cluster that is
+100% auxiliary data (e.g., a BIRLS death record that matched absolutely no one in the census), it is a "ghost" record.
+Our survivorship script explicitly drops any cluster where `census_rows.empty` is true. Auxiliary data is strictly used
+to patch holes in Census records, never to create independent people.
 
 This is the difference between finishing in hours vs. weeks.
 
 ### Anchor Strategy
 
-Do not try to match everyone equally. Anchor on fathers first (most identifiable in historical data), then cascade to children via IPUMS
+Do not try to match everyone equally. Anchor on fathers first (most identifiable in historical data), then cascade to
+children via IPUMS
 POPLOC/MOMLOC pointers.
 
 ---
@@ -253,9 +274,11 @@ Before building custom matching, audit how complete these IPUMS fields are:
 
 Processing is threaded. The number of workers is a command line parameter (1 is default).
 
-Two output options available - One massive DB or many smaller DBs are written. 
+Two output options available - One massive DB or many smaller DBs are written.
+
 - One is easier to process family linkage across ten-year increments.
-- Multiple databases are smaller and each one is easier to read in the browser. 
+- Multiple databases are smaller and each one is easier to read in the browser.
+
 ---
 
 ## GEDCOM Output Considerations
@@ -270,34 +293,40 @@ Two output options available - One massive DB or many smaller DBs are written.
 
 ## Open Questions
 
-1. **IPUMS Data Use Agreement** — Question submitted to IPUMS regarding    sharing derived GEDCOM with family. Awaiting response.
-  - Fallback: cite US Federal Census (National Archives) instead of IPUMS
-  - The family tree structure is unaffected either way
+1. **IPUMS Data Use Agreement** — Question submitted to IPUMS regarding sharing derived GEDCOM with family. Awaiting
+   response.
 
-2. **MOMLOC/POPLOC completeness** — Run audit query before building    custom matching. May significantly reduce scope of work needed.
+- Fallback: cite US Federal Census (National Archives) instead of IPUMS
+- The family tree structure is unaffected either way
 
-3. **Confidence threshold tuning** — What score threshold triggers auto-approve vs. manual review? Start conservative, loosen over time.
+2. **MOMLOC/POPLOC completeness** — Run audit query before building custom matching. May significantly reduce scope of
+   work needed.
+
+3. **Confidence threshold tuning** — What score threshold triggers auto-approve vs. manual review? Start conservative,
+   loosen over time.
 
 ---
 
 ## File Locations (Local Machine)
 
-| Location | Contents |
-| --- | --- |
-| `E:\Storage\Census\IPUMS\Original` | Raw CSV files from IPUMS |
-| `D:\Data\Genealogy_Data` | SQLite databases (one per decade) |
-| `E:\Users\Andy\PycharmProjects\Genealogy\design` | Design documents, AI responses |
-| `E:\Users\Andy\PycharmProjects\Genealogy\python` | Python scripts
-| `E:\Users\Andy\PycharmProjects\Genealogy\JSON`   | JSON files associted with index from DB
+| Location                                         | Contents                                |
+|--------------------------------------------------|-----------------------------------------|
+| `E:\Storage\Census\IPUMS\Original`               | Raw CSV files from IPUMS                |
+| `D:\Data\Genealogy_Data`                         | SQLite databases (one per decade)       |
+| `E:\Users\Andy\PycharmProjects\Genealogy\design` | Design documents, AI responses          |
+| `E:\Users\Andy\PycharmProjects\Genealogy\python` | Python scripts                          
+| `E:\Users\Andy\PycharmProjects\Genealogy\JSON`   | JSON files associted with index from DB 
 
 ---
 
 ## AI Advisor Notes
 
-Responses were collected from ChatGPT, Gemini, and CoPilot in addition to ongoing work with Claude. All four agreed on Option B (post-ingest),
+Responses were collected from ChatGPT, Gemini, and CoPilot in addition to ongoing work with Claude. All four agreed on
+Option B (post-ingest),
 the two-tier architecture, and against loading full CSVs into memory.
 
 Key unique contributions:
+
 - **ChatGPT:** Household Vector concept (strongest fingerprint)
 - **Gemini:** Emphasized MOMLOC/POPLOC built-in IPUMS linkers
 - **CoPilot:** Blocking-before-scoring strategy; UUID for IDs (we chose
