@@ -2,7 +2,7 @@
 -----------------------------------
 File: export_gedcom.py
 
-Summary: Exports census data from the SQLite vault into a GEDCOM 7.0.18 
+Summary: Exports census data from the SQLite vault into a GEDCOM 7.0.18
          compliant file, grouping individuals by household/family.
 
 Design:
@@ -10,7 +10,7 @@ Design:
   - Creates INDI records for individuals and FAM records for relationships.
   - Groups people into FAM records based on their shared SERIAL and FAMUNIT.
   - Maps variables like SEX, AGE, and BPL based on the IPUMS standard.
-  - Uses simple sequential IDs (@I1@, @F1@) to prevent Family Tree Maker 
+  - Uses simple sequential IDs (@I1@, @F1@) to prevent Family Tree Maker
     from rejecting XREFs that exceed 22 characters.
 
 Inputs:  SQLite database file (e.g. MasterVault_1900.db)
@@ -21,6 +21,7 @@ Outputs: .ged file encoded in UTF-8
 import argparse
 import datetime
 import os
+import sqlite3
 import sys
 
 import duckdb
@@ -73,7 +74,8 @@ def format_name(first, last):
 # ==============================================================================
 # GEDCOM EXPORTER
 # ==============================================================================
-def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, clean_vault_path=DEFAULT_CLEAN_DB, gedcom_only=False):
+def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, clean_vault_path=DEFAULT_CLEAN_DB,
+                     gedcom_only=False):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     print("Initializing DuckDB Engine...")
@@ -107,23 +109,25 @@ def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, cle
     elif gedcom_only:
         print("Extracting ONLY Golden Records linked to the imported GEDCOM and their direct dependents...")
         target_cte = """
-            WITH gedcom_anchor_pointers AS (
-                SELECT UNNEST(string_split(vault_pointers, '|')) AS comp_id
-                FROM clean.golden_records 
-                WHERE vault_pointers LIKE '%GED_%'
-            )
-            SELECT * FROM clean.golden_records WHERE vault_pointers LIKE '%GED_%'
-            
-            UNION
-            
-            SELECT d.* FROM clean.golden_records d
-            JOIN gedcom_anchor_pointers a ON d.father_pointer = a.comp_id
-            
-            UNION
-            
-            SELECT d.* FROM clean.golden_records d
-            JOIN gedcom_anchor_pointers a ON d.mother_pointer = a.comp_id
-        """
+                     WITH gedcom_anchor_pointers AS (SELECT UNNEST(string_split(vault_pointers, '|')) AS comp_id \
+                                                     FROM clean.golden_records \
+                                                     WHERE vault_pointers LIKE '%GED_%')
+                     SELECT * \
+                     FROM clean.golden_records \
+                     WHERE vault_pointers LIKE '%GED_%'
+
+                     UNION
+
+                     SELECT d.* \
+                     FROM clean.golden_records d \
+                              JOIN gedcom_anchor_pointers a ON d.father_pointer = a.comp_id
+
+                     UNION
+
+                     SELECT d.* \
+                     FROM clean.golden_records d \
+                              JOIN gedcom_anchor_pointers a ON d.mother_pointer = a.comp_id \
+                     """
         con.execute(f"CREATE TEMP TABLE target_golden AS {target_cte}")
     else:
         print("Unpacking St. Joe's IDs and fetching historical timelines...")
@@ -133,70 +137,129 @@ def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, cle
 
     print("Target Golden Records extracted. Materializing Pointers...")
     con.execute("""
-        CREATE TEMP TABLE target_pointers AS
-        SELECT g.golden_id, g.first_name, g.last_name, g.birth_year, g.birth_place, g.death_date,
-               t.comp_id
-        FROM target_golden g
-        CROSS JOIN UNNEST(string_split(g.vault_pointers, '|')) AS t(comp_id)
-        WHERE t.comp_id NOT LIKE 'GED_%' 
-          AND t.comp_id NOT LIKE 'DEATH_%' 
-          AND t.comp_id NOT LIKE 'UNIDEATH_%';
-    """)
+                CREATE
+                TEMP TABLE target_pointers AS
+                SELECT g.golden_id,
+                       g.first_name,
+                       g.last_name,
+                       g.birth_year,
+                       g.birth_place,
+                       g.death_date,
+                       t.comp_id
+                FROM target_golden g
+                         CROSS JOIN UNNEST(string_split(g.vault_pointers, '|')) AS t(comp_id)
+                WHERE t.comp_id NOT LIKE 'GED_%'
+                  AND t.comp_id NOT LIKE 'DEATH_%'
+                  AND t.comp_id NOT LIKE 'UNIDEATH_%';
+                """)
 
     print("Fetching historical census timelines...")
     targets = con.execute("SELECT DISTINCT SPLIT_PART(comp_id, '_', 2) AS serial, comp_id FROM target_pointers").fetchall()
     print(f"Targeting {len(targets):,} unique historical records...")
 
-    con.execute("CREATE TEMP TABLE base_raw AS SELECT * FROM base.population LIMIT 0;")
-    con.execute("CREATE TEMP TABLE samp_raw AS SELECT * FROM samp.population LIMIT 0;")
-    
     if targets:
-        print("   -> Streaming Base records via chunked UNION ALL B-Tree seeks...")
-        chunk_size = 200
-        num_chunks = (len(targets) + chunk_size - 1) // chunk_size
-        
-        for i in range(0, len(targets), chunk_size):
-            chunk = targets[i:i+chunk_size]
-            if (i // chunk_size + 1) % 10 == 0:
-                print(f"      ...processed chunk {i // chunk_size + 1}/{num_chunks}")
-            union_queries = [f"SELECT * FROM base.population WHERE serial = '{s_val}' AND composite_id = '{c_val}'" for s_val, c_val in chunk]
-            union_sql = " UNION ALL ".join(union_queries)
-            con.execute(f"INSERT INTO base_raw {union_sql};")
+        print("   -> Native SQLite extraction for Base records (chunked UNION ALL B-Tree seeks)...")
+        base_db_uri = f"file:{base_db.replace(chr(92), '/')}?mode=ro"
+        with sqlite3.connect(base_db_uri, uri=True) as sq_con:
+            cursor = sq_con.cursor()
+            cursor.execute("SELECT * FROM population WHERE 1=0")
+            columns = [desc[0] for desc in cursor.description]
+            
+            rows = []
+            chunk_size = 200
+            num_chunks = (len(targets) + chunk_size - 1) // chunk_size
+            for i in range(0, len(targets), chunk_size):
+                chunk = targets[i:i+chunk_size]
+                union_queries = [f"SELECT * FROM population WHERE serial = {int(s_val)} AND composite_id = '{c_val}'" for s_val, c_val in chunk]
+                union_sql = " UNION ALL ".join(union_queries)
+                cursor.execute(union_sql)
+                rows.extend(cursor.fetchall())
+                if (i // chunk_size + 1) % 10 == 0 or (i // chunk_size + 1) == num_chunks:
+                    print(f"      ...processed chunk {i // chunk_size + 1}/{num_chunks}")
 
-        print("   -> Streaming Sample Patch records via chunked UNION ALL B-Tree seeks...")
-        for i in range(0, len(targets), chunk_size):
-            chunk = targets[i:i+chunk_size]
-            union_queries = [f"SELECT * FROM samp.population WHERE serial = '{s_val}' AND composite_id = '{c_val}'" for s_val, c_val in chunk]
-            union_sql = " UNION ALL ".join(union_queries)
-            con.execute(f"INSERT INTO samp_raw {union_sql};")
+            base_df = pd.DataFrame(rows, columns=columns)
+        con.register("base_raw_df", base_df)
+        con.execute("CREATE TEMP TABLE base_raw AS SELECT * FROM base_raw_df;")
+
+        print("   -> Native SQLite extraction for Sample Patch records (chunked UNION ALL B-Tree seeks)...")
+        samp_db_uri = f"file:{samp_db.replace(chr(92), '/')}?mode=ro"
+        with sqlite3.connect(samp_db_uri, uri=True) as sq_con:
+            cursor = sq_con.cursor()
+            
+            rows = []
+            for i in range(0, len(targets), chunk_size):
+                chunk = targets[i:i+chunk_size]
+                union_queries = [f"SELECT * FROM population WHERE serial = {int(s_val)} AND composite_id = '{c_val}'" for s_val, c_val in chunk]
+                union_sql = " UNION ALL ".join(union_queries)
+                cursor.execute(union_sql)
+                rows.extend(cursor.fetchall())
+                if (i // chunk_size + 1) % 10 == 0 or (i // chunk_size + 1) == num_chunks:
+                    print(f"      ...processed chunk {i // chunk_size + 1}/{num_chunks}")
+
+            samp_df = pd.DataFrame(rows, columns=columns)
+        con.register("samp_raw_df", samp_df)
+        con.execute("CREATE TEMP TABLE samp_raw AS SELECT * FROM samp_raw_df;")
+    else:
+        con.execute("CREATE TEMP TABLE base_raw AS SELECT * FROM base.population LIMIT 0;")
+        con.execute("CREATE TEMP TABLE samp_raw AS SELECT * FROM samp.population LIMIT 0;")
 
     query = """
-        SELECT 
-            p.golden_id, p.first_name, p.last_name, p.birth_year, p.birth_place, p.death_date,
-            c.composite_id, c.year, c.age, c.sex, c.serial, c.pernum, c.reel, c.pageno, c.line, c.microseq, c.stateicp
-        FROM target_pointers p
-        JOIN base_raw c ON p.comp_id = c.composite_id
-        
-        UNION ALL
-        
-        SELECT 
-            p.golden_id, p.first_name, p.last_name, p.birth_year, p.birth_place, p.death_date,
-            c.composite_id, c.year, c.age, c.sex, c.serial, c.pernum, c.reel, c.pageno, c.line, c.microseq, c.stateicp
-        FROM target_pointers p
-        JOIN samp_raw c ON p.comp_id = c.composite_id
-        
-        ORDER BY golden_id, year ASC;
-    """
+            SELECT p.golden_id, \
+                   p.first_name, \
+                   p.last_name, \
+                   p.birth_year, \
+                   p.birth_place, \
+                   p.death_date, \
+                   c.composite_id, \
+                   c.year, \
+                   c.age, \
+                   c.sex, \
+                   c.serial, \
+                   c.pernum, \
+                   c.reel, \
+                   c.pageno, \
+                   c.line, \
+                   c.microseq, \
+                   c.stateicp
+            FROM target_pointers p
+                     JOIN base_raw c ON p.comp_id = c.composite_id
+
+            UNION ALL
+
+            SELECT p.golden_id, \
+                   p.first_name, \
+                   p.last_name, \
+                   p.birth_year, \
+                   p.birth_place, \
+                   p.death_date, \
+                   c.composite_id, \
+                   c.year, \
+                   c.age, \
+                   c.sex, \
+                   c.serial, \
+                   c.pernum, \
+                   c.reel, \
+                   c.pageno, \
+                   c.line, \
+                   c.microseq, \
+                   c.stateicp
+            FROM target_pointers p
+                     JOIN samp_raw c ON p.comp_id = c.composite_id
+
+            ORDER BY golden_id, year ASC; \
+            """
 
     df = con.execute(query).df()
     print(f"Loaded {len(df):,} historical events. Generating GEDCOM...")
 
-    if df.empty:
-        print("No records found. Exiting.")
+    individuals_df = con.execute("SELECT * FROM target_golden").df()
+    if individuals_df.empty:
+        print("No target records found. Exiting.")
         return
 
     print("Mapping family relationships...")
-    exported_ids_tuple = tuple(df['golden_id'].unique())
+    exported_ids_tuple = tuple(individuals_df['golden_id'].unique())
+    golden_to_indi = {g_id: f"I{i+1}" for i, g_id in enumerate(exported_ids_tuple)}
     if len(exported_ids_tuple) == 1:
         exported_ids_sql = f"('{exported_ids_tuple[0]}')"
     else:
@@ -211,7 +274,7 @@ def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, cle
             g.golden_id AS child_id,
             f.golden_id AS father_id,
             m.golden_id AS mother_id
-        FROM clean.golden_records g
+        FROM target_golden g
         LEFT JOIN unnested f ON g.father_pointer = f.comp_id
         LEFT JOIN unnested m ON g.mother_pointer = m.comp_id
         WHERE g.golden_id IN {exported_ids_sql}
@@ -246,14 +309,14 @@ def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, cle
 
         fam_tags = []
         if father_id:
-            fam_tags.append(f"1 HUSB @{father_id}@\n")
+            fam_tags.append(f"1 HUSB @{golden_to_indi[father_id]}@\n")
             indi_links.setdefault(father_id, []).append(f"1 FAMS {fam_id}\n")
         if mother_id:
-            fam_tags.append(f"1 WIFE @{mother_id}@\n")
+            fam_tags.append(f"1 WIFE @{golden_to_indi[mother_id]}@\n")
             indi_links.setdefault(mother_id, []).append(f"1 FAMS {fam_id}\n")
 
         for child_id in children:
-            fam_tags.append(f"1 CHIL @{child_id}@\n")
+            fam_tags.append(f"1 CHIL @{golden_to_indi[child_id]}@\n")
             indi_links.setdefault(child_id, []).append(f"1 FAMC {fam_id}\n")
 
         fam_records[fam_id] = fam_tags
@@ -271,14 +334,22 @@ def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, cle
         f.write("1 SUBM @SUBM1@\n")
         f.write("1 COPR Copyright 2026\n")
         f.write("1 GEDC\n")
-        f.write("2 VERS 7.0.18\n")
+        f.write("2 VERS 5.5.1\n")
+        f.write("2 FORM LINEAGE-LINKED\n")
+        f.write("1 CHAR UTF-8\n")
         f.write("0 @SUBM1@ SUBM\n")
         f.write("1 NAME Andy Askey\n")
 
-        for golden_id, group in df.groupby("golden_id"):
-            core = group.iloc[0]
+        timeline_dict = {}
+        if not df.empty:
+            for golden_id, group in df.groupby("golden_id"):
+                timeline_dict[golden_id] = group
 
-            f.write(f"0 @{golden_id}@ INDI\n")
+        for _, core in individuals_df.iterrows():
+            golden_id = core['golden_id']
+
+            indi_id = golden_to_indi[golden_id]
+            f.write(f"0 @{indi_id}@ INDI\n")
 
             name = format_name(core['first_name'], core['last_name'])
             f.write(f"1 NAME {name}\n")
@@ -302,36 +373,37 @@ def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, cle
                 f.write("1 DEAT\n")
                 f.write(f"2 DATE {core['death_date']}\n")
 
-            for _, event in group.iterrows():
-                year = str(event['year']).strip() if pd.notna(event['year']) else ""
-                age = str(event['age']).strip() if pd.notna(event['age']) else ""
-                serial = str(event['serial']).strip() if pd.notna(event['serial']) else ""
-                pernum = str(event['pernum']).strip() if pd.notna(event['pernum']) else ""
-                reel = str(event['reel']).strip() if pd.notna(event['reel']) else ""
-                pageno = str(event['pageno']).strip() if pd.notna(event['pageno']) else ""
-                line = str(event['line']).strip() if pd.notna(event['line']) else ""
-                comp_id = str(event['composite_id']).strip()
-
-                state_code = str(event['stateicp']).strip() if pd.notna(event['stateicp']) else ""
-                place = CODEBOOK.get_code_value("STATEICP", state_code) or "USA"
-
-                f.write("1 CENS\n")
-                if year: f.write(f"2 DATE {year}\n")
-                if place: f.write(f"2 PLAC {place}\n")
-
-                f.write("2 SOUR @S1@\n")
-
-                page_parts = [p for p in [f"Serial: {serial}", f"Person: {pernum}", f"Reel: {reel}", f"Page: {pageno}",
-                                          f"Line: {line}"] if not p.endswith(": ")]
-                if page_parts:
-                    f.write(f"3 PAGE {', '.join(page_parts)}\n")
-
-                if age:
-                    f.write("3 DATA\n")
-                    f.write(f"4 TEXT Age in census: {age}\n")
-
-                f.write(f"1 REFN {comp_id}\n")
-                f.write("2 TYPE IPUMS_ID\n")
+            if golden_id in timeline_dict:
+                for _, event in timeline_dict[golden_id].iterrows():
+                    year = str(event['year']).strip() if pd.notna(event['year']) else ""
+                    age = str(event['age']).strip() if pd.notna(event['age']) else ""
+                    serial = str(event['serial']).strip() if pd.notna(event['serial']) else ""
+                    pernum = str(event['pernum']).strip() if pd.notna(event['pernum']) else ""
+                    reel = str(event['reel']).strip() if pd.notna(event['reel']) else ""
+                    pageno = str(event['pageno']).strip() if pd.notna(event['pageno']) else ""
+                    line = str(event['line']).strip() if pd.notna(event['line']) else ""
+                    comp_id = str(event['composite_id']).strip()
+    
+                    state_code = str(event['stateicp']).strip() if pd.notna(event['stateicp']) else ""
+                    place = CODEBOOK.get_code_value("STATEICP", state_code) or "USA"
+    
+                    f.write("1 CENS\n")
+                    if year: f.write(f"2 DATE {year}\n")
+                    if place: f.write(f"2 PLAC {place}\n")
+    
+                    f.write("2 SOUR @S1@\n")
+    
+                    page_parts = [p for p in [f"Serial: {serial}", f"Person: {pernum}", f"Reel: {reel}", f"Page: {pageno}",
+                                              f"Line: {line}"] if not p.endswith(": ")]
+                    if page_parts:
+                        f.write(f"3 PAGE {', '.join(page_parts)}\n")
+    
+                    if age:
+                        f.write("3 DATA\n")
+                        f.write(f"4 TEXT Age in census: {age}\n")
+    
+                    f.write(f"1 REFN {comp_id}\n")
+                    f.write("2 TYPE IPUMS_ID\n")
 
             if golden_id in indi_links:
                 for link in indi_links[golden_id]:
@@ -357,7 +429,8 @@ if __name__ == "__main__":
     parser.add_argument("--test", action="store_true", help="Run against MasterVault_TEST.db")
     parser.add_argument("--family_id", default=None, help="Export a specific Universal Family (e.g. FAM_12345)")
     parser.add_argument("--vault", default=DEFAULT_CLEAN_DB, help="Specific CleanVault database to read from")
-    parser.add_argument("--gedcom_only", action="store_true", help="Export only Golden Records that contain GEDCOM anchors and their dependents")
+    parser.add_argument("--gedcom_only", action="store_true",
+                        help="Export only Golden Records that contain GEDCOM anchors and their dependents")
     args = parser.parse_args()
 
     export_to_gedcom(args.out, args.limit, args.test, args.family_id, args.vault, args.gedcom_only)

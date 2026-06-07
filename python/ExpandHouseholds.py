@@ -84,44 +84,9 @@ def expand_households(logger, clean_db_path=DEFAULT_CLEAN_DB):
         logger.info("No households found in CleanVault. Exiting.")
         return
 
-    if len(unique_serials) < 50000:
-        logger.info("   -> Streaming Base records via chunked UNION ALL B-Tree seeks...")
-        con.execute("CREATE TEMP TABLE base_raw AS SELECT * FROM base.population LIMIT 0;")
-        
-        chunk_size = 200
-        num_chunks = (len(unique_serials) + chunk_size - 1) // chunk_size
-        
-        for i in range(0, len(unique_serials), chunk_size):
-            chunk = unique_serials[i:i + chunk_size]
-            if (i // chunk_size + 1) % 10 == 0:
-                logger.info(f"      ...processed chunk {i // chunk_size + 1}/{num_chunks}")
-                
-            union_queries = [f"SELECT * FROM base.population WHERE serial = '{s_val}'" for s_val in chunk]
-            union_sql = " UNION ALL ".join(union_queries)
-            
-            con.execute(f"""
-                INSERT INTO base_raw
-                {union_sql};
-            """)
-            
-        logger.info("   -> Streaming Sample Patch records via chunked UNION ALL B-Tree seeks...")
-        con.execute("CREATE TEMP TABLE samp_raw AS SELECT * FROM samp.population LIMIT 0;")
-        for i in range(0, len(unique_serials), chunk_size):
-            chunk = unique_serials[i:i + chunk_size]
-            union_queries = [f"SELECT * FROM samp.population WHERE serial = '{s_val}'" for s_val in chunk]
-            union_sql = " UNION ALL ".join(union_queries)
-            
-            con.execute(f"""
-                INSERT INTO samp_raw
-                {union_sql};
-            """)
-            
-        pop_source_base = "base_raw"
-        pop_source_samp = "samp_raw"
-    else:
-        logger.info("   -> Streaming 816M Base records (THIS WILL TAKE 2 TO 6 MINUTES)...")
-        pop_source_base = "base.population"
-        pop_source_samp = "samp.population"
+    logger.info("   -> Streaming 816M Base records via DuckDB Hash Join (THIS WILL TAKE 2 TO 6 MINUTES)...")
+    pop_source_base = "base.population"
+    pop_source_samp = "samp.population"
 
     logger.info("Running POPLOC/MOMLOC graph traversal across all known Golden Records...")
 

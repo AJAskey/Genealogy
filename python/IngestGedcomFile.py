@@ -71,10 +71,12 @@ def normalize_gedcom_date(date_str):
 
 def parse_gedcom(file_path, logger):
     logger.info(f"Parsing GEDCOM file: {file_path}")
-    records = []
+    individuals = {}
+    families = {}
+    current_obj = None
+    obj_type = None
 
     with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
-        current_indi = {}
         current_tag = None
 
         for line in f:
@@ -87,40 +89,60 @@ def parse_gedcom(file_path, logger):
             tag = parts[1] if len(parts) > 1 else ""
             val = parts[2] if len(parts) > 2 else ""
 
-            # Found a new individual
-            if level == "0" and tag.startswith("@") and val == "INDI":
-                if current_indi:
-                    records.append(current_indi)
-                current_indi = {"gedcom_id": tag.strip("@")}
+            # Found a new top-level record
+            if level == "0" and tag.startswith("@"):
+                if val == "INDI":
+                    current_obj = {"gedcom_id": tag.strip("@"), "father_id": None, "mother_id": None}
+                    individuals[tag.strip("@")] = current_obj
+                    obj_type = "INDI"
+                elif val == "FAM":
+                    current_obj = {"fam_id": tag.strip("@"), "husb": None, "wife": None, "chil": []}
+                    families[tag.strip("@")] = current_obj
+                    obj_type = "FAM"
+                else:
+                    obj_type = "OTHER"
                 current_tag = None
                 continue
 
-            if not current_indi:
+            if not current_obj:
                 continue
 
-            if level == "1":
-                current_tag = tag
-                if tag == "NAME":
-                    current_indi["full_name"] = val.replace("/", "").strip()
-                    name_parts = val.split("/")
-                    current_indi["first_name"] = name_parts[0].strip() if len(name_parts) > 0 else ""
-                    current_indi["last_name"] = name_parts[1].strip() if len(name_parts) > 1 else ""
+            if obj_type == "INDI":
+                if level == "1":
+                    current_tag = tag
+                    if tag == "NAME":
+                        current_obj["full_name"] = val.replace("/", "").strip()
+                        name_parts = val.split("/")
+                        current_obj["first_name"] = name_parts[0].strip() if len(name_parts) > 0 else ""
+                        current_obj["last_name"] = name_parts[1].strip() if len(name_parts) > 1 else ""
+                elif level == "2":
+                    if tag == "DATE":
+                        if current_tag == "BIRT":
+                            current_obj["birt_date"] = val
+                        elif current_tag == "DEAT":
+                            current_obj["deat_date"] = val
+                    elif tag == "PLAC":
+                        if current_tag == "BIRT":
+                            current_obj["birth_place"] = val
+                        elif current_tag == "DEAT":
+                            current_obj["death_place"] = val
+            elif obj_type == "FAM":
+                if level == "1":
+                    if tag == "HUSB":
+                        current_obj["husb"] = val.strip("@")
+                    elif tag == "WIFE":
+                        current_obj["wife"] = val.strip("@")
+                    elif tag == "CHIL":
+                        current_obj["chil"].append(val.strip("@"))
 
-            elif level == "2":
-                if tag == "DATE":
-                    if current_tag == "BIRT":
-                        current_indi["birt_date"] = val
-                    elif current_tag == "DEAT":
-                        current_indi["deat_date"] = val
-                elif tag == "PLAC":
-                    if current_tag == "BIRT":
-                        current_indi["birth_place"] = val
-                    elif current_tag == "DEAT":
-                        current_indi["death_place"] = val
+        # Post-process to map parents to children
+        for fam_id, fam in families.items():
+            for child_id in fam["chil"]:
+                if child_id in individuals:
+                    individuals[child_id]["father_id"] = fam["husb"]
+                    individuals[child_id]["mother_id"] = fam["wife"]
 
-        # Catch the last person in the file
-        if current_indi:
-            records.append(current_indi)
+        records = list(individuals.values())
 
     logger.info(f"Extracted {len(records)} raw individuals.")
     return records
@@ -155,6 +177,8 @@ def ingest_to_db(records, logger):
             indi.get("birth_place"),
             d_date_norm,
             indi.get("death_place"),
+            indi.get("father_id"),
+            indi.get("mother_id"),
             indi.get("picture_url", "")
         ))
 
@@ -163,6 +187,9 @@ def ingest_to_db(records, logger):
     os.makedirs(os.path.dirname(GEDCOM_DB), exist_ok=True)
     with sqlite3.connect(GEDCOM_DB) as conn:
         conn.execute("PRAGMA journal_mode=WAL")
+        
+        # Drop the table so we can rebuild it with the new schema columns
+        conn.execute("DROP TABLE IF EXISTS gedcom_records")
         conn.execute('''
                      CREATE TABLE IF NOT EXISTS gedcom_records
                      (
@@ -186,18 +213,20 @@ def ingest_to_db(records, logger):
                          TEXT,
                          death_place
                          TEXT,
+                         father_gedcom_id
+                         TEXT,
+                         mother_gedcom_id
+                         TEXT,
                          picture_url
                          TEXT
                      )
                      ''')
-        # Clear old data if re-running to avoid primary key conflicts
-        conn.execute("DELETE FROM gedcom_records")
 
         conn.executemany('''
                          INSERT INTO gedcom_records
                          (gedcom_id, full_name, first_name, last_name, birth_date, birth_year, birth_place, death_date,
-                          death_place, picture_url)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                          death_place, father_gedcom_id, mother_gedcom_id, picture_url)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                          ''', valid_records)
 
     logger.info(f"Successfully saved {len(valid_records)} records to {GEDCOM_DB}.")
