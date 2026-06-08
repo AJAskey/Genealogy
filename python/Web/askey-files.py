@@ -44,7 +44,7 @@ def main():
     # 1. Get the absolute path of the directory where this specific script lives
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # 2. Step up two folder levels ('..') to reach the main project root
+    # 2. Step up two folder levelsPeople.  ('..') to reach the main project root
     project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
 
     parser = argparse.ArgumentParser(description="Concatenate state archive files for NotebookLLM")
@@ -64,13 +64,14 @@ def main():
         exit(1)
 
     # Compile the regex pattern once for speed.
-    search_pattern = re.compile(r"\b(askey|\baskay|erskine)\b", re.IGNORECASE)
+    # search_pattern = re.compile(r"\b(askey|\baskay|erskine)\b", re.IGNORECASE)
+    search_pattern = re.compile(r"\b(askey|askay|askin)\b", re.IGNORECASE)
 
     # Pattern for filename checking
-    filename_pattern = re.compile(r"(askey|askay|erskine)", re.IGNORECASE)
+    filename_pattern = re.compile(r"(askey|askay|askin)", re.IGNORECASE)
     filename_not_pattern = re.compile(r"(caskey|mccaskey)", re.IGNORECASE)
 
-    askey_pattern = re.compile(r"(askey|askay)", re.IGNORECASE)
+    askey_pattern = re.compile(r"(askey|askay|askin)", re.IGNORECASE)
     erskine_pattern = re.compile(r"(erskine)", re.IGNORECASE)
 
     askey_file_cnt = 0
@@ -148,7 +149,7 @@ def main():
     file_count = 0
 
     with open(output_file, "w", encoding="utf-8", errors="ignore") as fo:
-        fo.write("CONTEXT Match or FULL FILE Match: askey OR askay OR erskine\n\n")
+        fo.write("CONTEXT Match or FULL FILE Match: askey OR askay OR askin\n\n")
 
         # os.walk automatically and recursively traverses all subdirectories
         for root, _, files in os.walk(input_directory):
@@ -170,7 +171,7 @@ def main():
                             lines = f_in.readlines()
 
                         # CONDITION 1: Does the filename contain Askey or Erskine?
-                        if filename_pattern.search(file) and not filename_notpattern.search(file):
+                        if filename_pattern.search(file) and not filename_not_pattern.search(file):
                             main_logger.info(f"[FULL FILE] {file_path}")
 
                             if askey_pattern.search(file):

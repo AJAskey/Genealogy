@@ -115,6 +115,8 @@ def parse_gedcom(file_path, logger):
                         name_parts = val.split("/")
                         current_obj["first_name"] = name_parts[0].strip() if len(name_parts) > 0 else ""
                         current_obj["last_name"] = name_parts[1].strip() if len(name_parts) > 1 else ""
+                    elif tag == "SEX":
+                        current_obj["sex"] = val.strip()
                 elif level == "2":
                     if tag == "DATE":
                         if current_tag == "BIRT":
@@ -172,6 +174,7 @@ def ingest_to_db(records, logger):
             indi.get("full_name"),
             indi.get("first_name"),
             indi.get("last_name"),
+            indi.get("sex"),
             b_date_norm,
             birth_year,
             indi.get("birth_place"),
@@ -203,6 +206,8 @@ def ingest_to_db(records, logger):
                          TEXT,
                          last_name
                          TEXT,
+                         sex
+                         TEXT,
                          birth_date
                          TEXT,
                          birth_year
@@ -224,9 +229,9 @@ def ingest_to_db(records, logger):
 
         conn.executemany('''
                          INSERT INTO gedcom_records
-                         (gedcom_id, full_name, first_name, last_name, birth_date, birth_year, birth_place, death_date,
+                         (gedcom_id, full_name, first_name, last_name, sex, birth_date, birth_year, birth_place, death_date,
                           death_place, father_gedcom_id, mother_gedcom_id, picture_url)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                          ''', valid_records)
 
     logger.info(f"Successfully saved {len(valid_records)} records to {GEDCOM_DB}.")

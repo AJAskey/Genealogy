@@ -41,7 +41,14 @@ CLEAN_DB = os.path.join(BASE_DATA_DIR, "CleanVault.db")
 
 
 class UnionFind:
-    """Blazing fast memory-efficient graph clustering."""
+    """
+    Blazing fast memory-efficient graph clustering (Disjoint Set).
+    Algorithm Explanation:
+    This does NOT use names. It looks at shared pointers. If Record A and Record B 
+    share an IPUMS household serial number, they are "holding hands." If Record B 
+    and Record C share a Golden Record ID (across decades), they are holding hands. 
+    This algorithm traverses those connected hands and groups them under a single "Root" Family ID.
+    """
 
     def __init__(self):
         self.parent = {}

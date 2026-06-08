@@ -1,12 +1,21 @@
 import json
 import os
+import sys
 import time
 import urllib.parse
 
 import requests
 from bs4 import BeautifulSoup
 
-import gen_logging
+# Add the 'python' directory and project root to sys.path so we can import properly
+script_dir = os.path.dirname(os.path.abspath(__file__))
+python_dir = os.path.abspath(os.path.join(script_dir, '..'))
+project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
+for p in [python_dir, project_root]:
+    if p not in sys.path:
+        sys.path.append(p)
+
+from utils import gen_logging
 
 
 def download_file(url, local_path):
@@ -78,10 +87,7 @@ def crawl_archive(current_url, base_url, local_output_dir):
 if __name__ == "__main__":
     logger = gen_logging.setup_logging(logger_name="USGenWeb")
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    python_dir = os.path.abspath(os.path.join(script_dir, '..'))
-    JSON_dir = os.path.abspath(os.path.join(python_dir, '..', 'JSON'))
-
+    JSON_dir = os.path.abspath(os.path.join(project_root, 'JSON'))
     DELAY_SECONDS = 2.0  # Polite scraping interval
     CONFIG_FILE = os.path.join(JSON_dir, "scrape_config_working.json")
     LOCAL_ROOT_DIR = r"c:\Data\Ingestion"

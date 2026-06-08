@@ -154,7 +154,8 @@ def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, cle
                 """)
 
     print("Fetching historical census timelines...")
-    targets = con.execute("SELECT DISTINCT SPLIT_PART(comp_id, '_', 2) AS serial, comp_id FROM target_pointers").fetchall()
+    targets = con.execute(
+        "SELECT DISTINCT SPLIT_PART(comp_id, '_', 2) AS serial, comp_id FROM target_pointers").fetchall()
     print(f"Targeting {len(targets):,} unique historical records...")
 
     if targets:
@@ -164,13 +165,14 @@ def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, cle
             cursor = sq_con.cursor()
             cursor.execute("SELECT * FROM population WHERE 1=0")
             columns = [desc[0] for desc in cursor.description]
-            
+
             rows = []
             chunk_size = 200
             num_chunks = (len(targets) + chunk_size - 1) // chunk_size
             for i in range(0, len(targets), chunk_size):
-                chunk = targets[i:i+chunk_size]
-                union_queries = [f"SELECT * FROM population WHERE serial = {int(s_val)} AND composite_id = '{c_val}'" for s_val, c_val in chunk]
+                chunk = targets[i:i + chunk_size]
+                union_queries = [f"SELECT * FROM population WHERE serial = {int(s_val)} AND composite_id = '{c_val}'"
+                                 for s_val, c_val in chunk]
                 union_sql = " UNION ALL ".join(union_queries)
                 cursor.execute(union_sql)
                 rows.extend(cursor.fetchall())
@@ -185,18 +187,22 @@ def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, cle
         samp_db_uri = f"file:{samp_db.replace(chr(92), '/')}?mode=ro"
         with sqlite3.connect(samp_db_uri, uri=True) as sq_con:
             cursor = sq_con.cursor()
-            
+
+            cursor.execute("SELECT * FROM population WHERE 1=0")
+            samp_columns = [desc[0] for desc in cursor.description]
+
             rows = []
             for i in range(0, len(targets), chunk_size):
-                chunk = targets[i:i+chunk_size]
-                union_queries = [f"SELECT * FROM population WHERE serial = {int(s_val)} AND composite_id = '{c_val}'" for s_val, c_val in chunk]
+                chunk = targets[i:i + chunk_size]
+                union_queries = [f"SELECT * FROM population WHERE serial = {int(s_val)} AND composite_id = '{c_val}'"
+                                 for s_val, c_val in chunk]
                 union_sql = " UNION ALL ".join(union_queries)
                 cursor.execute(union_sql)
                 rows.extend(cursor.fetchall())
                 if (i // chunk_size + 1) % 10 == 0 or (i // chunk_size + 1) == num_chunks:
                     print(f"      ...processed chunk {i // chunk_size + 1}/{num_chunks}")
 
-            samp_df = pd.DataFrame(rows, columns=columns)
+            samp_df = pd.DataFrame(rows, columns=samp_columns)
         con.register("samp_raw_df", samp_df)
         con.execute("CREATE TEMP TABLE samp_raw AS SELECT * FROM samp_raw_df;")
     else:
@@ -259,7 +265,7 @@ def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, cle
 
     print("Mapping family relationships...")
     exported_ids_tuple = tuple(individuals_df['golden_id'].unique())
-    golden_to_indi = {g_id: f"I{i+1}" for i, g_id in enumerate(exported_ids_tuple)}
+    golden_to_indi = {g_id: f"I{i + 1}" for i, g_id in enumerate(exported_ids_tuple)}
     if len(exported_ids_tuple) == 1:
         exported_ids_sql = f"('{exported_ids_tuple[0]}')"
     else:
@@ -351,12 +357,50 @@ def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, cle
             indi_id = golden_to_indi[golden_id]
             f.write(f"0 @{indi_id}@ INDI\n")
 
+            has_census = golden_id in timeline_dict
+
+            # PRE-BUILD CENSUS CITATIONS & NOTES
+            census_citations = []
+            inferred_birth_years = set()
+
+            if has_census:
+                for _, event in timeline_dict[golden_id].iterrows():
+                    ser_val = str(event['serial']).strip() if pd.notna(event['serial']) else ""
+                    per_val = str(event['pernum']).strip() if pd.notna(event['pernum']) else ""
+                    rl_val = str(event['reel']).strip() if pd.notna(event['reel']) else ""
+                    pg_val = str(event['pageno']).strip() if pd.notna(event['pageno']) else ""
+                    ln_val = str(event['line']).strip() if pd.notna(event['line']) else ""
+
+                    p_parts = [p for p in
+                               [f"Serial: {ser_val}", f"Person: {per_val}", f"Reel: {rl_val}", f"Page: {pg_val}",
+                                f"Line: {ln_val}"] if not p.endswith(": ")]
+                    cit = "2 SOUR @S1@\n"
+                    if p_parts:
+                        cit += f"3 PAGE {', '.join(p_parts)}\n"
+                    census_citations.append(cit)
+
+                    if pd.notna(event['year']) and pd.notna(event['age']):
+                        try:
+                            inferred_birth_years.add(int(event['year']) - int(event['age']))
+                        except ValueError:
+                            pass
+
             name = format_name(core['first_name'], core['last_name'])
             f.write(f"1 NAME {name}\n")
+            if has_census and census_citations:
+                for cit in census_citations:
+                    f.write(cit)
+            else:
+                f.write("2 SOUR @S_LEGACY@\n")
 
             sex_val = core.get('sex')
             sex_code = map_sex(sex_val) if pd.notna(sex_val) else 'U'
             f.write(f"1 SEX {sex_code}\n")
+            if has_census and census_citations:
+                for cit in census_citations:
+                    f.write(cit)
+            else:
+                f.write("2 SOUR @S_LEGACY@\n")
 
             # Expose the permanent St. Joe's ID so it is easily searchable in software
             f.write(f"1 REFN {golden_id}\n")
@@ -369,9 +413,27 @@ def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, cle
                 if pd.notna(core['birth_place']):
                     f.write(f"2 PLAC {core['birth_place']}\n")
 
+                if inferred_birth_years:
+                    years_str = ", ".join(map(str, sorted(inferred_birth_years)))
+                    f.write(f"2 NOTE Calculated birth years across census records: {years_str}\n")
+
+                if has_census and census_citations:
+                    for cit in census_citations:
+                        f.write(cit)
+                else:
+                    f.write("2 SOUR @S_LEGACY@\n")
+
             if pd.notna(core['death_date']):
                 f.write("1 DEAT\n")
                 f.write(f"2 DATE {core['death_date']}\n")
+                if has_census and census_citations:
+                    for cit in census_citations:
+                        f.write(cit)
+                else:
+                    f.write("2 SOUR @S_LEGACY@\n")
+
+            if not has_census:
+                f.write("1 NOTE Unverified legacy GEDCOM record. Not found in 1850-1950 census data.\n")
 
             if golden_id in timeline_dict:
                 for _, event in timeline_dict[golden_id].iterrows():
@@ -383,25 +445,26 @@ def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, cle
                     pageno = str(event['pageno']).strip() if pd.notna(event['pageno']) else ""
                     line = str(event['line']).strip() if pd.notna(event['line']) else ""
                     comp_id = str(event['composite_id']).strip()
-    
+
                     state_code = str(event['stateicp']).strip() if pd.notna(event['stateicp']) else ""
                     place = CODEBOOK.get_code_value("STATEICP", state_code) or "USA"
-    
+
                     f.write("1 CENS\n")
                     if year: f.write(f"2 DATE {year}\n")
                     if place: f.write(f"2 PLAC {place}\n")
-    
+
                     f.write("2 SOUR @S1@\n")
-    
-                    page_parts = [p for p in [f"Serial: {serial}", f"Person: {pernum}", f"Reel: {reel}", f"Page: {pageno}",
-                                              f"Line: {line}"] if not p.endswith(": ")]
+
+                    page_parts = [p for p in
+                                  [f"Serial: {serial}", f"Person: {pernum}", f"Reel: {reel}", f"Page: {pageno}",
+                                   f"Line: {line}"] if not p.endswith(": ")]
                     if page_parts:
                         f.write(f"3 PAGE {', '.join(page_parts)}\n")
-    
+
                     if age:
                         f.write("3 DATA\n")
                         f.write(f"4 TEXT Age in census: {age}\n")
-    
+
                     f.write(f"1 REFN {comp_id}\n")
                     f.write("2 TYPE IPUMS_ID\n")
 
@@ -417,6 +480,8 @@ def export_to_gedcom(output_path, limit=None, is_test=False, family_id=None, cle
         f.write("0 @S1@ SOUR\n")
         f.write("1 TITL U.S. Federal Census\n")
         f.write("1 PUBL National Archives and Records Administration\n")
+        f.write("0 @S_LEGACY@ SOUR\n")
+        f.write("1 TITL Legacy Family Tree (Unverified in Census)\n")
         f.write("0 TRLR\n")
 
     print(f"GEDCOM export complete: {output_path}")
