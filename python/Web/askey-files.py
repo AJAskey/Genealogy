@@ -48,7 +48,7 @@ def main():
     project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
 
     parser = argparse.ArgumentParser(description="Concatenate state archive files for NotebookLLM")
-    parser.add_argument("--dir", default=r"c:\Data\Ingestion",
+    parser.add_argument("--dir", default=r"D:\Data\Genealogy_Data\Ingestion",
                         help="Input directory to search")
     parser.add_argument("--out", default=os.path.join(project_root, "output", "usgw_archives-askeyerskine.txt"),
                         help="Output file name")
@@ -65,13 +65,13 @@ def main():
 
     # Compile the regex pattern once for speed.
     # search_pattern = re.compile(r"\b(askey|\baskay|erskine)\b", re.IGNORECASE)
-    search_pattern = re.compile(r"\b(askey|askay|askin)\b", re.IGNORECASE)
+    search_pattern = re.compile(r"(\baskey|askay|\baskin\b|\baskins\b)", re.IGNORECASE)
 
     # Pattern for filename checking
-    filename_pattern = re.compile(r"(askey|askay|askin)", re.IGNORECASE)
-    filename_not_pattern = re.compile(r"(caskey|mccaskey)", re.IGNORECASE)
+    filename_pattern = re.compile(r"(askey|askay|askin|askins)", re.IGNORECASE)
+    filename_not_pattern = re.compile(r"([a-z]askey|askinner|[a-z]askin)", re.IGNORECASE)
 
-    askey_pattern = re.compile(r"(askey|askay|askin)", re.IGNORECASE)
+    askey_pattern = re.compile(r"(\baskey\b|\baskay\b|\baskin\b)", re.IGNORECASE)
     erskine_pattern = re.compile(r"(erskine)", re.IGNORECASE)
 
     askey_file_cnt = 0

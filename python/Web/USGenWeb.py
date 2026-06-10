@@ -90,7 +90,7 @@ if __name__ == "__main__":
     JSON_dir = os.path.abspath(os.path.join(project_root, 'JSON'))
     DELAY_SECONDS = 2.0  # Polite scraping interval
     CONFIG_FILE = os.path.join(JSON_dir, "scrape_config_working.json")
-    LOCAL_ROOT_DIR = r"c:\Data\Ingestion"
+    LOCAL_ROOT_DIR = r"D:\Data\Genealogy_Data\Ingestion"
 
     # Create a dummy config if it doesn't exist
     if not os.path.exists(CONFIG_FILE):
