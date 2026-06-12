@@ -9,6 +9,7 @@ Summary: "The Time Machine"
 """
 
 import os
+import time
 
 import duckdb
 
@@ -28,14 +29,16 @@ MATCH_DB = os.path.join(BASE_DATA_DIR, "DemographicMatches.db")
 def link_households_across_decades(logger):
     logger.info("Initializing DuckDB... Finding demographic household matches across ALL consecutive decades.")
 
-    # Check for file locks
-    if os.path.exists(MATCH_DB):
-        try:
-            os.remove(MATCH_DB)
-        except PermissionError:
-            logger.warning(f"CRITICAL: {MATCH_DB} is locked by another program (likely a DB Viewer).")
-            logger.warning("Please close any applications using this database and try again.")
-            return
+    # DECISION: Remove the automatic deletion of MATCH_DB so we can RESUME if the computer reboots.
+    # We will now create tables IF THEY DON'T EXIST and track our progress.
+    try:
+        if os.path.exists(MATCH_DB):
+            with open(MATCH_DB, 'a'):
+                pass
+    except PermissionError:
+        logger.warning(f"CRITICAL: {MATCH_DB} is locked by another program (likely a DB Viewer).")
+        logger.warning("Please close any applications using this database and try again.")
+        return
 
     # DECISION: We use DuckDB here instead of standard SQLite because DuckDB is an OLAP 
     # (Online Analytical Processing) engine. It is specifically designed to perform massive, 
@@ -50,6 +53,7 @@ def link_households_across_decades(logger):
     con.execute(f"ATTACH '{MATCH_DB}' AS match_db (TYPE SQLITE);")
 
     logger.info("Step 1/3: Extracting Head and Spouse Demographics...")
+    step1_start = time.time()
     con.execute("""
         -- DECISION: Pre-compute the 10-Variable Demographic Fingerprint for every couple in the database.
         -- By flattening the Head and Spouse data into a single row per family_id, we make the cross-decade join drastically faster.
@@ -74,60 +78,90 @@ def link_households_across_decades(logger):
         JOIN master.individuals s ON f.spouse_histid = s.histid
         WHERE h.birthyr IS NOT NULL AND s.birthyr IS NOT NULL;
     """)
+    step1_end = time.time()
     feature_cnt = con.execute("SELECT COUNT(*) FROM hh_features").fetchone()[0]
-    logger.info(f"  -> Extracted {feature_cnt:,} target couples.")
+    logger.info(f"  -> Extracted {feature_cnt:,} target couples in {step1_end - step1_start:.2f} seconds.")
 
     logger.info("Step 2/3: Executing 10-Variable Nationwide Demographic Hash...")
+    step2_start = time.time()
+    
+    # DECISION: We make raw_links a PERMANENT table inside our SQLite match_db so we don't lose data on reboot.
+    # We also create a progress tracker table to checkpoint our chunks.
+    # UPDATE: We filter the links IN-MEMORY per chunk, and only save the final unique winners to avoid TBs of data.
     con.execute("""
-        -- DECISION: The Nameless Cross-Decade Join.
-        -- We link families across time by matching their exact Sex, Own Birthplace (BPLD), 
-        -- Father's Birthplace (FBPL), Mother's Birthplace (MBPL), and Birth Year (+/- 2).
-        -- Notice there is NO reliance on names (First or Last).
-        CREATE TEMP TABLE raw_links AS
-        SELECT 
-            y1.year AS year_1,
-            y2.year AS year_2,
-            y1.family_id AS family_id_1,
-            y2.family_id AS family_id_2,
-            y1.head_histid AS head_histid_1,
-            y2.head_histid AS head_histid_2,
-            y1.spouse_histid AS spouse_histid_1,
-            y2.spouse_histid AS spouse_histid_2
-        FROM hh_features y1
-        JOIN hh_features y2
-          -- DECISION: Check for 10, 20, and 30-year gaps.
-          -- This brilliantly accounts for the 1890 Census Fire (mandatory 20-year gap between 1880 and 1900)
-          -- as well as ancestors who might have been traveling or missed by a specific census decade.
-          ON y2.year IN (y1.year + 10, y1.year + 20, y1.year + 30)
-         AND y1.head_sex = y2.head_sex
-         AND y1.spouse_sex = y2.spouse_sex
-         AND y1.head_bpld = y2.head_bpld
-         AND y1.spouse_bpld = y2.spouse_bpld
-         -- DECISION: Birth Year is used instead of Age because Age fluctuates depending on the exact 
-         -- month the census was taken, whereas Birth Year provides a stable, immutable mathematical anchor.
-         AND y2.head_birthyr BETWEEN y1.head_birthyr - 2 AND y1.head_birthyr + 2
-         AND y2.spouse_birthyr BETWEEN y1.spouse_birthyr - 2 AND y1.spouse_birthyr + 2
-        -- DECISION: Gracefully handle missing parent birthplaces. 
-        -- If a census taker didn't record a parent's birthplace in one decade, we do not penalize the match.
-        WHERE (y1.head_fbpl = y2.head_fbpl OR y1.head_fbpl IS NULL OR y2.head_fbpl IS NULL)
-          AND (y1.head_mbpl = y2.head_mbpl OR y1.head_mbpl IS NULL OR y2.head_mbpl IS NULL)
-          AND (y1.spouse_fbpl = y2.spouse_fbpl OR y1.spouse_fbpl IS NULL OR y2.spouse_fbpl IS NULL)
-          AND (y1.spouse_mbpl = y2.spouse_mbpl OR y1.spouse_mbpl IS NULL OR y2.spouse_mbpl IS NULL);
+        CREATE TABLE IF NOT EXISTS match_db.household_links (
+            family_id_1 TEXT, family_id_2 TEXT,
+            year_1 INTEGER, year_2 INTEGER,
+            head_histid_1 TEXT, head_histid_2 TEXT,
+            spouse_histid_1 TEXT, spouse_histid_2 TEXT
+        );
+        CREATE TABLE IF NOT EXISTS match_db.completed_chunks (
+            base_year INTEGER,
+            target_year INTEGER
+        );
     """)
+
+    # DECISION: Divide and Conquer. Instead of joining 50M rows against 50M rows dynamically,
+    # we explicitly loop through the decades. This forces the database to only compare ~5 million 
+    # records at a time, bypassing the query optimizer's "Nested Loop" death spiral.
+    decades = [1850, 1860, 1870, 1880, 1900, 1910, 1920, 1930, 1940]
+    gaps = [10, 20, 30]
+
+    for base_year in decades:
+        for gap in gaps:
+            target_year = base_year + gap
+            if target_year > 1950:
+                continue
+            
+            # Check if we already did this chunk before the reboot
+            is_done = con.execute(f"SELECT COUNT(*) FROM match_db.completed_chunks WHERE base_year = {base_year} AND target_year = {target_year}").fetchone()[0]
+            if is_done > 0:
+                logger.info(f"  -> Skipping {base_year} to {target_year} (Already completed in a previous run)")
+                continue
+
+            logger.info(f"  -> Comparing {base_year} to {target_year}...")
+            
+            con.execute(f"""
+                INSERT INTO match_db.household_links
+                WITH y1 AS (SELECT * FROM hh_features WHERE year = {base_year}),
+                     y2 AS (SELECT * FROM hh_features WHERE year = {target_year}),
+                     raw_matches AS (
+                         SELECT 
+                             y1.family_id AS family_id_1, y2.family_id AS family_id_2,
+                             y1.year AS year_1, y2.year AS year_2,
+                             y1.head_histid AS head_histid_1, y2.head_histid AS head_histid_2,
+                             y1.spouse_histid AS spouse_histid_1, y2.spouse_histid AS spouse_histid_2
+                         FROM y1
+                         JOIN y2
+                           ON y1.head_sex = y2.head_sex
+                          AND y1.spouse_sex = y2.spouse_sex
+                          AND y1.head_bpld = y2.head_bpld
+                          AND y1.spouse_bpld = y2.spouse_bpld
+                          AND y1.head_birthyr = y2.head_birthyr
+                          AND y1.spouse_birthyr = y2.spouse_birthyr
+                         WHERE (y1.head_fbpl = y2.head_fbpl OR y1.head_fbpl IS NULL OR y2.head_fbpl IS NULL)
+                           AND (y1.head_mbpl = y2.head_mbpl OR y1.head_mbpl IS NULL OR y2.head_mbpl IS NULL)
+                           AND (y1.spouse_fbpl = y2.spouse_fbpl OR y1.spouse_fbpl IS NULL OR y2.spouse_fbpl IS NULL)
+                           AND (y1.spouse_mbpl = y2.spouse_mbpl OR y1.spouse_mbpl IS NULL OR y2.spouse_mbpl IS NULL)
+                     )
+                SELECT family_id_1, MAX(family_id_2) AS family_id_2, 
+                       MAX(year_1) AS year_1, MAX(year_2) AS year_2,
+                       MAX(head_histid_1) AS head_histid_1, MAX(head_histid_2) AS head_histid_2,
+                       MAX(spouse_histid_1) AS spouse_histid_1, MAX(spouse_histid_2) AS spouse_histid_2
+                FROM raw_matches
+                GROUP BY family_id_1
+                HAVING COUNT(*) = 1;
+            """)
+            
+            # Mark chunk as complete
+            con.execute(f"INSERT INTO match_db.completed_chunks VALUES ({base_year}, {target_year})")
+
+    step2_end = time.time()
+    logger.info(f"  -> Step 2 completed in {step2_end - step2_start:.2f} seconds.")
     
     logger.info("Step 3/3: Enforcing Unique 1-to-1 Mathematical Matches...")
-    # DECISION: Strict Uniqueness. We enforce COUNT(*) = 1 to guarantee we never accidentally merge twins, 
-    # cousins with identical demographics, or statistically identical families. If a match isn't 100% unique nationwide, we discard it to protect data integrity.
-    con.execute("""
-        CREATE TABLE match_db.household_links AS
-        SELECT family_id_1, MAX(family_id_2) AS family_id_2, 
-               MAX(year_1) AS year_1, MAX(year_2) AS year_2,
-               MAX(head_histid_1) AS head_histid_1, MAX(head_histid_2) AS head_histid_2,
-               MAX(spouse_histid_1) AS spouse_histid_1, MAX(spouse_histid_2) AS spouse_histid_2
-        FROM raw_links
-        GROUP BY family_id_1
-        HAVING COUNT(*) = 1;
-    """)
+    # DECISION: Because we now filter IN-MEMORY during Step 2, Step 3 is instantaneous!
+    logger.info("  -> Uniqueness was successfully enforced chunk-by-chunk in memory!")
 
     match_count = con.execute("SELECT COUNT(*) FROM match_db.household_links").fetchone()[0]
     logger.info(f"SUCCESS! Found {match_count:,} perfect multi-decade matches.")

@@ -88,12 +88,24 @@ def convert_gedcom_to_csv(gedcom_path: str, csv_path: str, logger, extract_media
             elif level == "1":
                 current_tag = tag
                 if tag == "NAME":
-                    # Names usually come in as "First Middle /Last/"
-                    clean_name = value.replace("/", "").strip()
-                    current_person["full_name"] = clean_name
+                    # Split the name using the GEDCOM slashes
+                    name_parts = value.split('/')
+                    current_person["first_name"] = name_parts[0].strip()
+                    if len(name_parts) > 1:
+                        current_person["last_name"] = name_parts[1].strip()
+                elif tag == "SEX":
+                    # Translate to IPUMS numeric codes instantly
+                    if value == "M":
+                        current_person["sex"] = "1"
+                    elif value == "F":
+                        current_person["sex"] = "2"
             elif level == "2":
                 if current_tag == "BIRT" and tag == "DATE":
                     current_person["birth_date"] = value
+                    # Extract just the 4-digit year for our math algorithms
+                    match = re.search(r'\b(1[56789]\d\d)\b', value)
+                    if match:
+                        current_person["birth_year"] = match.group(1)
                 elif current_tag == "BIRT" and tag == "PLAC":
                     current_person["birth_place"] = value
                 elif current_tag == "DEAT" and tag == "DATE":
@@ -128,7 +140,8 @@ def convert_gedcom_to_csv(gedcom_path: str, csv_path: str, logger, extract_media
     if exclude_living and skipped_living_count > 0:
         logger.info(f"Privacy Mode ON: Excluded {skipped_living_count} potentially living individuals.")
 
-    headers = ["gedcom_id", "full_name", "birth_date", "birth_place", "death_date", "death_place", "picture_url"]
+    headers = ["gedcom_id", "first_name", "last_name", "sex", "birth_year", "birth_date", "birth_place", "death_date",
+               "death_place", "picture_url"]
 
     logger.info(f"Writing {len(records):,} records to {csv_path}")
 
@@ -145,8 +158,8 @@ if __name__ == "__main__":
     main_logger = gen_logging.setup_logging("GEDCOM_TO_CSV")
 
     # You can change these paths when you are ready to process an external file!
-    input_file = r"/data/AskeyWorking_20150125.ged"
-    output_file = r"/output/thom.csv"
+    input_file = r"E:\Users\Andy\PycharmProjects\Genealogy\data\AskeyWorking_20150125.ged"
+    output_file = r"E:\Users\Andy\PycharmProjects\Genealogy\data\AskeyWorking_20150125.csv"
 
     convert_gedcom_to_csv(input_file, output_file, main_logger, extract_media=EXTRACT_MEDIA,
                           exclude_living=EXCLUDE_LIVING)
