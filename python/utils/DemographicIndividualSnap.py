@@ -5,10 +5,20 @@ File: DemographicIndividualSnap.py
 Summary: A straight-up SQL lookup.
          Takes isolated GEDCOM individuals and queries the 5% named Census Sample
          directly using Sex, First Initial, Last Name, and Birth Year.
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 -----------------------------------
 """
 import os
 import sys
+
 import duckdb
 
 # Add the 'python' directory and project root to sys.path
@@ -26,6 +36,7 @@ else:
     CLEAN_TRACER_DB = os.path.expanduser("~/Genealogy_Data/CleanVault_Gedcom.db")
     MASTER_SAMP_DB = os.path.expanduser("~/Genealogy_Data/MasterVault_ALLs.db")
 
+
 def individual_snap():
     print(f"Connecting to databases...")
     con = duckdb.connect()
@@ -35,34 +46,35 @@ def individual_snap():
 
     print("Isolating remaining isolated GEDCOM individuals...")
     con.execute("""
-        CREATE TEMP TABLE isolated_gedcom AS
-        SELECT golden_id, 
-               first_name, 
-               LOWER(TRIM(last_name)) AS last_name, 
-               LOWER(SUBSTR(first_name, 1, 1)) AS first_init,
-               TRY_CAST(birth_year AS INTEGER) AS birth_year,
-               sex
-        FROM clean.golden_records
-        WHERE vault_pointers LIKE 'GED_%'
-          AND vault_pointers NOT LIKE '%18%'
-          AND vault_pointers NOT LIKE '%19%'
-          AND birth_year IS NOT NULL
-          AND last_name IS NOT NULL
-          AND first_name IS NOT NULL;
-    """)
-    
+                CREATE
+                TEMP TABLE isolated_gedcom AS
+                SELECT golden_id,
+                       first_name,
+                       LOWER(TRIM(last_name))          AS last_name,
+                       LOWER(SUBSTR(first_name, 1, 1)) AS first_init,
+                       TRY_CAST(birth_year AS INTEGER) AS birth_year,
+                       sex
+                FROM clean.golden_records
+                WHERE vault_pointers LIKE 'GED_%'
+                  AND vault_pointers NOT LIKE '%18%'
+                  AND vault_pointers NOT LIKE '%19%'
+                  AND birth_year IS NOT NULL
+                  AND last_name IS NOT NULL
+                  AND first_name IS NOT NULL;
+                """)
+
     ged_count = con.execute("SELECT COUNT(*) FROM isolated_gedcom").fetchone()[0]
     print(f"  -> Found {ged_count} isolated GEDCOM individuals.")
-    
+
     if ged_count == 0:
         print("No isolated GEDCOM individuals left to snap.")
         return
-        
+
     unique_surnames = con.execute("SELECT DISTINCT last_name FROM isolated_gedcom").fetchall()
-    in_clause = ", ".join([f"'{s[0].replace(chr(39), chr(39)+chr(39))}'" for s in unique_surnames])
-    
+    in_clause = ", ".join([f"'{s[0].replace(chr(39), chr(39) + chr(39))}'" for s in unique_surnames])
+
     print("Running straight-up SQL lookup against the Census Sample (takes ~10 seconds)...")
-    
+
     # Map IPUMS sex to GEDCOM sex for direct comparison
     con.execute(f"""
         CREATE TEMP TABLE matched_individuals AS
@@ -81,31 +93,34 @@ def individual_snap():
         WHERE LOWER(TRIM(s.namelast)) IN ({in_clause})
           AND s.age IS NOT NULL;
     """)
-    
+
     # Ensure we only snap if the SQL lookup finds exactly one logical historical match 
     # across the entire country (to prevent merging John Smith into the wrong John Smith)
     con.execute("""
-        CREATE TEMP TABLE unique_matches AS
-        SELECT gedcom_id, string_agg(DISTINCT census_ptr, '|') AS all_census_ptrs
-        FROM matched_individuals
-        GROUP BY gedcom_id
-        HAVING COUNT(DISTINCT SPLIT_PART(census_ptr, '_', 1)) = 1; 
-    """)
-    
+                CREATE
+                TEMP TABLE unique_matches AS
+                SELECT gedcom_id, string_agg(DISTINCT census_ptr, '|') AS all_census_ptrs
+                FROM matched_individuals
+                GROUP BY gedcom_id
+                HAVING COUNT(DISTINCT SPLIT_PART(census_ptr, '_', 1)) = 1;
+                """)
+
     match_count = con.execute("SELECT COUNT(*) FROM unique_matches").fetchone()[0]
     print(f"Successfully matched {match_count} individuals using direct SQL lookup!")
-    
+
     if match_count > 0:
         print("Grafting Census pointers directly into GEDCOM records...")
         con.execute("""
-            UPDATE clean.golden_records
-            SET vault_pointers = vault_pointers || '|' || (SELECT all_census_ptrs FROM unique_matches m WHERE m.gedcom_id = golden_records.golden_id LIMIT 1),
-                census_count = 1
-            WHERE golden_id IN (SELECT gedcom_id FROM unique_matches);
-        """)
+                    UPDATE clean.golden_records
+                    SET vault_pointers = vault_pointers || '|' || (SELECT all_census_ptrs
+                                                                   FROM unique_matches m
+                                                                   WHERE m.gedcom_id = golden_records.golden_id LIMIT 1), census_count = 1
+                    WHERE golden_id IN (SELECT gedcom_id FROM unique_matches);
+                    """)
         print("Individual Snap complete! You can now re-run the GEDCOM export.")
     else:
         print("No unique matches found to snap.")
+
 
 if __name__ == "__main__":
     individual_snap()

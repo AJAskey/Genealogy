@@ -1,6 +1,16 @@
 """
 unzip_census_gz.py
 Finds all .csv.gz files and extracts them to .csv in the same folder.
+
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 """
 
 import gzip

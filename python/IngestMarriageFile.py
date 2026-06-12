@@ -5,9 +5,17 @@ File: IngestMarriageFile.py
 Summary: Parses various marriage record files and securely loads them 
          into the MarriageVault.db. This will serve as a new anchor 
          source for linking Golden Records.
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 -----------------------------------
 """
-import argparse
 import os
 import sqlite3
 import sys
@@ -30,6 +38,7 @@ if os.name == 'nt':
     MARRIAGE_DB = r"D:\Data\Genealogy_Data\MarriageVault.db"
 else:
     MARRIAGE_DB = os.path.expanduser("~/Genealogy_Data/MarriageVault.db")
+
 
 # ==============================================================================
 # PARSING ADAPTERS
@@ -55,7 +64,8 @@ def parse_file_type_1(filepath, logger):
     #     "marriage_date": "15 JUL 1888",
     #     "marriage_place": "Cook County, Illinois"
     # }
-    pass # Remove this once implemented
+    pass  # Remove this once implemented
+
 
 # ==============================================================================
 # THE UNIVERSAL LOADER
@@ -75,30 +85,41 @@ def ingest_marriage_directory(logger):
 
     with sqlite3.connect(MARRIAGE_DB) as conn:
         conn.execute("PRAGMA journal_mode=WAL;")
-        
+
         # TODO: Finalize this table structure once we know all the available fields.
         conn.execute('''
                      CREATE TABLE IF NOT EXISTS marriage_records
                      (
-                         record_id TEXT PRIMARY KEY,
-                         source_file TEXT,
-                         groom_first TEXT,
-                         groom_last TEXT,
-                         bride_first TEXT,
-                         bride_last TEXT,
-                         marriage_date TEXT,
-                         marriage_year INTEGER,
-                         marriage_place TEXT
+                         record_id
+                         TEXT
+                         PRIMARY
+                         KEY,
+                         source_file
+                         TEXT,
+                         groom_first
+                         TEXT,
+                         groom_last
+                         TEXT,
+                         bride_first
+                         TEXT,
+                         bride_last
+                         TEXT,
+                         marriage_date
+                         TEXT,
+                         marriage_year
+                         INTEGER,
+                         marriage_place
+                         TEXT
                      )
                      ''')
-        
+
         # Optional: Clear old data if re-running
         # conn.execute("DELETE FROM marriage_records;")
 
         logger.info(f"Scanning directory: {INPUT_DIR}")
         for file in os.listdir(INPUT_DIR):
             filepath = os.path.join(INPUT_DIR, file)
-            
+
             # TODO: Add logic here to determine which parser to use for each file.
             logger.warning(f"  -> No parser logic yet for {file}. Skipping.")
 

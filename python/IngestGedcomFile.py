@@ -6,6 +6,15 @@ Summary: Reads a standard GEDCOM file, extracts all individuals,
          cleans their dates, drops living/privatized relatives, 
          and saves them into the GedcomVault.db to act as 
          Golden Record anchors for the census pipeline.
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 -----------------------------------
 """
 
@@ -190,7 +199,7 @@ def ingest_to_db(records, logger):
     os.makedirs(os.path.dirname(GEDCOM_DB), exist_ok=True)
     with sqlite3.connect(GEDCOM_DB) as conn:
         conn.execute("PRAGMA journal_mode=WAL")
-        
+
         # Drop the table so we can rebuild it with the new schema columns
         conn.execute("DROP TABLE IF EXISTS gedcom_records")
         conn.execute('''
@@ -229,7 +238,8 @@ def ingest_to_db(records, logger):
 
         conn.executemany('''
                          INSERT INTO gedcom_records
-                         (gedcom_id, full_name, first_name, last_name, sex, birth_date, birth_year, birth_place, death_date,
+                         (gedcom_id, full_name, first_name, last_name, sex, birth_date, birth_year, birth_place,
+                          death_date,
                           death_place, father_gedcom_id, mother_gedcom_id, picture_url)
                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                          ''', valid_records)

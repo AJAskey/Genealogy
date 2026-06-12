@@ -8,6 +8,15 @@ Summary: Parses a standard GEDCOM file and flattens it into a CSV.
          
 Inputs:  A standard .ged file
 Outputs: A tabular .csv file
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 -----------------------------------
 """
 

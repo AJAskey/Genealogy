@@ -8,6 +8,15 @@ Summary: Takes flattened GEDCOM CSV data and safely merges new facts into
          Applies strict survivorship: Existing Golden Record data (like 
          birth/death dates) is NEVER overwritten. New data is only 
          appended if the Golden Record's field is currently NULL.
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 -----------------------------------
 """
 

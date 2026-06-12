@@ -8,6 +8,15 @@ Summary: Creates a small, view-only SQLite database from the massive
          this script simply copies the filtered rows instantly.
 
 Usage: Modify the TARGET_DB and SQL_FILTER variables, then run.
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 -----------------------------------
 """
 import os
@@ -59,7 +68,7 @@ def export_subset(logger):
     con.execute(f"ATTACH '{TARGET_DB}' AS target (TYPE SQLITE);")
 
     logger.info(f"Executing transfer... pulling {SAMPLE_SIZE:,} known linked clusters.")
-    
+
     con.execute(f"""
         -- 1. Create the empty table structure
         CREATE TABLE target.population AS 

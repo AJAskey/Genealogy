@@ -19,12 +19,22 @@ Design notes:
     - Survivorship picks the most-frequent name spelling and the earliest
       plausible birth year (outliers beyond 10 years from median are ignored).
     - All raw vault pointers are preserved so no original data is ever lost.
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 -----------------------------------
 """
 
 import pandas as pd
 import splink.comparison_library as cl
 from splink import DuckDBAPI, Linker, SettingsCreator, block_on
+
 from identity_registry import IdentityRegistry
 
 
@@ -111,11 +121,16 @@ class CreateGoldenRecord:
             self.logger.info("  Extracting 100k skewed sample (67% male) for EM training...")
             self.con.execute("DROP TABLE IF EXISTS sample_for_splink;")
             self.con.execute("""
-                CREATE TABLE sample_for_splink AS 
-                (SELECT * FROM population_for_splink WHERE sex = '1' AND SPLIT_PART(unique_id, '_', 3) = '1' USING SAMPLE 67000 ROWS)
-                UNION ALL
-                (SELECT * FROM population_for_splink WHERE (sex != '1' OR sex IS NULL) AND SPLIT_PART(unique_id, '_', 3) = '1' USING SAMPLE 33000 ROWS);
-            """)
+                             CREATE TABLE sample_for_splink AS
+                             (SELECT *
+                              FROM population_for_splink
+                              WHERE sex = '1' AND SPLIT_PART(unique_id, '_', 3) = '1' USING SAMPLE 67000 ROWS)
+                             UNION ALL
+                             (SELECT *
+                              FROM population_for_splink
+                              WHERE (sex != '1' OR sex IS NULL)
+                                AND SPLIT_PART(unique_id, '_', 3) = '1' USING SAMPLE 33000 ROWS);
+                             """)
 
             self.linker = Linker(
                 "sample_for_splink",
@@ -124,7 +139,7 @@ class CreateGoldenRecord:
             )
             self.logger.info("  Training match weights on sample (unsupervised EM)...")
             self._train()
-            
+
             if model_path:
                 self.logger.info(f"  Saving AI brain to '{model_path}' for future runs...")
                 self.linker.misc.save_model_to_json(model_path, overwrite=True)
@@ -132,18 +147,19 @@ class CreateGoldenRecord:
             if mode == "train":
                 self.logger.info("GoldenRecordGenerator: Training complete. Exiting as requested.")
                 return
-                
+
         if mode in ("link", "both"):
             self.logger.info("Phase: LINKING")
-            
+
             if mode == "link" and model_path and os.path.exists(model_path):
                 self.logger.info(f"  Loading saved model from '{model_path}'...")
                 self.linker = Linker("population_for_splink", model_path, db_api=db_api)
             else:
                 if mode == "link":
                     self.logger.warning(f"  Model not found at '{model_path}', falling back to default settings.")
-                self.linker = Linker("population_for_splink", model_path if (model_path and os.path.exists(model_path)) else self.SPLINK_SETTINGS, db_api=db_api)
-                
+                self.linker = Linker("population_for_splink", model_path if (
+                            model_path and os.path.exists(model_path)) else self.SPLINK_SETTINGS, db_api=db_api)
+
             self.logger.info("  Predicting match scores and clustering...")
             cluster_df = self._predict_and_cluster()
 
@@ -177,19 +193,19 @@ class CreateGoldenRecord:
         self.linker.training.estimate_parameters_using_expectation_maximisation(
             block_on("last_name", "birth_year")
         )
-        
+
         self.logger.info("    -> EM Pass 2/3 (Blocking on First Name & Birth Year)...")
         # Session 2: second pass with first name + birth year to sharpen weights
         self.linker.training.estimate_parameters_using_expectation_maximisation(
             block_on("first_name", "birth_year")
         )
-        
+
         self.logger.info("    -> EM Pass 3/3 (Blocking on First Name & Last Name)...")
         # Session 3: third pass with full name to safely train the birth_year weights
         self.linker.training.estimate_parameters_using_expectation_maximisation(
             block_on("first_name", "last_name")
         )
-        
+
         self.logger.info("    -> Training complete.")
 
     def _predict_and_cluster(self) -> pd.DataFrame:
@@ -227,7 +243,7 @@ class CreateGoldenRecord:
 
             # Split into census rows and BIRLS rows
             census_rows = group[group["source_db"] == "census"].copy()
-            death_rows  = group[group["source_db"] == "death_index"].copy()
+            death_rows = group[group["source_db"] == "death_index"].copy()
             gedcom_rows = group[group["source_db"] == "gedcom"].copy()
 
             # ----------------------------------------------------------
@@ -253,7 +269,7 @@ class CreateGoldenRecord:
                 return latest_row[col]
 
             first_name = census_winner("first_name")
-            last_name  = census_winner("last_name")
+            last_name = census_winner("last_name")
 
             census_birth_years = pd.to_numeric(
                 census_rows["birth_year"], errors="coerce"
@@ -283,7 +299,7 @@ class CreateGoldenRecord:
                 if "dob" in death_rows.columns:
                     dob_vals = death_rows["dob"].dropna()
                     death_dob = dob_vals.iloc[0] if len(dob_vals) > 0 else None
-                    
+
             if not gedcom_rows.empty:
                 if "death_date" in gedcom_rows.columns:
                     dod_vals = gedcom_rows["death_date"].dropna()
@@ -313,18 +329,18 @@ class CreateGoldenRecord:
             permanent_golden_id = registry.get_or_mint_master_id(all_pointers, full_name)
 
             golden = {
-                "golden_id":     permanent_golden_id,
-                "first_name":    first_name,
-                "last_name":     last_name,
-                "birth_year":    best_birth_year,
-                "birth_place":   birth_place,
-                "state":         state,
-                "death_date":    death_dod,
-                "census_years":  census_years_str,
-                "record_count":  len(group),
-                "census_count":  len(census_rows),
+                "golden_id": permanent_golden_id,
+                "first_name": first_name,
+                "last_name": last_name,
+                "birth_year": best_birth_year,
+                "birth_place": birth_place,
+                "state": state,
+                "death_date": death_dod,
+                "census_years": census_years_str,
+                "record_count": len(group),
+                "census_count": len(census_rows),
                 "death_record_count": len(death_rows),
-                "gedcom_count":  len(gedcom_rows),
+                "gedcom_count": len(gedcom_rows),
                 "vault_pointers": "|".join(all_pointers),
                 "father_pointer": father_ptr,
                 "mother_pointer": mother_ptr,

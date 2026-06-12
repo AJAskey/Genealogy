@@ -6,6 +6,15 @@ Summary: Generates a standard .ged family tree file directly from the
          relational census data in the Named Vault.
          It automatically propagates the father's last name to his children 
          before exporting, then generates "Census-level" GEDCOM structures.
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 -----------------------------------
 """
 
@@ -51,8 +60,10 @@ REVERSE_BPL = {
     55: "Wisconsin", 56: "Wyoming",
     410: "England", 411: "Scotland", 412: "Wales", 414: "Ireland",
     453: "Germany", 404: "Sweden", 401: "Norway", 400: "Denmark",
-    425: "Netherlands", 421: "France", 426: "Switzerland", 150: "Canada", 200: "Mexico"
+    425: "Netherlands", 421: "France", 426: "Switzerland", 150: "Canada", 200: "Mexico",
+    501: "Japan", 502: "South Korea"
 }
+
 
 def decode_bpld(bpld_str):
     if not bpld_str or str(bpld_str).strip() == '': return "Unknown"
@@ -64,32 +75,30 @@ def decode_bpld(bpld_str):
     except ValueError:
         return str(bpld_str)
 
+
 def export_gedcom(logger):
     logger.info(f"Connecting to Named Vault to export '{TARGET_LAST_NAME}' lineage...")
-    
+
     with sqlite3.connect(NAMED_DB) as conn:
         cursor = conn.cursor()
-        
+
         # Step 1: The Ripple Effect
         logger.info("Step 1: Rippling Father's last name down to Bosselstink children...")
         cursor.execute("""
-            UPDATE individuals
-            SET last_name = (
-                SELECT p.last_name 
-                FROM individuals p 
-                WHERE p.histid = individuals.father_histid
-            )
-            WHERE last_name = 'Bosselstink'
-              AND father_histid IS NOT NULL
-              AND (
-                  SELECT p.last_name 
-                  FROM individuals p 
-                  WHERE p.histid = individuals.father_histid
-              ) != 'Bosselstink';
-        """)
+                       UPDATE individuals
+                       SET last_name = (SELECT p.last_name
+                                        FROM individuals p
+                                        WHERE p.histid = individuals.father_histid)
+                       WHERE last_name = 'Bosselstink'
+                         AND father_histid IS NOT NULL
+                         AND (SELECT p.last_name
+                              FROM individuals p
+                              WHERE p.histid = individuals.father_histid)
+                           != 'Bosselstink';
+                       """)
         conn.commit()
         logger.info(f"  -> Successfully updated {cursor.rowcount} children with their real last name!")
-        
+
         # Step 2: Fetch Target Families
         logger.info(f"Step 2: Locating all households containing an '{TARGET_LAST_NAME}'...")
         cursor.execute(f"""
@@ -100,14 +109,14 @@ def export_gedcom(logger):
         """)
         target_families = [r[0] for r in cursor.fetchall()]
         logger.info(f"  -> Found {len(target_families):,} households.")
-        
+
         if not target_families:
             logger.warning("No families found to export!")
             return
-            
+
         # Build a comma-separated string for the SQL IN clause
         fam_placeholders = ','.join(['?'] * len(target_families))
-        
+
         # Step 3: Fetch Individuals
         logger.info("Step 3: Extracting individuals and demographics...")
         cursor.execute(f"""
@@ -116,7 +125,7 @@ def export_gedcom(logger):
             WHERE family_id IN ({fam_placeholders})
         """, target_families)
         individuals_data = cursor.fetchall()
-        
+
         # Step 4: Fetch Family Structures
         logger.info("Step 4: Extracting family relationships...")
         cursor.execute(f"""
@@ -125,7 +134,7 @@ def export_gedcom(logger):
             WHERE family_id IN ({fam_placeholders})
         """, target_families)
         families_data = cursor.fetchall()
-        
+
         # Pre-calculate children per family for fast GEDCOM writing
         children_by_fam = {fam_id: [] for fam_id in target_families}
         for ind in individuals_data:
@@ -133,39 +142,39 @@ def export_gedcom(logger):
             # If they have a parent in the house, they are a child of this family
             if f_id or m_id:
                 children_by_fam[fam_id].append(histid)
-                
+
         # Step 5: Write the GEDCOM
         logger.info(f"Step 5: Writing data to {OUTPUT_GEDCOM}...")
         with open(OUTPUT_GEDCOM, 'w', encoding='utf-8') as f:
             # GEDCOM Header
             f.write("0 HEAD\n1 SOUR Census_Architecture\n1 GEDC\n2 VERS 5.5\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n")
-            
+
             # Write Individuals
             for ind in individuals_data:
                 histid, fname, lname, sex, byr, bpld, fam_id, f_id, m_id = ind
-                
+
                 f.write(f"0 @I{histid}@ INDI\n")
-                
+
                 # Handle remaining Bosselstinks
                 if fname == 'Future' and lname == 'Bosselstink':
                     f.write("1 NAME Unknown /Unknown/\n")
                 else:
                     f.write(f"1 NAME {fname} /{lname}/\n")
-                    
+
                 f.write(f"1 SEX {'M' if sex == '1' else 'F' if sex == '2' else 'U'}\n")
-                
+
                 if byr:
                     f.write(f"1 BIRT\n2 DATE {byr}\n")
                     state_name = decode_bpld(bpld)
                     if state_name != "Unknown":
                         f.write(f"2 PLAC {state_name}, USA\n")
-                        
+
                 # Relationship Pointers
                 if f_id or m_id:
-                    f.write(f"1 FAMC @F{fam_id}@\n") # They are a Child in this family
+                    f.write(f"1 FAMC @F{fam_id}@\n")  # They are a Child in this family
                 else:
-                    f.write(f"1 FAMS @F{fam_id}@\n") # They are the Head/Spouse of this family
-                    
+                    f.write(f"1 FAMS @F{fam_id}@\n")  # They are the Head/Spouse of this family
+
             # Write Families
             for fam in families_data:
                 fam_id, head_id, spouse_id = fam
@@ -174,11 +183,12 @@ def export_gedcom(logger):
                 if spouse_id: f.write(f"1 WIFE @I{spouse_id}@\n")
                 for child_id in children_by_fam.get(fam_id, []):
                     f.write(f"1 CHIL @I{child_id}@\n")
-                    
+
             # GEDCOM Footer
             f.write("0 TRLR\n")
-            
+
         logger.info("\nSUCCESS! Your Census-Level GEDCOM is ready for Ancestry / Family Tree Maker!")
+
 
 if __name__ == "__main__":
     main_logger = gen_logging.setup_logging(logger_name="EXPORT_GEDCOM")

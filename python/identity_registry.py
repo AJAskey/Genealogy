@@ -5,12 +5,22 @@ File: identity_registry.py
 Summary: Manages permanent Golden IDs (St. Joe's IDs).
          Ensures that once a raw census/GEDCOM row is assigned a Golden ID,
          that ID is remembered and reused in all future AI runs.
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 -----------------------------------
 """
 
-import sqlite3
 import os
+import sqlite3
 import uuid
+
 import pandas as pd
 
 if os.name == 'nt':
@@ -33,12 +43,18 @@ class IdentityRegistry:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute('''
-                CREATE TABLE IF NOT EXISTS identity_registry (
-                    source_pointer TEXT PRIMARY KEY,
-                    golden_id TEXT,
-                    full_name TEXT
-                )
-            ''')
+                         CREATE TABLE IF NOT EXISTS identity_registry
+                         (
+                             source_pointer
+                             TEXT
+                             PRIMARY
+                             KEY,
+                             golden_id
+                             TEXT,
+                             full_name
+                             TEXT
+                         )
+                         ''')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_golden_id ON identity_registry(golden_id)')
 
     def _load_registry(self):
@@ -57,7 +73,7 @@ class IdentityRegistry:
         for ptr in all_pointers:
             if ptr in self.pointer_to_golden:
                 existing_ids.add(self.pointer_to_golden[ptr])
-                
+
         if len(existing_ids) == 1:
             # We already know who this is, reuse their permanent ID
             golden_id = existing_ids.pop()

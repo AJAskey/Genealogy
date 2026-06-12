@@ -17,6 +17,15 @@ Design:
   - Step 4: If a unique match is found, update the "Future Bosselstink"
             placeholders in the 'individuals' table with the correct
             historical names from the CSV.
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 -----------------------------------
 """
 
@@ -90,7 +99,8 @@ def get_bpl_prefixes(birth_place):
         "ireland": ["414"], "northern ireland": ["414"],
         "germany": ["453"], "sweden": ["404"], "norway": ["401"],
         "denmark": ["400"], "netherlands": ["425"], "france": ["421"],
-        "switzerland": ["426"], "canada": ["150"], "mexico": ["200"]
+        "switzerland": ["426"], "canada": ["150"], "mexico": ["200"],
+        "japan": ["501"], "south korea": ["502"], "korea": ["502"]
     }
 
     for state, prefixes in crosswalk.items():
@@ -114,6 +124,10 @@ def parse_csv_names_and_dates(filepath):
             last_name = row.get('last_name', '').strip()
             sex = row.get('sex', '').strip()
             birth_year = row.get('birth_year', '').strip()
+
+            # DECISION: Automatically skip Ancestry placeholders like "--" or "Hidden"
+            if '--' in first_name or '--' in last_name or 'Hidden' in first_name or 'Hidden' in last_name:
+                continue
 
             if first_name and last_name and sex and birth_year:
                 try:

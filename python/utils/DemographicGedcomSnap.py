@@ -6,6 +6,15 @@ Summary: "The Nameless Snap"
          Deterministically merges isolated GEDCOM records by streaming the
          raw 1850-1950 Census databases directly, using demographic signatures
          (Husband's Age + Wife's Age) without relying on exact name matches.
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 -----------------------------------
 """
 import os
@@ -188,8 +197,10 @@ def demographic_snap():
                               ON cen.husb_last_name = ged.husb_last_name
                                   AND cen.husb_birth_year BETWEEN ged.husb_birth_year - 5 AND ged.husb_birth_year + 5
                                   AND cen.wife_birth_year BETWEEN ged.wife_birth_year - 5 AND ged.wife_birth_year + 5
-         AND (cen.husb_first_init = LOWER(SUBSTR(ged.husb_first_name, 1, 1)) OR ged.husb_first_name IS NULL OR cen.husb_first_init IS NULL)
-         AND (cen.wife_first_init = LOWER(SUBSTR(ged.wife_first_name, 1, 1)) OR ged.wife_first_name IS NULL OR cen.wife_first_init IS NULL);
+                                  AND (cen.husb_first_init = LOWER(SUBSTR(ged.husb_first_name, 1, 1)) OR
+                                       ged.husb_first_name IS NULL OR cen.husb_first_init IS NULL)
+                                  AND (cen.wife_first_init = LOWER(SUBSTR(ged.wife_first_name, 1, 1)) OR
+                                       ged.wife_first_name IS NULL OR cen.wife_first_init IS NULL);
                 """)
 
     # We aggregate all matched decades (e.g. 1880, 1900, 1910) directly onto the GEDCOM record

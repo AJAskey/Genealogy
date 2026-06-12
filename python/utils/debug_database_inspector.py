@@ -13,6 +13,15 @@ Design:
   - For each record, it extracts specified fields (e.g., STATEICP, RACE).
   - Uses the global Codebook and County lookup objects.
   - Writes the original code and the translated string to an output file.
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 --------------------------------
 """
 import logging
@@ -25,6 +34,7 @@ from project_globals import CODEBOOK, COUNTY_LOOKUP, PROJECT_ROOT
 # Define the path to the master database
 MASTER_DB_PATH = r"D:\Data\Genealogy_Data\MasterVault_ALL.db"
 ASKEY_REPORT_PATH = os.path.join(PROJECT_ROOT, 'output', 'askey_report.txt')
+
 
 # ==============================================================================
 # INSPECTION SCRIPT
@@ -60,7 +70,7 @@ def inspect_database(db_path, output_path, limit=100, order_by=None, **filters):
             # Using LIKE for flexibility with string matching
             where_clauses.append(f"{key} LIKE ?")
             params.append(value)
-    
+
     base_query = "SELECT * FROM population"
     if where_clauses:
         query = f"{base_query} WHERE {' AND '.join(where_clauses)}"
@@ -75,7 +85,7 @@ def inspect_database(db_path, output_path, limit=100, order_by=None, **filters):
 
     logging.info(f"Executing query: {query}")
     logging.info(f"With parameters: {params}")
-    
+
     cursor.execute(query, tuple(params))
 
     # Open the output file for writing
@@ -107,7 +117,7 @@ def inspect_database(db_path, output_path, limit=100, order_by=None, **filters):
 
             # County
             county_code = str(row['countyicp']).strip() if row['countyicp'] else ""
-            
+
             county_value = "Unknown County"
             if state_value and state_value in COUNTY_LOOKUP:
                 state_counties = COUNTY_LOOKUP[state_value]
@@ -156,7 +166,7 @@ if __name__ == '__main__':
     inspect_database(
         db_path=MASTER_DB_PATH,
         output_path=ASKEY_REPORT_PATH,
-        limit=10000, # Set a high limit to get all Askey records
+        limit=10000,  # Set a high limit to get all Askey records
         order_by="year ASC, namelast ASC, namefrst ASC",
         **search_filters
     )

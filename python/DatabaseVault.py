@@ -10,6 +10,15 @@ Summary: Ingests raw IPUMS data into a strictly normalized SQLite database.
 Design:  Single-threaded, sequential read.
          Assigns "Future Bosselstink" to nameless records.
          Saves the entire raw CSV row as JSON "bread crumbs" so no data is lost.
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 --------------------------------
 """
 
@@ -253,8 +262,8 @@ def process_household(rows):
 
         individuals_by_fam[family_id].append((
             histid, first_name, last_name, year, row.get('SAMPLE'), serial, pernum, famunit,
-            row.get('AGE'), row.get('SEX'), row.get('BIRTHYR'), row.get('BPLD'),
-            row.get('FBPL'), row.get('MBPL'),
+            row.get('AGE'), row.get('SEX'), row.get('BIRTHYR'), row.get('BPLD') or row.get('BPL'),
+            row.get('FBPLD') or row.get('FBPL'), row.get('MBPLD') or row.get('MBPL'),
             father_histid, mother_histid, family_id,
             raw_data_json
         ))
@@ -293,13 +302,13 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
     conns_by_year = {}
     ind_batch_by_year = {}
     fam_batch_by_year = {}
-    
+
     def get_db(year):
         if year not in conns_by_year:
             db_path = os.path.join(VAULT_DIR, f"YearVault_{year}.db")
             if not os.path.exists(db_path):
                 setup_database(db_path, logger)
-                
+
             conn = sqlite3.connect(db_path)
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA foreign_keys = ON;")
@@ -344,18 +353,18 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
             # the SERIAL changes, meaning we have the complete house and can process them as a single atomic unit.
             if raw_serial != current_serial:
                 inds, fams = process_household(household_buffer)
-                
+
                 hh_year = None
                 if fams:
                     hh_year = fams[0][1]
                 elif inds:
                     hh_year = inds[0][3]
-                    
+
                 if hh_year:
                     get_db(hh_year)
                     ind_batch_by_year[hh_year].extend(inds)
                     fam_batch_by_year[hh_year].extend(fams)
-                    
+
                     if len(fam_batch_by_year[hh_year]) >= BATCH_SIZE:
                         conn = conns_by_year[hh_year]
                         cursor = conn.cursor()
@@ -388,18 +397,18 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
         # Catch the final household buffer when the file ends
         if household_buffer:
             inds, fams = process_household(household_buffer)
-            
+
             hh_year = None
             if fams:
                 hh_year = fams[0][1]
             elif inds:
                 hh_year = inds[0][3]
-                
+
             if hh_year:
                 get_db(hh_year)
                 fam_batch_by_year[hh_year].extend(fams)
                 ind_batch_by_year[hh_year].extend(inds)
-                
+
             count += len(household_buffer)
             households_processed += 1
 
@@ -430,8 +439,10 @@ def build_indices(vault_dir, logger):
             logger.info(f"  -> Indexing {filename}...")
             with sqlite3.connect(db_path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_individuals_parents ON individuals(father_histid, mother_histid);")
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_individuals_names ON individuals(last_name, first_name);")
+                cursor.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_individuals_parents ON individuals(father_histid, mother_histid);")
+                cursor.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_individuals_names ON individuals(last_name, first_name);")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_families_year_serial ON families(year, serial);")
     logger.info("Indices built successfully!")
 
@@ -441,7 +452,7 @@ def build_indices(vault_dir, logger):
 # ==============================================================================
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Ingest census CSVs into a relational SQLite vault.")
-    parser.add_argument("--limit", type=int, default=100_000,
+    parser.add_argument("--limit", type=int, default=0,
                         help="Stop reading after this many individuals (0 for all).")
     args = parser.parse_args()
 

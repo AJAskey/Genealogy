@@ -5,6 +5,16 @@ File: SnapGedcomLinks.py
 Summary: Deterministically merges isolated GEDCOM Golden Records into
          their corresponding Census Golden Records inside CleanVault_Gedcom.db.
          Includes aggressive matching and verbose debugging.
+
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 -----------------------------------
 """
 
@@ -34,9 +44,13 @@ def snap_links():
     con.execute("""
                 CREATE
                 TEMP TABLE gedcom_recs AS
-                SELECT c.golden_id, g.first_name, g.last_name, TRY_CAST(g.birth_year AS INTEGER) AS birth_year, c.vault_pointers
+                SELECT c.golden_id,
+                       g.first_name,
+                       g.last_name,
+                       TRY_CAST(g.birth_year AS INTEGER) AS birth_year,
+                       c.vault_pointers
                 FROM clean.golden_records c
-                JOIN gedcom.gedcom_records g ON g.gedcom_id = REPLACE(c.vault_pointers, 'GED_', '')
+                         JOIN gedcom.gedcom_records g ON g.gedcom_id = REPLACE(c.vault_pointers, 'GED_', '')
                 WHERE c.vault_pointers LIKE 'GED_%'
                   AND c.vault_pointers NOT LIKE '%|%'
                   AND c.vault_pointers NOT LIKE '%18%'

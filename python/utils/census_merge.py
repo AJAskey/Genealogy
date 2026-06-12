@@ -29,6 +29,15 @@ Identity Check:
 
 Run from PyCharm or command line:
   python census_merge.py
+  
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 """
 
 import os

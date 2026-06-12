@@ -12,6 +12,15 @@ Design:
   - It calculates absolute paths from the project root to avoid errors.
   - It instantiates the Codebook and other lookups, making them available
     as module-level variables.
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 --------------------------------
 """
 import json

@@ -10,6 +10,15 @@ Design:
                 a pointer back to the raw database (for rich attributes).
   - Family: Represents a nuclear family unit. Contains pointers to parents
             and a list of children (for top-down traversal).
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 """
 
 
@@ -50,7 +59,7 @@ class Individual:
         # CLAN / BLOODLINE IDs (The Founders)
         # ---------------------------------------------------------
         self.adam_id = None  # Maps to st_joes_patrilineal_id
-        self.eve_id = None   # Maps to st_joes_matrilineal_id
+        self.eve_id = None  # Maps to st_joes_matrilineal_id
 
     def __repr__(self):
         return f"<Individual [{self.st_joes_id}] {self.first_name} {self.last_name}>"

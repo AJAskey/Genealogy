@@ -15,6 +15,15 @@ Run this from the command line:
   python census_recon.py
 
 Or open it in PyCharm and hit Run.
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 """
 
 import os

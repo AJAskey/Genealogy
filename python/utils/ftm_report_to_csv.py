@@ -6,6 +6,15 @@ Summary: Parses an indented Family Tree Maker descendant text report
          and flattens it into a tabular CSV.
          It uses the generation numbers (1, 2, 3) and spouse indicators (+)
          to intelligently map parent birthplaces to every child!
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 -----------------------------------
 """
 
@@ -45,7 +54,11 @@ def convert_ftm_report(input_file, output_file, logger):
                 gen = str(row[0]).strip()
                 if not gen: continue
                 if len(row) > 1:
-                    text = str(row[1]).strip()
+                    # DECISION: Reconstruct the full text line by joining all remaining columns.
+                    # If a comma in the text was unquoted, the CSV reader splits the sentence 
+                    # across columns. This stitches it safely back together!
+                    text_parts = [str(c).strip() for c in row[1:] if str(c).strip()]
+                    text = ", ".join(text_parts)
                     lines_to_process.append((gen, text))
         else:
             for line in f:
@@ -156,7 +169,7 @@ def convert_ftm_report(input_file, output_file, logger):
 
                 p1_sex = p1.get('sex', '')
                 p2_sex = p2.get('sex', '')
-                
+
                 # Check sexes to assign father vs mother correctly
                 if p1_sex == '1' or p2_sex == '2':
                     person['father_birth_place'] = p1.get('birth_place', '')

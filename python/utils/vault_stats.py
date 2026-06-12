@@ -4,15 +4,15 @@ File: vault_stats.py
 
 Summary:
 
-Design:
 
-Inputs:
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
 
-Outputs:
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
-Comments for G:
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
 
---------------------------------
 
 """
 

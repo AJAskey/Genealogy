@@ -80,6 +80,7 @@ def crawl_archive(current_url, base_url, local_output_dir):
             time.sleep(DELAY_SECONDS)
             crawl_archive(full_url, base_url, local_output_dir)
         else:
+
             # It's a file (text data, index, etc.) -> Save it
             download_file(full_url, local_path)
 

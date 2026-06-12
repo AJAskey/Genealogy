@@ -5,6 +5,15 @@ File: LinkFamiliesByDemographics.py
 Summary: "The Time Machine"
          Links Relational Families across 10-year census gaps using an unbreakable
          10-variable demographic hash (Sex, BirthYr, BPL, FBPL, MBPL) for the couple.
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 -----------------------------------
 """
 
@@ -25,6 +34,7 @@ else:
 
 MASTER_DB = os.path.join(BASE_DATA_DIR, "MasterVault_Relational.db")
 MATCH_DB = os.path.join(BASE_DATA_DIR, "DemographicMatches.db")
+
 
 def link_households_across_decades(logger):
     logger.info("Initializing DuckDB... Finding demographic household matches across ALL consecutive decades.")
@@ -84,22 +94,38 @@ def link_households_across_decades(logger):
 
     logger.info("Step 2/3: Executing 10-Variable Nationwide Demographic Hash...")
     step2_start = time.time()
-    
+
     # DECISION: We make raw_links a PERMANENT table inside our SQLite match_db so we don't lose data on reboot.
     # We also create a progress tracker table to checkpoint our chunks.
     # UPDATE: We filter the links IN-MEMORY per chunk, and only save the final unique winners to avoid TBs of data.
     con.execute("""
-        CREATE TABLE IF NOT EXISTS match_db.household_links (
-            family_id_1 TEXT, family_id_2 TEXT,
-            year_1 INTEGER, year_2 INTEGER,
-            head_histid_1 TEXT, head_histid_2 TEXT,
-            spouse_histid_1 TEXT, spouse_histid_2 TEXT
-        );
-        CREATE TABLE IF NOT EXISTS match_db.completed_chunks (
-            base_year INTEGER,
-            target_year INTEGER
-        );
-    """)
+                CREATE TABLE IF NOT EXISTS match_db.household_links
+                (
+                    family_id_1
+                    TEXT,
+                    family_id_2
+                    TEXT,
+                    year_1
+                    INTEGER,
+                    year_2
+                    INTEGER,
+                    head_histid_1
+                    TEXT,
+                    head_histid_2
+                    TEXT,
+                    spouse_histid_1
+                    TEXT,
+                    spouse_histid_2
+                    TEXT
+                );
+                CREATE TABLE IF NOT EXISTS match_db.completed_chunks
+                (
+                    base_year
+                    INTEGER,
+                    target_year
+                    INTEGER
+                );
+                """)
 
     # DECISION: Divide and Conquer. Instead of joining 50M rows against 50M rows dynamically,
     # we explicitly loop through the decades. This forces the database to only compare ~5 million 
@@ -112,15 +138,17 @@ def link_households_across_decades(logger):
             target_year = base_year + gap
             if target_year > 1950:
                 continue
-            
+
             # Check if we already did this chunk before the reboot
-            is_done = con.execute(f"SELECT COUNT(*) FROM match_db.completed_chunks WHERE base_year = {base_year} AND target_year = {target_year}").fetchone()[0]
+            is_done = con.execute(
+                f"SELECT COUNT(*) FROM match_db.completed_chunks WHERE base_year = {base_year} AND target_year = {target_year}").fetchone()[
+                0]
             if is_done > 0:
                 logger.info(f"  -> Skipping {base_year} to {target_year} (Already completed in a previous run)")
                 continue
 
             logger.info(f"  -> Comparing {base_year} to {target_year}...")
-            
+
             con.execute(f"""
                 INSERT INTO match_db.household_links
                 WITH y1 AS (SELECT * FROM hh_features WHERE year = {base_year}),
@@ -152,13 +180,13 @@ def link_households_across_decades(logger):
                 GROUP BY family_id_1
                 HAVING COUNT(*) = 1;
             """)
-            
+
             # Mark chunk as complete
             con.execute(f"INSERT INTO match_db.completed_chunks VALUES ({base_year}, {target_year})")
 
     step2_end = time.time()
     logger.info(f"  -> Step 2 completed in {step2_end - step2_start:.2f} seconds.")
-    
+
     logger.info("Step 3/3: Enforcing Unique 1-to-1 Mathematical Matches...")
     # DECISION: Because we now filter IN-MEMORY during Step 2, Step 3 is instantaneous!
     logger.info("  -> Uniqueness was successfully enforced chunk-by-chunk in memory!")

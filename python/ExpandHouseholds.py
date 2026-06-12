@@ -9,13 +9,22 @@ Summary: Post-processing graph traversal script.
 
          It mints new Golden Records for these un-named dependents, infers
          their last name from the parent, and inserts them into the Clean Vault.
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
 -----------------------------------
 """
 
 import argparse
 import os
-import uuid
 import sys
+import uuid
 
 import duckdb
 import pandas as pd
@@ -61,21 +70,22 @@ def expand_households(logger, clean_db_path=DEFAULT_CLEAN_DB):
 
     logger.info("Extracting target households from Golden Records...")
     con.execute("""
-        CREATE TEMP TABLE expanded_golden AS
-        SELECT parent_golden_id, parent_last_name, comp_id, 
-               SPLIT_PART(comp_id, '_', 1) AS sample_id, 
-               SPLIT_PART(comp_id, '_', 2) AS serial, 
-               TRY_CAST(SPLIT_PART(comp_id, '_', 3) AS INTEGER) AS pernum
-        FROM (
-            SELECT golden_id AS parent_golden_id, 
-                   last_name AS parent_last_name, 
-                   UNNEST(string_split(vault_pointers, '|')) AS comp_id 
-            FROM clean.golden_records
-        )
-        WHERE comp_id NOT LIKE 'GED_%' 
-          AND comp_id NOT LIKE 'DEATH_%' 
-          AND comp_id NOT LIKE 'UNIDEATH_%';
-    """)
+                CREATE
+                TEMP TABLE expanded_golden AS
+                SELECT parent_golden_id,
+                       parent_last_name,
+                       comp_id,
+                       SPLIT_PART(comp_id, '_', 1)                      AS sample_id,
+                       SPLIT_PART(comp_id, '_', 2)                      AS serial,
+                       TRY_CAST(SPLIT_PART(comp_id, '_', 3) AS INTEGER) AS pernum
+                FROM (SELECT golden_id                                 AS parent_golden_id,
+                             last_name                                 AS parent_last_name,
+                             UNNEST(string_split(vault_pointers, '|')) AS comp_id
+                      FROM clean.golden_records)
+                WHERE comp_id NOT LIKE 'GED_%'
+                  AND comp_id NOT LIKE 'DEATH_%'
+                  AND comp_id NOT LIKE 'UNIDEATH_%';
+                """)
 
     unique_serials = [r[0] for r in con.execute("SELECT DISTINCT serial FROM expanded_golden").fetchall()]
     logger.info(f"Targeting {len(unique_serials):,} unique households...")

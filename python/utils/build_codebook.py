@@ -10,6 +10,16 @@ Skips:
     - Section headers (indented lines with no code)
     - Tautological entries where label == code  (1=1, 2=2, etc.)
     - Variables where no meaningful codes survive filtering
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
+
 """
 
 import re
