@@ -4,40 +4,42 @@ Before suggesting code modifications, writing new queries, or debugging errors, 
 </CONTEXT>
 
 <PROJECT_OVERVIEW>
-This project mathematically links manual genealogy (GEDCOM) records to 100 years of raw historical census data (1850-1950 IPUMS) and death indexes (BIRLS). 
-It uses a "Golden Architecture":
-1. Raw data is stored in read-only SQLite vaults (up to 100GB / 816 million rows).
-2. DuckDB is used as an in-memory engine to perform lightning-fast streaming and joining.
-3. Splink AI is used for probabilistic string matching.
-4. Python graph algorithms ("Living Room Sweep") traverse historical pointers to expand nuclear families.
-5. Outputs are FTM-compliant GEDCOM 5.5.1 files.
+This project mathematically links manual genealogy (Family Tree Maker reports) to 100 years of raw historical census data (1850-1950 IPUMS). 
+It uses a "Census-First Architecture":
+1. Raw IPUMS CSV data is ingested into strictly normalized SQLite Decade Vaults (approx. 800 million rows). Unnamed individuals are assigned the placeholder "Future Bosselstink".
+2. DuckDB is used as an in-memory OLAP "Time Machine" engine to perform lightning-fast cross-decade Cartesian joins, linking households over time.
+3. Connected Components (Graph algorithms) group these households into continuous 100-year "Clans".
+4. Family Tree Maker (FTM) descendant reports are flattened into 7-column CSVs (First, Last, Sex, BirthYr, BPL, FBPL, MBPL).
+5. Python executes a mathematically strict demographic handshake against the database to overwrite "Bosselstinks" with real historical names.
+6. Outputs are FTM-compliant GEDCOM 5.5.1 files containing fully verifiable census timelines.
 </PROJECT_OVERVIEW>
 
 <DATA_VAULTS>
-- `MasterVault_ALL.db`: 100% census data (816M rows). Nameless. Read-only.
-- `MasterVault_ALLs.db`: 5% sample census data (40M rows). Contains names. Read-only.
-- `DeathIndexVault.db`: BIRLS and Universal Death indexes.
-- `GedcomVault.db`: The user's parsed GEDCOM family anchors.
-- `CleanVault.db` (or `CleanVault_Gedcom.db`): Writable SQLite vault. Stores "Golden Records" (mathematically verified human identities with 16-char UUIDs).
+- `YearlyVaults/YearVault_19XX.db`: 10 individual SQLite databases (1850-1950). Contains `families` and `individuals` tables. Read-only ground truth.
+- `DemographicMatches.db`: The "Time Machine". Stores the `household_links` (DuckDB outputs) and the `clan_mapping` (Connected Components).
+- `MasterVault_Named.db`: The mutable copy of the vaults where real names are "painted" over placeholders.
 </DATA_VAULTS>
 
 <PIPELINE_EXECUTION_ORDER>
-To process a specific GEDCOM into a fully cited, expanded historical tree:
-
-1. `python python/IngestGedcomFile.py`
-   Parses the .ged file, captures the `FAM` tags (husband/wife/child relationships), and saves to `GedcomVault.db`.
+To process raw census data into a fully cited, expanded historical tree:
    
-2. `python python/MergeGedcomToCleanVault.py`
-   Deterministically pushes the GEDCOM names and their inter-generational relationships into `CleanVault_Gedcom.db` as foundational Golden Records.
-
-3. `python python/ExpandHouseholds.py --vault D:\Data\Genealogy_Data\CleanVault_Gedcom.db`
-   "The Living Room Sweep". Looks at target households, streams the raw census, follows POPLOC (Father) and MOMLOC (Mother) pointers, and mints new Golden Records for previously un-named dependents.
-
-4. `python python/utils/SnapGedcomLinks.py`
-   Aggressive deterministic snap. Matches isolated GEDCOM shells (who didn't get census timelines) to Census Golden Records using EXACT last name, +/- 5 birth year, and First Initial. Grafts their pointers together.
+1. `python python/utils/ftm_report_to_csv.py`
+   Parses an indented Family Tree Maker (FTM) descendant text/csv report. Intelligently maps Father's Birthplace (FBPL) and Mother's Birthplace (MBPL) down the bloodline into a flattened `ftm_extracted.csv`.
    
-5. `python python/utils/export_gedcom.py --out output\Tree.ged --vault D:\Data\Genealogy_Data\CleanVault_Gedcom.db --gedcom_only`
-   Fetches historical timelines for all matched pointers. Generates a Family Tree Maker (FTM) compliant GEDCOM file.
+2. `python python/utils/ValidateLocations.py`
+   Scans `ftm_extracted.csv` to ensure all text birthplaces successfully translate to IPUMS numerical codes using the internal crosswalk dictionary.
+
+3. `python python/DatabaseVault.py`
+   Ingests the raw IPUMS census CSV. Chunks data into 100,000-household memory buffers and dynamically writes to the `YearlyVaults` using WAL mode for speed and safety.
+
+4. `python python/LinkFamiliesByDemographics.py`
+   "The Time Machine". Uses DuckDB to perform a 10-variable demographic hash across overlapping decades (10, 20, 30 year gaps). Builds the `clan_mapping` table.
+
+5. `python python/GedcomNameOverlay.py`
+   Searches the Named Vault using the FTM CSV. Uses the "Anchor Strategy" to find perfect 1880+ matches (where parent birthplaces exist) and ripples the names backward through the Time Machine Clans to 1850.
+
+6. `python python/ExportCensusToGedcom.py`
+   Ripples the father's last name down to nameless children in the database, extracts target households, decodes IPUMS numbers to text, and generates the final `.ged` file.
 </PIPELINE_EXECUTION_ORDER>
 
 <CRITICAL_AI_DIRECTIVES>
@@ -54,10 +56,13 @@ If you modify the SQL or pipeline code, you MUST adhere to the following hard-wo
    Always chunk these queries (e.g., 50-200 items per chunk) to prevent max-expression-depth errors in SQLite. See `export_gedcom.py` for the exact implementation.
 
 3. FAMILY TREE MAKER (FTM) COMPLIANCE
-   FTM has a strict 22-character limit for GEDCOM XREF IDs. Our Golden Record IDs are 24+ characters (e.g., `@SJ_AUTO_1234567890ABCDEF@`). 
+   FTM has a strict 22-character limit for GEDCOM XREF IDs. If using UUIDs, you MUST map them to sequential integers (e.g., `@I1@`, `@F1@`) upon export.
    When exporting GEDCOM files, you MUST map the long UUIDs to sequential integers (e.g., `@I1@`, `@F1@`).
    The GEDCOM version MUST be written as `2 VERS 5.5.1`, not `7.0.18`, to prevent FTM rejection.
 
 4. THE PYTHON PATH CATCH-22
    Do not append messy `sys.path.append()` boilerplate to new files. The project uses a `.env` file in the root directory containing `PYTHONPATH=./python`. Assume the IDE or terminal will read this to resolve `from utils import gen_logging`.
+
+5. DECISION DOCUMENTATION
+   When writing or altering code that makes an architectural or data-level choice (e.g., "why are we using a +/- 2 year birth tolerance?"), you MUST precede the code block with a `# DECISION: [Explanation]` comment.
 </CRITICAL_AI_DIRECTIVES>

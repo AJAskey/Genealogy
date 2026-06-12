@@ -19,6 +19,7 @@ GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
 
 import os
 import time
+import sqlite3
 
 import duckdb
 
@@ -32,7 +33,7 @@ if os.name == 'nt':
 else:
     BASE_DATA_DIR = os.path.expanduser("~/Genealogy_Data")
 
-MASTER_DB = os.path.join(BASE_DATA_DIR, "MasterVault_Relational.db")
+VAULT_DIR = os.path.join(BASE_DATA_DIR, "YearlyVaults")
 MATCH_DB = os.path.join(BASE_DATA_DIR, "DemographicMatches.db")
 
 
@@ -58,36 +59,47 @@ def link_households_across_decades(logger):
     con.execute("INSTALL sqlite; LOAD sqlite;")
 
     logger.info("Attaching Vaults...")
-    # DECISION: Read directly from the SQLite Vaults without importing them into Python memory.
-    con.execute(f"ATTACH '{MASTER_DB}' AS master (TYPE SQLITE, READ_ONLY);")
     con.execute(f"ATTACH '{MATCH_DB}' AS match_db (TYPE SQLITE);")
 
     logger.info("Step 1/3: Extracting Head and Spouse Demographics...")
     step1_start = time.time()
     con.execute("""
-        -- DECISION: Pre-compute the 10-Variable Demographic Fingerprint for every couple in the database.
-        -- By flattening the Head and Spouse data into a single row per family_id, we make the cross-decade join drastically faster.
-        CREATE TEMP TABLE hh_features AS
-        SELECT 
-            f.family_id,
-            f.year,
-            h.histid AS head_histid,
-            h.sex AS head_sex,
-            h.birthyr AS head_birthyr,
-            h.bpld AS head_bpld,
-            h.fbpl AS head_fbpl,
-            h.mbpl AS head_mbpl,
-            s.histid AS spouse_histid,
-            s.sex AS spouse_sex,
-            s.birthyr AS spouse_birthyr,
-            s.bpld AS spouse_bpld,
-            s.fbpl AS spouse_fbpl,
-            s.mbpl AS spouse_mbpl
-        FROM master.families f
-        JOIN master.individuals h ON f.head_histid = h.histid
-        JOIN master.individuals s ON f.spouse_histid = s.histid
-        WHERE h.birthyr IS NOT NULL AND s.birthyr IS NOT NULL;
+        CREATE TEMP TABLE hh_features (
+            family_id VARCHAR,
+            year INTEGER,
+            head_histid VARCHAR,
+            head_sex VARCHAR,
+            head_birthyr INTEGER,
+            head_bpld VARCHAR,
+            head_fbpl VARCHAR,
+            head_mbpl VARCHAR,
+            spouse_histid VARCHAR,
+            spouse_sex VARCHAR,
+            spouse_birthyr INTEGER,
+            spouse_bpld VARCHAR,
+            spouse_fbpl VARCHAR,
+            spouse_mbpl VARCHAR
+        )
     """)
+
+    decades = [1850, 1860, 1870, 1880, 1900, 1910, 1920, 1930, 1940, 1950]
+    for year in decades:
+        db_path = os.path.join(VAULT_DIR, f"YearVault_{year}.db")
+        if os.path.exists(db_path):
+            logger.info(f"  -> Extracting features from {year}...")
+            con.execute(f"ATTACH '{db_path}' AS vault_{year} (TYPE SQLITE, READ_ONLY);")
+            con.execute(f"""
+                INSERT INTO hh_features
+                SELECT 
+                    f.family_id, f.year,
+                    h.histid, h.sex, h.birthyr, h.bpld, h.fbpl, h.mbpl,
+                    s.histid, s.sex, s.birthyr, s.bpld, s.fbpl, s.mbpl
+                FROM vault_{year}.families f
+                JOIN vault_{year}.individuals h ON f.head_histid = h.histid
+                JOIN vault_{year}.individuals s ON f.spouse_histid = s.histid
+                WHERE h.birthyr IS NOT NULL AND s.birthyr IS NOT NULL;
+            """)
+
     step1_end = time.time()
     feature_cnt = con.execute("SELECT COUNT(*) FROM hh_features").fetchone()[0]
     logger.info(f"  -> Extracted {feature_cnt:,} target couples in {step1_end - step1_start:.2f} seconds.")
@@ -130,6 +142,8 @@ def link_households_across_decades(logger):
     # DECISION: Divide and Conquer. Instead of joining 50M rows against 50M rows dynamically,
     # we explicitly loop through the decades. This forces the database to only compare ~5 million 
     # records at a time, bypassing the query optimizer's "Nested Loop" death spiral.
+    # DECISION: Using gaps of 10, 20, and 30 creates overlapping, multi-hop link types. This is intentional 
+    # so we can securely bridge the massive missing data gap from the 1890 Census fire.
     decades = [1850, 1860, 1870, 1880, 1900, 1910, 1920, 1930, 1940]
     gaps = [10, 20, 30]
 
@@ -172,13 +186,14 @@ def link_households_across_decades(logger):
                            AND (y1.spouse_fbpl = y2.spouse_fbpl OR y1.spouse_fbpl IS NULL OR y2.spouse_fbpl IS NULL)
                            AND (y1.spouse_mbpl = y2.spouse_mbpl OR y1.spouse_mbpl IS NULL OR y2.spouse_mbpl IS NULL)
                      )
-                SELECT family_id_1, MAX(family_id_2) AS family_id_2, 
-                       MAX(year_1) AS year_1, MAX(year_2) AS year_2,
-                       MAX(head_histid_1) AS head_histid_1, MAX(head_histid_2) AS head_histid_2,
-                       MAX(spouse_histid_1) AS spouse_histid_1, MAX(spouse_histid_2) AS spouse_histid_2
-                FROM raw_matches
-                GROUP BY family_id_1
-                HAVING COUNT(*) = 1;
+                SELECT family_id_1, family_id_2, 
+                       year_1, year_2,
+                       head_histid_1, head_histid_2,
+                       spouse_histid_1, spouse_histid_2
+                FROM raw_matches r1
+                WHERE family_id_1 IN (
+                    SELECT family_id_1 FROM raw_matches GROUP BY family_id_1 HAVING COUNT(*) = 1
+                );
             """)
 
             # Mark chunk as complete
@@ -191,9 +206,60 @@ def link_households_across_decades(logger):
     # DECISION: Because we now filter IN-MEMORY during Step 2, Step 3 is instantaneous!
     logger.info("  -> Uniqueness was successfully enforced chunk-by-chunk in memory!")
 
+    logger.info("Building indices on household_links to optimize downstream overlays...")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_links_famid1 ON match_db.household_links(family_id_1);")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_links_year1 ON match_db.household_links(year_1);")
+
     match_count = con.execute("SELECT COUNT(*) FROM match_db.household_links").fetchone()[0]
     logger.info(f"SUCCESS! Found {match_count:,} perfect multi-decade matches.")
-    logger.info(f"Saved to: {MATCH_DB}")
+    
+    con.close()
+
+    # --------------------------------------------------------------------------
+    # Step 4: Build the Clans
+    # --------------------------------------------------------------------------
+    logger.info("\nStep 4: Building Time Machine Clans (Connected Components)...")
+    with sqlite3.connect(MATCH_DB) as sq_conn:
+        sq_cursor = sq_conn.cursor()
+        
+        links = sq_cursor.execute("SELECT family_id_1, family_id_2 FROM household_links").fetchall()
+        
+        from collections import defaultdict
+        adj = defaultdict(list)
+        for u, v in links:
+            adj[u].append(v)
+            adj[v].append(u)
+            
+        visited = set()
+        clans = []
+        clan_id_counter = 1
+        
+        for node in adj.keys():
+            if node not in visited:
+                stack = [node]
+                current_clan = set()
+                while stack:
+                    curr = stack.pop()
+                    if curr not in visited:
+                        visited.add(curr)
+                        current_clan.add(curr)
+                        for neighbor in adj[curr]:
+                            if neighbor not in visited:
+                                stack.append(neighbor)
+                
+                for fam in current_clan:
+                    clans.append((fam, f"CLAN_{clan_id_counter}"))
+                clan_id_counter += 1
+                
+        logger.info(f"  -> Formed {clan_id_counter - 1:,} distinct family timelines.")
+        
+        sq_cursor.execute("DROP TABLE IF EXISTS clan_mapping")
+        sq_cursor.execute("CREATE TABLE clan_mapping (family_id TEXT PRIMARY KEY, clan_id TEXT)")
+        sq_cursor.executemany("INSERT INTO clan_mapping VALUES (?, ?)", clans)
+        sq_cursor.execute("CREATE INDEX IF NOT EXISTS idx_clan_map_fam ON clan_mapping(family_id)")
+        sq_conn.commit()
+
+    logger.info(f"SUCCESS! Time Machine saved to: {MATCH_DB}")
 
 
 if __name__ == "__main__":

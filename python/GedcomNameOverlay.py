@@ -96,7 +96,7 @@ def get_bpl_prefixes(birth_place):
         "wyoming": ["56", "056"],
 
         "england": ["410"], "scotland": ["411"], "wales": ["412"],
-        "ireland": ["414"], "northern ireland": ["414"],
+        "ireland": ["414"], "northern ireland": ["413"],
         "germany": ["453"], "sweden": ["404"], "norway": ["401"],
         "denmark": ["400"], "netherlands": ["425"], "france": ["421"],
         "switzerland": ["426"], "canada": ["150"], "mexico": ["200"],
@@ -222,6 +222,8 @@ def apply_gedcom_names(logger):
                                 AND first_name = 'Future'
                                 AND birthyr IS NOT NULL
                               """)
+        # DECISION: We execute fetchall() here to pull the data into Python RAM. 
+        # The list object 'bosselstinks' safely outlives the 'with' connection block.
         bosselstinks = sqlite_cursor.fetchall()
         logger.info(f"  -> Found {len(bosselstinks):,} Bosselstinks. Building memory index...")
 
@@ -243,7 +245,8 @@ def apply_gedcom_names(logger):
             fbpl_prefixes = get_bpl_prefixes(ind['fbpl'])
             mbpl_prefixes = get_bpl_prefixes(ind['mbpl'])
 
-            # Hunt for matches in the +/- 2 year window
+            # DECISION: Apply a +/- 2 year birth year tolerance to account for age rounding, 
+            # enumerator estimation errors, or differing birth months across census dates.
             results = []
             for offset in range(-2, 3):
                 key = (target_sex, target_byr + offset)
@@ -260,8 +263,8 @@ def apply_gedcom_names(logger):
                         if mbpl_prefixes:
                             if not db_mbpl or not any(str(db_mbpl).startswith(p) for p in mbpl_prefixes): continue
 
-                        logger.info(f"\n\tappend db_row:{db_row} \n")
-                        logger.info(
+                        logger.debug(f"\n\tappend db_row:{db_row} \n")
+                        logger.debug(
                             f"\tbpl_prefixes:{bpl_prefixes} mbpl_prefixes:{mbpl_prefixes}   fbpl_prefixes:{fbpl_prefixes} \n")
 
                         results.append(db_row)

@@ -43,8 +43,14 @@ from utils import gen_logging
 # TUNING KNOBS
 # ==============================================================================
 BATCH_SIZE = 100_000  # Number of *Households* to buffer before committing to DB
-VAULT_DIR = r"D:\Data\Genealogy_Data\YearlyVaults"
-input_directory = r"C:\tempc\ShortTermCSVfiles"
+
+if os.name == 'nt':
+    BASE_DATA_DIR = r"D:\Data\Genealogy_Data"
+else:
+    BASE_DATA_DIR = os.path.expanduser("~/Genealogy_Data")
+
+VAULT_DIR = os.path.join(BASE_DATA_DIR, "YearlyVaults")
+input_directory = os.path.join(BASE_DATA_DIR, "ShortTermCSVfiles")
 
 
 # ==============================================================================
@@ -63,6 +69,9 @@ def setup_database(db_path, logger):
     # DECISION: Set synchronous mode to NORMAL. In WAL mode, this provides a massive write speed boost
     # without risking database corruption, perfectly balancing our ingestion speed and safety.
     cursor.execute("PRAGMA synchronous = NORMAL;")
+
+    # DECISION: Enforce Relational Integrity during setup.
+    cursor.execute("PRAGMA foreign_keys = ON;")
 
     # DECISION: The Families Table represents the "Nuclear Family Unit", NOT just the physical house.
     # By tracking 'famunit', we separate multiple families living under the same roof (e.g., boarders, servants).
@@ -413,12 +422,14 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
             households_processed += 1
 
         for year, conn in conns_by_year.items():
-            if fam_batch_by_year[year]:
-                cursor = conn.cursor()
-                cursor.executemany(fam_insert_query, fam_batch_by_year[year])
-                cursor.executemany(ind_insert_query, ind_batch_by_year[year])
-                conn.commit()
-            conn.close()
+            try:
+                if fam_batch_by_year[year]:
+                    cursor = conn.cursor()
+                    cursor.executemany(fam_insert_query, fam_batch_by_year[year])
+                    cursor.executemany(ind_insert_query, ind_batch_by_year[year])
+                    conn.commit()
+            finally:
+                conn.close()
 
     elapsed = round((time.time() - start_time) / 60, 2)
     logger.info(f"  [{os.path.basename(input_csv)}]  DONE — {count:,} records in {elapsed} min.")
