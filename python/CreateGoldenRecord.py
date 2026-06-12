@@ -1,6 +1,6 @@
 """
 -----------------------------------
-File: GoldenRecordGenerator.py
+File: CreateGoldenRecord.py
 
 Summary: Entity resolution engine using Splink 4.
          Takes a prepared DuckDB view of census population data,
@@ -124,7 +124,8 @@ class CreateGoldenRecord:
                              CREATE TABLE sample_for_splink AS
                              (SELECT *
                               FROM population_for_splink
-                              WHERE sex = '1' AND SPLIT_PART(unique_id, '_', 3) = '1' USING SAMPLE 67000 ROWS)
+                              WHERE sex = '1'
+                                AND SPLIT_PART(unique_id, '_', 3) = '1' USING SAMPLE 67000 ROWS)
                              UNION ALL
                              (SELECT *
                               FROM population_for_splink
@@ -158,7 +159,7 @@ class CreateGoldenRecord:
                 if mode == "link":
                     self.logger.warning(f"  Model not found at '{model_path}', falling back to default settings.")
                 self.linker = Linker("population_for_splink", model_path if (
-                            model_path and os.path.exists(model_path)) else self.SPLINK_SETTINGS, db_api=db_api)
+                        model_path and os.path.exists(model_path)) else self.SPLINK_SETTINGS, db_api=db_api)
 
             self.logger.info("  Predicting match scores and clustering...")
             cluster_df = self._predict_and_cluster()

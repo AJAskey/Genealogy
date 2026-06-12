@@ -1,5 +1,21 @@
+"""
+-----------------------------------
+File: GoldenRecordGenerator.py
+
+Summary:
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+
+-----------------------------------
+"""
+
 import pandas as pd
-import splink.duckdb.comparison_library as cl
 from splink import DuckDBAPI, Linker
 
 
@@ -21,11 +37,11 @@ class GoldenRecordGenerator:
         # Splink 4 requires passing the DB connection through its specific API wrapper
         db_api = DuckDBAPI(connection=db_connection)
         self.linker = Linker(table_names, self.settings, db_api=db_api)
-        
+
         # Training omitted for brevity; assume pre-trained or unsupervised
         df_predict = self.linker.predict(threshold_match_probability=0.95)
         clusters = self.linker.cluster_pairwise_predictions_at_threshold(df_predict, 0.95)
-        
+
         # Splink 4 returns a SplinkDataFrame; explicitly materialize to Pandas
         return clusters.as_pandas_dataframe()
 
@@ -38,10 +54,10 @@ class GoldenRecordGenerator:
         """
         # Group by the cluster_id assigned by Splink
         golden_records = []
-        
+
         # Ensure birth_year is numeric so our outlier math doesn't crash
         cluster_df['birth_year'] = pd.to_numeric(cluster_df['birth_year'], errors='coerce')
-        
+
         for cluster_id, group in cluster_df.groupby("cluster_id"):
             # Claude's Outlier Guard: Drop crazy transcription errors (>10 years off median)
             median_yr = group['birth_year'].median()
