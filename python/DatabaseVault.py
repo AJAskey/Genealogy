@@ -17,7 +17,7 @@ Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
 License: Apache License 2.0
 http://www.apache.org/licenses/LICENSE-2.0
 
-GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+GitHub Open Source Project: https://github.com/AJAskey/Genealogy
 
 --------------------------------
 """
@@ -445,7 +445,7 @@ def build_indices(vault_dir, logger):
     """
     logger.info("Building indices for downstream queries... (This may take a while)")
     for filename in os.listdir(vault_dir):
-        if filename.endswith(".db"):
+        if filename.startswith("YearVault_") and filename.endswith(".db") and "Copy" not in filename:
             db_path = os.path.join(vault_dir, filename)
             logger.info(f"  -> Indexing {filename}...")
             with sqlite3.connect(db_path) as conn:

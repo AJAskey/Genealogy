@@ -12,18 +12,26 @@ Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
 License: Apache License 2.0
 http://www.apache.org/licenses/LICENSE-2.0
 
-GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+GitHub Open Source Project: https://github.com/AJAskey/Genealogy
 
 -----------------------------------
 """
 
 import os
-import time
 import sqlite3
+import sys
+import time
 
 import duckdb
 
-from python.utils import gen_logging
+# Add the 'python' directory and project root to sys.path so we can import properly
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(script_dir, '..'))
+for p in [os.path.join(project_root, 'python'), project_root]:
+    if p not in sys.path:
+        sys.path.append(p)
+
+from utils import gen_logging
 
 # ==============================================================================
 # CONFIGURATION
@@ -64,7 +72,8 @@ def link_households_across_decades(logger):
     logger.info("Step 1/3: Extracting Head and Spouse Demographics...")
     step1_start = time.time()
     con.execute("""
-        CREATE TEMP TABLE hh_features (
+                CREATE
+                TEMP TABLE hh_features (
             family_id VARCHAR,
             year INTEGER,
             head_histid VARCHAR,
@@ -80,7 +89,7 @@ def link_households_across_decades(logger):
             spouse_fbpl VARCHAR,
             spouse_mbpl VARCHAR
         )
-    """)
+                """)
 
     decades = [1850, 1860, 1870, 1880, 1900, 1910, 1920, 1930, 1940, 1950]
     for year in decades:
@@ -212,7 +221,7 @@ def link_households_across_decades(logger):
 
     match_count = con.execute("SELECT COUNT(*) FROM match_db.household_links").fetchone()[0]
     logger.info(f"SUCCESS! Found {match_count:,} perfect multi-decade matches.")
-    
+
     con.close()
 
     # --------------------------------------------------------------------------
@@ -221,19 +230,19 @@ def link_households_across_decades(logger):
     logger.info("\nStep 4: Building Time Machine Clans (Connected Components)...")
     with sqlite3.connect(MATCH_DB) as sq_conn:
         sq_cursor = sq_conn.cursor()
-        
+
         links = sq_cursor.execute("SELECT family_id_1, family_id_2 FROM household_links").fetchall()
-        
+
         from collections import defaultdict
         adj = defaultdict(list)
         for u, v in links:
             adj[u].append(v)
             adj[v].append(u)
-            
+
         visited = set()
         clans = []
         clan_id_counter = 1
-        
+
         for node in adj.keys():
             if node not in visited:
                 stack = [node]
@@ -246,13 +255,13 @@ def link_households_across_decades(logger):
                         for neighbor in adj[curr]:
                             if neighbor not in visited:
                                 stack.append(neighbor)
-                
+
                 for fam in current_clan:
                     clans.append((fam, f"CLAN_{clan_id_counter}"))
                 clan_id_counter += 1
-                
+
         logger.info(f"  -> Formed {clan_id_counter - 1:,} distinct family timelines.")
-        
+
         sq_cursor.execute("DROP TABLE IF EXISTS clan_mapping")
         sq_cursor.execute("CREATE TABLE clan_mapping (family_id TEXT PRIMARY KEY, clan_id TEXT)")
         sq_cursor.executemany("INSERT INTO clan_mapping VALUES (?, ?)", clans)

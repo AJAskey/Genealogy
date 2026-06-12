@@ -14,7 +14,7 @@ Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
 License: Apache License 2.0
 http://www.apache.org/licenses/LICENSE-2.0
 
-GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
+GitHub Open Source Project: https://github.com/AJAskey/Genealogy
 
 -----------------------------------
 """
@@ -116,12 +116,12 @@ def merge_gedcom(logger):
     # Match on first 3 letters of first name (to catch 'William' vs 'Wm') 
     # and exact match on last name + birth year (+/- 2).
     query = """
-            WITH squashed_census AS (SELECT base.composite_id                                                   AS unique_id,
-                                            COALESCE(samp.namefrst, base.namefrst)                              AS first_name,
-                                            COALESCE(samp.namelast, base.namelast)                              AS last_name,
+            WITH squashed_census AS (SELECT base.composite_id                      AS unique_id,
+                                            COALESCE(samp.namefrst, base.namefrst) AS first_name,
+                                            COALESCE(samp.namelast, base.namelast) AS last_name,
                                             NULLIF(CAST(COALESCE(samp.birthyr, base.birthyr) AS INTEGER),
-                                                   9999)                                                        AS birth_year,
-                                            COALESCE(samp.bpld, base.bpld)                                      AS birth_place
+                                                   9999)                           AS birth_year,
+                                            COALESCE(samp.bpld, base.bpld)         AS birth_place
                                      FROM census100.population base
                                               LEFT JOIN samples.population samp
                                                         ON base.year = samp.year AND base.serial = samp.serial AND
@@ -148,29 +148,29 @@ def merge_gedcom(logger):
                                       g.father_gedcom_id, g.mother_gedcom_id)
             INSERT
             INTO clean.golden_records
-            SELECT 'SJ_GED_' || m.gedcom_id                                                                 AS golden_id,
+            SELECT 'SJ_GED_' || m.gedcom_id                 AS golden_id,
                    m.first_name,
                    m.last_name,
                    m.birth_year,
                    m.birth_place,
-                   CAST(NULL AS VARCHAR)                                                                    AS state,
+                   CAST(NULL AS VARCHAR)                    AS state,
                    m.death_date,
-                   CAST(NULL AS VARCHAR)                                                                    AS census_years,
-                   m.census_cnt + 1                                                                         AS record_count,
-                   m.census_cnt                                                                             AS census_count,
-                   0                                                                                        AS death_record_count,
-                   1                                                                                        AS gedcom_count,
+                   CAST(NULL AS VARCHAR)                    AS census_years,
+                   m.census_cnt + 1                         AS record_count,
+                   m.census_cnt                             AS census_count,
+                   0                                        AS death_record_count,
+                   1                                        AS gedcom_count,
                    'GED_' || m.gedcom_id || CASE
                                                 WHEN m.census_cnt > 0 THEN '|' || m.census_ids
-                                                ELSE '' END                                                 AS vault_pointers,
+                                                ELSE '' END AS vault_pointers,
                    CASE
                        WHEN m.father_gedcom_id IS NOT NULL THEN 'GED_' || m.father_gedcom_id
-                       ELSE NULL END                                                                        AS father_pointer,
+                       ELSE NULL END                        AS father_pointer,
                    CASE
                        WHEN m.mother_gedcom_id IS NOT NULL THEN 'GED_' || m.mother_gedcom_id
-                       ELSE NULL END                                                                        AS mother_pointer,
-                   CAST(NULL AS VARCHAR)                                                                    AS st_joes_patrilineal_id,
-                   CAST(NULL AS VARCHAR)                                                                    AS st_joes_matrilineal_id
+                       ELSE NULL END                        AS mother_pointer,
+                   CAST(NULL AS VARCHAR)                    AS st_joes_patrilineal_id,
+                   CAST(NULL AS VARCHAR)                    AS st_joes_matrilineal_id
             FROM matches m; \
             """
 
