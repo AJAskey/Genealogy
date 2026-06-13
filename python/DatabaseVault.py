@@ -139,6 +139,10 @@ def setup_database(db_path, logger):
                        TEXT,
                        birthyr
                        INTEGER,
+                       birthmo
+                       INTEGER,
+                       marrnoyrs
+                       INTEGER,
                        bpld
                        TEXT,
                        fbpl
@@ -270,10 +274,11 @@ def process_household(rows):
 
         individuals_by_fam[family_id].append((
             histid, first_name, last_name, year, row.get('SAMPLE'), serial, pernum, famunit,
-            row.get('AGE'), row.get('SEX'), row.get('BIRTHYR'), row.get('BPLD') or row.get('BPL'),
-            row.get('FBPLD') or row.get('FBPL'), row.get('MBPLD') or row.get('MBPL'),
-            father_histid, mother_histid, family_id,
-            raw_data_json
+            row.get('AGE'), row.get('SEX'), row.get('BIRTHYR'), 
+            row.get('BIRTHMO'), row.get('MARRNOYRS'),
+            row.get('BPLD') or row.get('BPL'), row.get('FBPLD') or row.get('FBPL'), 
+            row.get('MBPLD') or row.get('MBPL'),
+            father_histid, mother_histid, family_id, raw_data_json
         ))
 
     final_inds = []
@@ -329,8 +334,8 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
                        INSERT \
                        OR IGNORE INTO individuals 
         (histid, first_name, last_name, year, sample, serial, pernum, famunit, 
-         age, sex, birthyr, bpld, fbpl, mbpl, father_histid, mother_histid, family_id, raw_data)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
+         age, sex, birthyr, birthmo, marrnoyrs, bpld, fbpl, mbpl, father_histid, mother_histid, family_id, raw_data)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
                        """
 
     fam_insert_query = """
@@ -454,6 +459,8 @@ def build_indices(vault_dir, logger):
                 cursor.execute(
                     "CREATE INDEX IF NOT EXISTS idx_individuals_names ON individuals(last_name, first_name);")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_families_year_serial ON families(year, serial);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_individuals_family ON individuals(family_id);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_families_head ON families(head_histid);")
     logger.info("Indices built successfully!")
 
 

@@ -47,6 +47,13 @@ class Individual:
         # ---------------------------------------------------------
         self.first_name = None
         self.last_name = None
+        self.birthyr = None
+        self.birthmo = None
+        self.sex = None
+        self.bpld = None
+        self.fbpl = None
+        self.mbpl = None
+        self.marrnoyrs = None
 
         # ---------------------------------------------------------
         # LINEAGE POINTERS (For Bottom-Up Traversal)
@@ -60,9 +67,10 @@ class Individual:
         # ---------------------------------------------------------
         self.adam_id = None  # Maps to st_joes_patrilineal_id
         self.eve_id = None  # Maps to st_joes_matrilineal_id
+        self.status = None
 
     def __repr__(self):
-        return f"<Individual [{self.st_joes_id}] {self.first_name} {self.last_name}>"
+        return f"<Individual [{self.st_joes_id}] {self.first_name} {self.last_name} (b.{self.birthyr})>"
 
 
 class Family:

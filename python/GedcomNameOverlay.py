@@ -3,7 +3,7 @@
 File: GedcomNameOverlay.py
 
 Summary: The "Label-Maker" for the Census-First Architecture.
-         Diagnostic Mode Enabled. Reads the flattened ftm_couples.csv.
+         Diagnostic Mode Enabled. Reads the gedcom_individuals.csv.
          Targeted to 1900 for deep demographic verification using the
          unbreakable 10-Variable Couple Anchor.
 
@@ -15,14 +15,40 @@ License: Apache License 2.0: http://www.apache.org/licenses/LICENSE-2.0
 GitHub Open Source Project: https://github.com/AJAskey/Genealogy
 -----------------------------------
 """
-# TODO  We are changing the format of the CSV file used as a data flow from the
-# GEDCOM to our model.
-# Please don't go and try to change it back to the old one.
+# The format of the CSV file used as a data flow from the
+# GEDCOM to our model is gedcom_individuals.csv.
+"""
+Here's the columns and format. 
+
+ID	I1865
+First Name	William Francis
+Last Name	Askey
+Sex	M
+Birth Date	4 JUL 1849
+Birth Place	Karthaus, Clearfield, Pennsylvania, USA
+Death Date	11-Mar-39
+Death Place	Karthaus, Clearfield, Pennsylvania, USA
+Burial Date	15-Mar-39
+Burial Place	Karthaus, Clearfield, Pennsylvania, USA
+Father	James Burton Askey
+Father Birth Year	1816
+Father Birth Place	Curwensville, Clearfield, Pennsylvania, USA
+Mother	Harriet Wycoff
+Mother Birth Year	1832
+Mother Birth Place	Cameron, Pennsylvania, USA
+Spouse(s)	Catharine Matilda Gross
+Spouse Birth Year(s)	1856
+Spouse Birth Place(s)	Keewaydin, Clearfield, Pennsylvania, USA
+Marriage Date(s)	20 SEP 1874
+Marriage Place(s)	Snow Shoe, Centre, Pennsylvania, USA
+Children	Josiah James Askey | Dortha Ellen Askey | Foster Edgar Askey | Richard Homer Askey | Mitchel Monroe Askey | Lemuel Talmage Askey | Roy Ralph Askey | Millard Cameron Askey | Rachel Pearl Askey | Nellie Ethel Askey | David Earl Askey | Sara Marie Askey | Eva M Askey
+"""
 
 import csv
 import gc
 import json
 import os
+import re
 import shutil
 import sqlite3
 import sys
@@ -35,6 +61,10 @@ for p in [script_dir, project_root]:
         sys.path.append(p)
 
 from utils import gen_logging
+from genealogy_classes import Individual, Family
+from rich import inspect
+from rich.console import Console
+
 
 if os.name == 'nt':
     BASE_DATA_DIR = r"D:\Data\Genealogy_Data"
@@ -112,66 +142,186 @@ def is_bpl_match(db_val, allowed_prefixes):
     return False
 
 
+def extract_state(loc_str):
+    """Strips city/county and returns only the state/country name."""
+    if not loc_str: return ""
+    loc_lower = loc_str.lower()
+    states = [
+        "alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut",
+        "delaware", "district of columbia", "florida", "georgia", "hawaii", "idaho", "illinois",
+        "indiana", "iowa", "kansas", "kentucky", "louisiana", "maine", "maryland", "massachusetts",
+        "michigan", "minnesota", "mississippi", "missouri", "montana", "nebraska", "nevada", "new hampshire",
+        "new jersey", "new mexico", "new york", "north carolina", "north dakota", "ohio", "oklahoma", "oregon",
+        "pennsylvania", "rhode island", "south carolina", "south dakota", "tennessee", "texas",
+        "utah", "vermont", "virginia", "washington", "west virginia", "wisconsin", "wyoming",
+        "england", "scotland", "wales", "ireland", "northern ireland", "germany", "sweden", "norway",
+        "denmark", "netherlands", "france", "switzerland", "canada", "mexico", "japan", "south korea"
+    ]
+    for s in states:
+        if s in loc_lower:
+            if s == "district of columbia": return "District of Columbia"
+            return s.title()
+    return loc_str.strip()
+
+
+def split_name(full_name):
+    """Safely splits a string into first/middle and last names, handling suffixes."""
+    tokens = full_name.replace(',', '').strip().split()
+    if not tokens: return "", ""
+    if len(tokens) == 1: return tokens[0], ""
+
+    suffixes = {'jr', 'jr.', 'sr', 'sr.', 'ii', 'iii', 'iv', 'v'}
+    if len(tokens) >= 3 and tokens[-1].lower() in suffixes:
+        return " ".join(tokens[:-2]), f"{tokens[-2]} {tokens[-1]}"
+
+    return " ".join(tokens[:-1]), tokens[-1]
+
+
+def parse_date(date_str):
+    """Extracts a 4-digit year and the month number from a date string."""
+    if not date_str:
+        return "", ""
+    date_str = str(date_str).upper()
+    byr_match = re.search(r'\b(1[456789]\d\d|20\d\d)\b', date_str)
+    byr = byr_match.group(1) if byr_match else ""
+
+    bmo = ""
+    months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+    for i, m in enumerate(months, 1):
+        if m in date_str:
+            bmo = str(i)
+            break
+
+    return byr, bmo
+
+
+def find_person(name, byr_str, people_by_name):
+    """Looks up a person in the dictionary by name and (optionally) birth year."""
+    if not name or name not in people_by_name:
+        return None
+    candidates = people_by_name[name]
+    if len(candidates) == 1:
+        return candidates[0]
+
+    target_byr, _ = parse_date(byr_str)
+    for c in candidates:
+        c_byr, _ = parse_date(c.get('Birth Date', ''))
+        if c_byr == target_byr:
+            return c
+    return candidates[0]
+
+
 def parse_csv_names_and_dates(filepath):
-    """Reads the flattened Couples CSV and extracts target families.
-
-ID	I1865
-First Name	William Francis
-Last Name	Askey
-Sex	M
-Birth Date	4 JUL 1849
-Birth Place	Karthaus, Clearfield, Pennsylvania, USA
-Death Date	11-Mar-39
-Death Place	Karthaus, Clearfield, Pennsylvania, USA
-Burial Date	15-Mar-39
-Burial Place	Karthaus, Clearfield, Pennsylvania, USA
-Father	James Burton Askey
-Mother	Harriet Wycoff
-Spouse(s)	Catharine Matilda Gross
-Marriage Date(s)	20 SEP 1874
-Marriage Place(s)	Snow Shoe, Centre, Pennsylvania, USA
-Children	Josiah James Askey | Dortha Ellen Askey | Foster Edgar Askey | Richard Homer Askey | Mitchel Monroe Askey | Lemuel Talmage Askey | Roy Ralph Askey | Millard Cameron Askey | Rachel Pearl Askey | Nellie Ethel Askey | David Earl Askey | Sara Marie Askey | Eva M Askey
-
+    """Reads the gedcom_individuals.csv and extracts target families.
     """
     target_couples = []
+    people_by_name = {}
+
     with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
         reader = csv.DictReader(f)
         for row in reader:
-            h_first = row.get('h_first', '').strip()
-            w_first = row.get('w_first', '').strip()
-
-            if '--' in h_first or '--' in w_first or 'Hidden' in h_first or 'Hidden' in w_first or '[' in h_first or '[' in w_first:
+            first = row.get('First Name', '').strip()
+            last = row.get('Last Name', '').strip()
+            if not last or '--' in last or 'Hidden' in last or '[' in last:
                 continue
 
-            h_byr_str = row.get('h_byr', '').strip()
-            w_byr_str = row.get('w_byr', '').strip()
+            name_key = f"{first} {last}".strip()
+            if name_key not in people_by_name:
+                people_by_name[name_key] = []
+            people_by_name[name_key].append(row)
 
-            if not h_byr_str or not w_byr_str:
+    seen_couples = set()
+
+    with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            p1_first = row.get('First Name', '').strip()
+            p1_last = row.get('Last Name', '').strip()
+            if not p1_last or '--' in p1_last or 'Hidden' in p1_last or '[' in p1_last:
                 continue
 
-            try:
-                target_couples.append({
-                    'h_first': h_first,
-                    'h_last': row.get('h_last', '').strip(),
-                    'h_byr': int(h_byr_str) if h_byr_str.isdigit() else None,
-                    'h_bmo': row.get('h_bmo', '').strip().lstrip('0'),
-                    'h_bpl': row.get('h_bpl', '').strip(),
-                    'h_fbpl': row.get('h_fbpl', '').strip(),
-                    'h_mbpl': row.get('h_mbpl', '').strip(),
+            p1_sex = row.get('Sex', '').strip().upper()
+            p1_byr, p1_bmo = parse_date(row.get('Birth Date', ''))
+            p1_bpl = extract_state(row.get('Birth Place', ''))
+            p1_fbpl = extract_state(row.get('Father Birth Place', ''))
+            p1_mbpl = extract_state(row.get('Mother Birth Place', ''))
 
-                    'w_first': w_first,
-                    'w_last': row.get('w_last', '').strip(),
-                    'w_byr': int(w_byr_str) if w_byr_str.isdigit() else None,
-                    'w_bmo': row.get('w_bmo', '').strip().lstrip('0'),
-                    'w_bpl': row.get('w_bpl', '').strip(),
-                    'w_fbpl': row.get('w_fbpl', '').strip(),
-                    'w_mbpl': row.get('w_mbpl', '').strip(),
+            # DECISION: Fallback to individual's birthplace if parent's birthplace is missing
+            if not p1_fbpl: p1_fbpl = p1_bpl
+            if not p1_mbpl: p1_mbpl = p1_bpl
 
-                    'marr_yr': int(row['marr_yr']) if row.get('marr_yr', '').isdigit() else None,
-                    'num_children': int(row.get('num_children', 0) or 0)
-                })
-            except ValueError:
-                pass
+            spouses_str = row.get('Spouse(s)', '')
+
+            if spouses_str and p1_sex == 'M':
+                spouses = [s.strip() for s in spouses_str.split('|')]
+                sp_byrs_str = [s.strip() for s in row.get('Spouse Birth Year(s)', '').split('|')]
+                sp_bpls_str = [s.strip() for s in row.get('Spouse Birth Place(s)', '').split('|')]
+                marr_dates = [s.strip() for s in row.get('Marriage Date(s)', '').split('|')]
+
+                children_str = row.get('Children', '').strip()
+                num_children_str = str(row.get('Num Children', '')).strip()
+
+                if num_children_str.isdigit():
+                    num_children = int(num_children_str)
+                else:
+                    num_children = len([c for c in children_str.split('|') if c.strip()]) if children_str else 0
+
+                for i, sp_name in enumerate(spouses):
+                    if not sp_name:
+                        continue
+
+                    sp_byr_fallback = sp_byrs_str[i].strip() if i < len(sp_byrs_str) else ""
+                    sp_bpl_fallback = sp_bpls_str[i].strip() if i < len(sp_bpls_str) else ""
+                    marr_date = marr_dates[i].strip() if i < len(marr_dates) else ""
+                    marr_yr, _ = parse_date(marr_date)
+
+                    sp_row = find_person(sp_name, sp_byr_fallback, people_by_name)
+                    if sp_row:
+                        w_first = sp_row.get('First Name', '').strip()
+                        w_last = sp_row.get('Last Name', '').strip()
+                        w_byr, w_bmo = parse_date(sp_row.get('Birth Date', ''))
+                        w_bpl = extract_state(sp_row.get('Birth Place', ''))
+                        w_fbpl = extract_state(sp_row.get('Father Birth Place', ''))
+                        w_mbpl = extract_state(sp_row.get('Mother Birth Place', ''))
+                    else:
+                        w_first, w_last = split_name(sp_name)
+                        w_byr, w_bmo = parse_date(sp_byr_fallback)
+                        w_bpl = extract_state(sp_bpl_fallback)
+                        w_fbpl, w_mbpl = "", ""
+
+                    # DECISION: Fallback to individual's birthplace if parent's birthplace is missing
+                    if not w_fbpl: w_fbpl = w_bpl
+                    if not w_mbpl: w_mbpl = w_bpl
+
+                    if not w_last or '--' in w_last or 'Hidden' in w_last or '[' in w_last:
+                        continue
+
+                    if not p1_byr or not w_byr:
+                        continue
+
+                    couple_key = f"{p1_first}_{p1_last}_{w_first}_{w_last}"
+                    if couple_key not in seen_couples:
+                        target_couples.append({
+                            'h_first': p1_first,
+                            'h_last': p1_last,
+                            'h_byr': int(p1_byr) if p1_byr else None,
+                            'h_bmo': p1_bmo,
+                            'h_bpl': p1_bpl,
+                            'h_fbpl': p1_fbpl,
+                            'h_mbpl': p1_mbpl,
+
+                            'w_first': w_first,
+                            'w_last': w_last,
+                            'w_byr': int(w_byr) if w_byr else None,
+                            'w_bmo': w_bmo,
+                            'w_bpl': w_bpl,
+                            'w_fbpl': w_fbpl,
+                            'w_mbpl': w_mbpl,
+
+                            'marr_yr': int(marr_yr) if marr_yr else None,
+                            'num_children': num_children
+                        })
+                        seen_couples.add(couple_key)
     return target_couples
 
 
@@ -195,9 +345,9 @@ def apply_gedcom_names(logger):
                 logger.info(f"  -> {filename} already copied.")
 
     logger.info(f"\nStep 2/4: Scanning for CSV files in: {GEDCOM_INPUT_DIR}")
-    csv_files = [f for f in os.listdir(GEDCOM_INPUT_DIR) if f.lower() in ('gedcom_individuals.csv')]
+    csv_files = [f for f in os.listdir(GEDCOM_INPUT_DIR) if f.lower().endswith('individuals.csv')]
     if not csv_files:
-        logger.warning("  -> gedcom_individuals.csv ")
+        logger.warning("  -> *_individuals.csv not found!")
         return
 
     all_target_couples = []
@@ -226,6 +376,7 @@ def apply_gedcom_names(logger):
             'clans': set(),
             'unclanned': set(),
             'too_many': False,
+            'searched': False,
 
             'h_sex': '1',  # Male
             'h_byr': fam['h_byr'],
@@ -254,9 +405,12 @@ def apply_gedcom_names(logger):
         if TARGET_DECADE and TARGET_DECADE not in filename:
             continue
 
+        census_year = int(filename.replace("NamedVault_", "").replace(".db", ""))
+
         db_path = os.path.join(NAMED_VAULT_DIR, filename)
         logger.info(f"  -> Loading nameless couples from {filename} into memory...")
         with sqlite3.connect(db_path) as conn:
+
             bosselstinks = conn.execute("""
                                         SELECT f.family_id,
                                                f.numprec,
@@ -294,8 +448,17 @@ def apply_gedcom_names(logger):
             if match_data['too_many'] or not match_data['h_byr'] or not match_data['w_byr']:
                 continue
 
-            # Print diagnostic info for the first 500 people
-            debug_print = DEBUG_MODE and i < 50
+            # DECISION: Biological Reality Filter.
+            # If they would be over 110 years old, they are dead. Under 14? Too young to be a Head/Spouse.
+            # Don't waste CPU or log space searching for them!
+            h_age = census_year - match_data['h_byr']
+            w_age = census_year - match_data['w_byr']
+            if not (14 <= h_age <= 110) or not (14 <= w_age <= 110):
+                continue
+
+            match_data['searched'] = True
+
+            debug_print = DEBUG_MODE
 
             if debug_print:
                 h_name = f"{match_data['fam']['h_first']} {match_data['fam']['h_last']}"
@@ -333,39 +496,48 @@ def apply_gedcom_names(logger):
                             if match_data['h_sex'] and db_row[3] != match_data['h_sex']: continue
                             if match_data['w_sex'] and db_row[9] != match_data['w_sex']: continue
 
-                            # Check BPLs for Husband
-                            if match_data['h_bpl_pref'] and not is_bpl_match(db_h_bpld,
-                                                                             match_data['h_bpl_pref']): continue
-                            if match_data['h_fbpl_pref'] and not is_bpl_match(db_h_fbpl,
-                                                                              match_data['h_fbpl_pref']): continue
-                            if match_data['h_mbpl_pref'] and not is_bpl_match(db_h_mbpl,
-                                                                              match_data['h_mbpl_pref']): continue
+                            try:
+                                h_raw = json.loads(db_row[14])
+                                w_raw = json.loads(db_row[15])
+                            except (json.JSONDecodeError, TypeError):
+                                h_raw, w_raw = {}, {}
 
-                            # Check BPLs for Wife
-                            if match_data['w_bpl_pref'] and not is_bpl_match(db_w_bpld,
-                                                                             match_data['w_bpl_pref']): continue
-                            if match_data['w_fbpl_pref'] and not is_bpl_match(db_w_fbpl,
-                                                                              match_data['w_fbpl_pref']): continue
-                            if match_data['w_mbpl_pref'] and not is_bpl_match(db_w_mbpl,
-                                                                              match_data['w_mbpl_pref']): continue
-
-                            db_numprec = int(db_row[1]) if str(db_row[1]).isdigit() else 2
+                            # DECISION: Extract exact child count from the JSON Bread Crumbs
+                            db_nchild_str = str(h_raw.get('NCHILD', '')).strip()
+                            if db_nchild_str.isdigit():
+                                db_kids = int(db_nchild_str)
+                            else:
+                                db_numprec = int(db_row[1]) if str(db_row[1]).isdigit() else 2
+                                db_kids = max(0, db_numprec - 2)
 
                             # DECISION: The "Has Kids" Boolean Filter.
-                            # If our spreadsheet says they had children, but the census house only has 2 people, reject it!
-                            if match_data['num_children'] > 0 and db_numprec <= 2:
+                            if match_data['num_children'] > 0 and db_kids == 0:
                                 continue
 
-                            target_size = match_data['num_children'] + 2
-                            size_diff = abs(db_numprec - target_size)
+                            size_diff = abs(db_kids - match_data['num_children'])
                             age_diff = abs(h_off) + abs(w_off)
 
                             score = size_diff + age_diff
 
-                            # DECISION: Unpack JSON Bread Crumbs to extract Birth Month and Years Married.
+                            # DECISION: Soft-Score the Birthplaces!
+                            # Instead of throwing the family in the trash if the census taker wrote the wrong state,
+                            # we apply a penalty to their score.
+                            if match_data['h_bpl_pref'] and not is_bpl_match(db_h_bpld,
+                                                                             match_data['h_bpl_pref']): score += 5
+                            if match_data['h_fbpl_pref'] and not is_bpl_match(db_h_fbpl,
+                                                                              match_data['h_fbpl_pref']): score += 2
+                            if match_data['h_mbpl_pref'] and not is_bpl_match(db_h_mbpl,
+                                                                              match_data['h_mbpl_pref']): score += 2
+
+                            if match_data['w_bpl_pref'] and not is_bpl_match(db_w_bpld,
+                                                                             match_data['w_bpl_pref']): score += 5
+                            if match_data['w_fbpl_pref'] and not is_bpl_match(db_w_fbpl,
+                                                                              match_data['w_fbpl_pref']): score += 2
+                            if match_data['w_mbpl_pref'] and not is_bpl_match(db_w_mbpl,
+                                                                              match_data['w_mbpl_pref']): score += 2
+
+                            # DECISION: Extract Birth Month and Years Married.
                             try:
-                                h_raw = json.loads(db_row[14])
-                                w_raw = json.loads(db_row[15])
 
                                 db_h_bmo = str(h_raw.get('BIRTHMO', '')).strip().lstrip('0')
                                 db_w_bmo = str(w_raw.get('BIRTHMO', '')).strip().lstrip('0')
@@ -394,6 +566,7 @@ def apply_gedcom_names(logger):
                                             else:
                                                 score += 5
                             except (json.JSONDecodeError, TypeError):
+                                logger.error("  -> JSONDecodeError 2.")
                                 pass
 
                             scored_matches.append((score, db_row))
@@ -419,6 +592,8 @@ def apply_gedcom_names(logger):
                         if debug_print and matches_this_decade <= 5:
                             logger.info(
                                 f"   [MATCH FOUND] H_BYR={db_row[4]} W_BYR={db_row[10]} | Score: {best_score} | FamID: {fam_id}")
+                            logger.info(
+                                f"      HBP={db_h_bpld} WBP={db_w_bpld}  HFBP={db_h_fbpl}  HMBP={db_h_mbpl}  WFBP={db_w_fbpl}  WMBP={db_w_mbpl} ")
 
             if debug_print and matches_this_decade > 5:
                 logger.info(f"   ... and {matches_this_decade - 5} more matches found in this decade.")
@@ -445,15 +620,27 @@ def apply_gedcom_names(logger):
     too_many_count = 0
     zero_count = 0
     success_count = 0
+    ignored_count = 0
 
     clans_to_update = {}
     unclanned_to_update = {}
     flagged_multiples = set()
 
+    logger.info(f"  --- Try TARGET DEMOGRAPHICS ---")
+    logger.info(
+        f"      HUSB: {h_name} (b.{match_data['h_byr']} mo.{match_data['h_bmo']}) | BPL: {match_data['h_bpl_pref']} | FBPL: {match_data['h_fbpl_pref']} | MBPL: {match_data['h_mbpl_pref']}")
+    logger.info(
+        f"      WIFE: {w_name} (b.{match_data['w_byr']} mo.{match_data['w_bmo']}) | BPL: {match_data['w_bpl_pref']} | FBPL: {match_data['w_fbpl_pref']} | MBPL: {match_data['w_mbpl_pref']}")
+    logger.info(f"      MARR: {match_data['marr_yr']} | KIDS: {match_data['num_children']}")
+
     for match_data in target_matches.values():
         fam = match_data['fam']
         h_name = f"{fam['h_first']} {fam['h_last']}"
         w_name = f"{fam['w_first']} {fam['w_last']}"
+
+        if not match_data['searched']:
+            ignored_count += 1
+            continue
 
         if match_data['too_many'] or not match_data['h_byr'] or not match_data['w_byr']:
             too_many_count += 1
@@ -469,6 +656,43 @@ def apply_gedcom_names(logger):
                 score, db_row = match_data['results'][0]
                 logger.info(
                     f"  [PERFECT MATCH] (Score: {score}) {h_name} & {w_name} -> FamID: {db_row[0]} | Size: {db_row[1]} | H: b.{db_row[4]} (BPL:{db_row[5]} F:{db_row[6]} M:{db_row[7]}) | W: b.{db_row[10]} (BPL:{db_row[11]} F:{db_row[12]} M:{db_row[13]})")
+
+                # DECISION: Instantiate Genealogy Classes using the successfully matched data!
+                fam_id = db_row[0]
+                fam_obj = Family(family_id=fam_id)
+                fam_obj.husband_id = db_row[2]
+                fam_obj.wife_id = db_row[8]
+                fam_obj.score = score
+                
+                try:
+                    h_raw = json.loads(db_row[14]) if db_row[14] else {}
+                    w_raw = json.loads(db_row[15]) if db_row[15] else {}
+                except (json.JSONDecodeError, TypeError):
+                    h_raw, w_raw = {}, {}
+
+                h_indi = Individual(st_joes_id=fam_obj.husband_id, raw_composite_id=fam_obj.husband_id, fam_id=fam_id)
+                h_indi.first_name, h_indi.last_name = fam['h_first'], fam['h_last']
+                h_indi.sex, h_indi.birthyr = db_row[3], db_row[4]
+                h_indi.bpld, h_indi.fbpl, h_indi.mbpl = db_row[5], db_row[6], db_row[7]
+                h_indi.birthmo, h_indi.marrnoyrs = h_raw.get('BIRTHMO'), h_raw.get('MARRNOYRS')
+                h_indi.status = "HUSBAND"
+
+                w_indi = Individual(st_joes_id=fam_obj.wife_id, raw_composite_id=fam_obj.wife_id, fam_id=fam_id)
+                w_indi.first_name, w_indi.last_name = fam['w_first'], fam['w_last']
+                w_indi.sex, w_indi.birthyr = db_row[9], db_row[10]
+                w_indi.bpld, w_indi.fbpl, w_indi.mbpl = db_row[11], db_row[12], db_row[13]
+                w_indi.birthmo, w_indi.marrnoyrs = w_raw.get('BIRTHMO'), w_raw.get('MARRNOYRS')
+                w_indi.status = "SPOUSE"
+                
+                if DEBUG_MODE:
+                    rich_console = Console()
+                    with rich_console.capture() as capture:
+                        inspect(h_indi, console=rich_console)
+                    logger.info(f"\n[HUSBAND - OVERLAY VERIFIED]\n{capture.get()}")
+                    
+                    with rich_console.capture() as capture:
+                        inspect(w_indi, console=rich_console)
+                    logger.info(f"\n[SPOUSE - OVERLAY VERIFIED]\n{capture.get()}")
 
             if len(match_data['clans']) == 1:
                 clans_to_update[list(match_data['clans'])[0]] = fam
@@ -521,6 +745,7 @@ def apply_gedcom_names(logger):
     logger.info(f"  -> Multiple Matches Flagged (<20): {multiple_count:,}")
     logger.info(f"  -> Too Many Matches (Skipped): {too_many_count:,}")
     logger.info(f"  -> Zero Matches (Skipped): {zero_count:,}")
+    logger.info(f"  -> Biologically Impossible (Skipped): {ignored_count:,}")
 
     # DECISION: The Living Room Sweep
     if clans_to_update or unclanned_to_update:
@@ -555,15 +780,18 @@ def apply_gedcom_names(logger):
                             update_queue_by_year[year_prefix].append((t_fam['w_first'], t_fam['w_last'], histid))
 
     logger.info(f"\nStep 4/4: Applying historical names to the census records...")
-    for year, q in update_queue_by_year.items():
-        if not q: continue
-        db_path = os.path.join(NAMED_VAULT_DIR, f"NamedVault_{year}.db")
-        if os.path.exists(db_path):
-            logger.info(f"  -> Executing {len(q):,} updates in {year}...")
-            with sqlite3.connect(db_path) as sqlite_conn:
-                sqlite_conn.execute("PRAGMA journal_mode=WAL")
-                sqlite_conn.executemany("UPDATE individuals SET first_name = ?, last_name = ? WHERE histid = ?", q)
-                sqlite_conn.commit()
+    if DEBUG_MODE:
+        logger.info("  -> [DEBUG MODE] Skipping database UPDATE to preserve 'Bosselstink' test data.")
+    else:
+        for year, q in update_queue_by_year.items():
+            if not q: continue
+            db_path = os.path.join(NAMED_VAULT_DIR, f"NamedVault_{year}.db")
+            if os.path.exists(db_path):
+                logger.info(f"  -> Executing {len(q):,} updates in {year}...")
+                with sqlite3.connect(db_path) as sqlite_conn:
+                    sqlite_conn.execute("PRAGMA journal_mode=WAL")
+                    sqlite_conn.executemany("UPDATE individuals SET first_name = ?, last_name = ? WHERE histid = ?", q)
+                    sqlite_conn.commit()
 
     logger.info("\nSUCCESS! CSV Name Overlay complete.")
 
