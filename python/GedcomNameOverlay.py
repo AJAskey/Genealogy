@@ -15,9 +15,13 @@ License: Apache License 2.0: http://www.apache.org/licenses/LICENSE-2.0
 GitHub Open Source Project: https://github.com/AJAskey/Genealogy
 -----------------------------------
 """
+# TODO  We are changing the format of the CSV file used as a data flow from the
+# GEDCOM to our model.
+# Please don't go and try to change it back to the old one.
 
 import csv
 import gc
+import json
 import os
 import shutil
 import sqlite3
@@ -109,7 +113,26 @@ def is_bpl_match(db_val, allowed_prefixes):
 
 
 def parse_csv_names_and_dates(filepath):
-    """Reads the flattened Couples CSV and extracts target families."""
+    """Reads the flattened Couples CSV and extracts target families.
+
+ID	I1865
+First Name	William Francis
+Last Name	Askey
+Sex	M
+Birth Date	4 JUL 1849
+Birth Place	Karthaus, Clearfield, Pennsylvania, USA
+Death Date	11-Mar-39
+Death Place	Karthaus, Clearfield, Pennsylvania, USA
+Burial Date	15-Mar-39
+Burial Place	Karthaus, Clearfield, Pennsylvania, USA
+Father	James Burton Askey
+Mother	Harriet Wycoff
+Spouse(s)	Catharine Matilda Gross
+Marriage Date(s)	20 SEP 1874
+Marriage Place(s)	Snow Shoe, Centre, Pennsylvania, USA
+Children	Josiah James Askey | Dortha Ellen Askey | Foster Edgar Askey | Richard Homer Askey | Mitchel Monroe Askey | Lemuel Talmage Askey | Roy Ralph Askey | Millard Cameron Askey | Rachel Pearl Askey | Nellie Ethel Askey | David Earl Askey | Sara Marie Askey | Eva M Askey
+
+    """
     target_couples = []
     with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
         reader = csv.DictReader(f)
@@ -131,6 +154,7 @@ def parse_csv_names_and_dates(filepath):
                     'h_first': h_first,
                     'h_last': row.get('h_last', '').strip(),
                     'h_byr': int(h_byr_str) if h_byr_str.isdigit() else None,
+                    'h_bmo': row.get('h_bmo', '').strip().lstrip('0'),
                     'h_bpl': row.get('h_bpl', '').strip(),
                     'h_fbpl': row.get('h_fbpl', '').strip(),
                     'h_mbpl': row.get('h_mbpl', '').strip(),
@@ -138,10 +162,12 @@ def parse_csv_names_and_dates(filepath):
                     'w_first': w_first,
                     'w_last': row.get('w_last', '').strip(),
                     'w_byr': int(w_byr_str) if w_byr_str.isdigit() else None,
+                    'w_bmo': row.get('w_bmo', '').strip().lstrip('0'),
                     'w_bpl': row.get('w_bpl', '').strip(),
                     'w_fbpl': row.get('w_fbpl', '').strip(),
                     'w_mbpl': row.get('w_mbpl', '').strip(),
 
+                    'marr_yr': int(row['marr_yr']) if row.get('marr_yr', '').isdigit() else None,
                     'num_children': int(row.get('num_children', 0) or 0)
                 })
             except ValueError:
@@ -169,9 +195,9 @@ def apply_gedcom_names(logger):
                 logger.info(f"  -> {filename} already copied.")
 
     logger.info(f"\nStep 2/4: Scanning for CSV files in: {GEDCOM_INPUT_DIR}")
-    csv_files = [f for f in os.listdir(GEDCOM_INPUT_DIR) if f.lower() == 'ftm_couples.csv']
+    csv_files = [f for f in os.listdir(GEDCOM_INPUT_DIR) if f.lower() in ('gedcom_individuals.csv')]
     if not csv_files:
-        logger.warning("  -> ftm_couples.csv not found! Please run ftm_report_to_csv.py first.")
+        logger.warning("  -> gedcom_individuals.csv ")
         return
 
     all_target_couples = []
@@ -203,16 +229,19 @@ def apply_gedcom_names(logger):
 
             'h_sex': '1',  # Male
             'h_byr': fam['h_byr'],
+            'h_bmo': fam['h_bmo'],
             'h_bpl_pref': get_bpl_prefixes(fam['h_bpl']),
             'h_fbpl_pref': get_bpl_prefixes(fam['h_fbpl']),
             'h_mbpl_pref': get_bpl_prefixes(fam['h_mbpl']),
 
             'w_sex': '2',  # Female
             'w_byr': fam['w_byr'],
+            'w_bmo': fam['w_bmo'],
             'w_bpl_pref': get_bpl_prefixes(fam['w_bpl']),
             'w_fbpl_pref': get_bpl_prefixes(fam['w_fbpl']),
             'w_mbpl_pref': get_bpl_prefixes(fam['w_mbpl']),
 
+            'marr_yr': fam['marr_yr'],
             'num_children': fam.get('num_children', 0)
         } for i, fam in enumerate(all_target_couples)
     }
@@ -230,6 +259,7 @@ def apply_gedcom_names(logger):
         with sqlite3.connect(db_path) as conn:
             bosselstinks = conn.execute("""
                                         SELECT f.family_id,
+                                               f.numprec,
                                                h.histid,
                                                h.sex,
                                                h.birthyr,
@@ -241,7 +271,9 @@ def apply_gedcom_names(logger):
                                                s.birthyr,
                                                s.bpld,
                                                s.fbpl,
-                                               s.mbpl
+                                               s.mbpl,
+                                               h.raw_data,
+                                               s.raw_data
                                         FROM families f
                                                  JOIN individuals h ON f.head_histid = h.histid
                                                  JOIN individuals s ON f.spouse_histid = s.histid
@@ -254,7 +286,7 @@ def apply_gedcom_names(logger):
         logger.info(f"     Building memory index for {len(bosselstinks):,} couples...")
         mem_index = defaultdict(list)
         for row in bosselstinks:
-            mem_index[(row[3], row[9])].append(row)  # Index by H_BYR, W_BYR
+            mem_index[(row[4], row[10])].append(row)  # Index by H_BYR, W_BYR
 
         logger.info(f"     Matching targets against {filename}...")
 
@@ -262,7 +294,7 @@ def apply_gedcom_names(logger):
             if match_data['too_many'] or not match_data['h_byr'] or not match_data['w_byr']:
                 continue
 
-            # Print diagnostic info for the first 50 people
+            # Print diagnostic info for the first 500 people
             debug_print = DEBUG_MODE and i < 50
 
             if debug_print:
@@ -271,9 +303,9 @@ def apply_gedcom_names(logger):
                 logger.info(
                     f"\n[SEARCHING] Couple: {h_name} (b. {match_data['h_byr']}) & {w_name} (b. {match_data['w_byr']}) | Kids: {match_data['num_children']}")
                 logger.info(
-                    f"   HUSB Needs -> BPL: {match_data['h_bpl_pref']} | FBPL: {match_data['h_fbpl_pref']} | MBPL: {match_data['h_mbpl_pref']}")
+                    f"   HUSB: {h_name} -> BMO: {match_data['h_bmo']} | BPL: {match_data['h_bpl_pref']} | FBPL: {match_data['h_fbpl_pref']} | MBPL: {match_data['h_mbpl_pref']}")
                 logger.info(
-                    f"   WIFE Needs -> BPL: {match_data['w_bpl_pref']} | FBPL: {match_data['w_fbpl_pref']} | MBPL: {match_data['w_mbpl_pref']}")
+                    f"   WIFE: {w_name} -> BMO: {match_data['w_bmo']} | BPL: {match_data['w_bpl_pref']} | FBPL: {match_data['w_fbpl_pref']} | MBPL: {match_data['w_mbpl_pref']}")
 
             matches_this_decade = 0
 
@@ -287,17 +319,19 @@ def apply_gedcom_names(logger):
             for offsets in pass_configs:
                 if matches_this_decade > 0:
                     break
-                
+
+                scored_matches = []
+
                 for h_off, w_off in offsets:
                     key = (match_data['h_byr'] + h_off, match_data['w_byr'] + w_off)
                     if key in mem_index:
                         for db_row in mem_index[key]:
-                            db_h_bpld, db_h_fbpl, db_h_mbpl = db_row[4], db_row[5], db_row[6]
-                            db_w_bpld, db_w_fbpl, db_w_mbpl = db_row[10], db_row[11], db_row[12]
+                            db_h_bpld, db_h_fbpl, db_h_mbpl = db_row[5], db_row[6], db_row[7]
+                            db_w_bpld, db_w_fbpl, db_w_mbpl = db_row[11], db_row[12], db_row[13]
 
                             # Check Sex
-                            if match_data['h_sex'] and db_row[2] != match_data['h_sex']: continue
-                            if match_data['w_sex'] and db_row[8] != match_data['w_sex']: continue
+                            if match_data['h_sex'] and db_row[3] != match_data['h_sex']: continue
+                            if match_data['w_sex'] and db_row[9] != match_data['w_sex']: continue
 
                             # Check BPLs for Husband
                             if match_data['h_bpl_pref'] and not is_bpl_match(db_h_bpld,
@@ -315,19 +349,76 @@ def apply_gedcom_names(logger):
                             if match_data['w_mbpl_pref'] and not is_bpl_match(db_w_mbpl,
                                                                               match_data['w_mbpl_pref']): continue
 
-                            fam_id = db_row[0]
-                            clan_id = clan_map.get(fam_id)
+                            db_numprec = int(db_row[1]) if str(db_row[1]).isdigit() else 2
 
-                            if clan_id:
-                                match_data['clans'].add(clan_id)
-                            else:
-                                match_data['unclanned'].add(fam_id)
+                            # DECISION: The "Has Kids" Boolean Filter.
+                            # If our spreadsheet says they had children, but the census house only has 2 people, reject it!
+                            if match_data['num_children'] > 0 and db_numprec <= 2:
+                                continue
 
-                            match_data['results'].append(db_row)
-                            matches_this_decade += 1
+                            target_size = match_data['num_children'] + 2
+                            size_diff = abs(db_numprec - target_size)
+                            age_diff = abs(h_off) + abs(w_off)
 
-                            if debug_print and matches_this_decade <= 5:
-                                logger.info(f"   [MATCH FOUND] H_BYR={db_row[3]} W_BYR={db_row[9]} | FamID: {fam_id}")
+                            score = size_diff + age_diff
+
+                            # DECISION: Unpack JSON Bread Crumbs to extract Birth Month and Years Married.
+                            try:
+                                h_raw = json.loads(db_row[14])
+                                w_raw = json.loads(db_row[15])
+
+                                db_h_bmo = str(h_raw.get('BIRTHMO', '')).strip().lstrip('0')
+                                db_w_bmo = str(w_raw.get('BIRTHMO', '')).strip().lstrip('0')
+
+                                if match_data['h_bmo'] and db_h_bmo:
+                                    if match_data['h_bmo'] == db_h_bmo:
+                                        score -= 2
+                                    else:
+                                        score += 10
+
+                                if match_data['w_bmo'] and db_w_bmo:
+                                    if match_data['w_bmo'] == db_w_bmo:
+                                        score -= 2
+                                    else:
+                                        score += 10
+
+                                db_marr_yrs = str(h_raw.get('MARRNOYRS', '')).strip()
+                                if db_marr_yrs.isdigit() and int(db_marr_yrs) < 100:
+                                    current_year = int(h_raw.get('YEAR', 0)) if str(
+                                        h_raw.get('YEAR', '')).isdigit() else 0
+                                    if current_year > 0:
+                                        db_marr_yr = current_year - int(db_marr_yrs)
+                                        if match_data['marr_yr']:
+                                            if abs(match_data['marr_yr'] - db_marr_yr) <= 2:
+                                                score -= 3
+                                            else:
+                                                score += 5
+                            except (json.JSONDecodeError, TypeError):
+                                pass
+
+                            scored_matches.append((score, db_row))
+
+                if scored_matches:
+                    scored_matches.sort(key=lambda x: x[0])
+                    best_score = scored_matches[0][0]
+                    winners = [m for m in scored_matches if m[0] == best_score]
+
+                    for w in winners:
+                        db_row = w[1]
+                        fam_id = db_row[0]
+                        clan_id = clan_map.get(fam_id)
+
+                        if clan_id:
+                            match_data['clans'].add(clan_id)
+                        else:
+                            match_data['unclanned'].add(fam_id)
+
+                        match_data['results'].append((best_score, db_row))
+                        matches_this_decade += 1
+
+                        if debug_print and matches_this_decade <= 5:
+                            logger.info(
+                                f"   [MATCH FOUND] H_BYR={db_row[4]} W_BYR={db_row[10]} | Score: {best_score} | FamID: {fam_id}")
 
             if debug_print and matches_this_decade > 5:
                 logger.info(f"   ... and {matches_this_decade - 5} more matches found in this decade.")
@@ -372,6 +463,13 @@ def apply_gedcom_names(logger):
 
         if total_unique_entities == 1:
             success_count += 1
+
+            # Print the perfect match details!
+            if match_data['results']:
+                score, db_row = match_data['results'][0]
+                logger.info(
+                    f"  [PERFECT MATCH] (Score: {score}) {h_name} & {w_name} -> FamID: {db_row[0]} | Size: {db_row[1]} | H: b.{db_row[4]} (BPL:{db_row[5]} F:{db_row[6]} M:{db_row[7]}) | W: b.{db_row[10]} (BPL:{db_row[11]} F:{db_row[12]} M:{db_row[13]})")
+
             if len(match_data['clans']) == 1:
                 clans_to_update[list(match_data['clans'])[0]] = fam
             else:
@@ -381,8 +479,27 @@ def apply_gedcom_names(logger):
             logger.warning(
                 f"  [MULTIPLE] Found {total_unique_entities} distinct families for Couple: {h_name} & {w_name}. Flagging as 'Multiple'.")
             multiple_count += 1
-            for db_row in match_data['results']:
-                histid_h, histid_w, fam_id = db_row[1], db_row[7], db_row[0]
+
+            # DECISION: If there are 8 or fewer matches, print them out so the user can see exactly why they tied!
+            if total_unique_entities <= 8:
+                logger.info(f"  --- TARGET DEMOGRAPHICS ---")
+                logger.info(
+                    f"      HUSB: {h_name} (b.{match_data['h_byr']} mo.{match_data['h_bmo']}) | BPL: {match_data['h_bpl_pref']} | FBPL: {match_data['h_fbpl_pref']} | MBPL: {match_data['h_mbpl_pref']}")
+                logger.info(
+                    f"      WIFE: {w_name} (b.{match_data['w_byr']} mo.{match_data['w_bmo']}) | BPL: {match_data['w_bpl_pref']} | FBPL: {match_data['w_fbpl_pref']} | MBPL: {match_data['w_mbpl_pref']}")
+                logger.info(f"      MARR: {match_data['marr_yr']} | KIDS: {match_data['num_children']}")
+                logger.info(f"  --- DATABASE MATCHES ---")
+
+                printed_fams = set()
+                for score, db_row in match_data['results']:
+                    fam_id = db_row[0]
+                    if fam_id not in printed_fams:
+                        logger.info(
+                            f"      Tie (Score: {score}) -> FamID: {fam_id} | Size: {db_row[1]} | H: b.{db_row[4]} (BPL:{db_row[5]} F:{db_row[6]} M:{db_row[7]}) | W: b.{db_row[10]} (BPL:{db_row[11]} F:{db_row[12]} M:{db_row[13]})")
+                        printed_fams.add(fam_id)
+
+            for score, db_row in match_data['results']:
+                histid_h, histid_w, fam_id = db_row[2], db_row[8], db_row[0]  # Indices already shifted +1 in memory
                 if histid_h not in flagged_multiples:
                     update_queue_by_year[fam_id.split('_')[0]].append(('Multiple', 'Bosselstink', histid_h))
                     flagged_multiples.add(histid_h)
@@ -391,6 +508,13 @@ def apply_gedcom_names(logger):
                     flagged_multiples.add(histid_w)
         else:
             zero_count += 1
+            if DEBUG_MODE:
+                logger.info(
+                    f"  [ZERO MATCHES] No families found for {h_name} (b.{match_data['h_byr']}) & {w_name} (b.{match_data['w_byr']})")
+                logger.info(
+                    f"      HUSB: {h_name} -> BPL: {match_data['h_bpl_pref']} | FBPL: {match_data['h_fbpl_pref']} | MBPL: {match_data['h_mbpl_pref']}")
+                logger.info(
+                    f"      WIFE: {w_name} -> BPL: {match_data['w_bpl_pref']} | FBPL: {match_data['w_fbpl_pref']} | MBPL: {match_data['w_mbpl_pref']}")
 
     logger.info(f"\nLookup Complete:")
     logger.info(f"  -> Perfect Unique Anchors Found: {success_count:,}")
