@@ -1,0 +1,11 @@
+Short term:
+
+---
+
+Longer term :
+
+	Build Family Tree from GEDCOM into a static website; HTML. 
+
+	Create a Google web page to display the website. 
+
+	Create Sphinx documentation to also put on the website. 

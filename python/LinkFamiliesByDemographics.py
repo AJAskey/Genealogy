@@ -9,8 +9,7 @@ Summary: "The Time Machine"
 Architect & Designer: Andy Askey
 Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
 
-License: Apache License 2.0
-http://www.apache.org/licenses/LICENSE-2.0
+License: Apache License 2.0: http://www.apache.org/licenses/LICENSE-2.0
 
 GitHub Open Source Project: https://github.com/AJAskey/Genealogy
 
@@ -27,7 +26,7 @@ import duckdb
 # Add the 'python' directory and project root to sys.path so we can import properly
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(script_dir, '..'))
-for p in [os.path.join(project_root, 'python'), project_root]:
+for p in [script_dir, project_root]:
     if p not in sys.path:
         sys.path.append(p)
 
@@ -215,10 +214,6 @@ def link_households_across_decades(logger):
     # DECISION: Because we now filter IN-MEMORY during Step 2, Step 3 is instantaneous!
     logger.info("  -> Uniqueness was successfully enforced chunk-by-chunk in memory!")
 
-    logger.info("Building indices on household_links to optimize downstream overlays...")
-    con.execute("CREATE INDEX IF NOT EXISTS idx_links_famid1 ON match_db.household_links(family_id_1);")
-    con.execute("CREATE INDEX IF NOT EXISTS idx_links_year1 ON match_db.household_links(year_1);")
-
     match_count = con.execute("SELECT COUNT(*) FROM match_db.household_links").fetchone()[0]
     logger.info(f"SUCCESS! Found {match_count:,} perfect multi-decade matches.")
 
@@ -230,6 +225,10 @@ def link_households_across_decades(logger):
     logger.info("\nStep 4: Building Time Machine Clans (Connected Components)...")
     with sqlite3.connect(MATCH_DB) as sq_conn:
         sq_cursor = sq_conn.cursor()
+
+        logger.info("  -> Building indices on household_links...")
+        sq_cursor.execute("CREATE INDEX IF NOT EXISTS idx_links_famid1 ON household_links(family_id_1);")
+        sq_cursor.execute("CREATE INDEX IF NOT EXISTS idx_links_year1 ON household_links(year_1);")
 
         links = sq_cursor.execute("SELECT family_id_1, family_id_2 FROM household_links").fetchall()
 
