@@ -84,7 +84,7 @@ DEBUG_MODE = True  # Enable highly detailed match logging
 
 # ==============================================================================
 
-def get_bpl_prefixes(birth_place):
+def get_bpl_prefixes(birth_place, desc):
     """Translates a free-text location string into standard IPUMS BPL prefixes."""
     if not birth_place: return None
     bp_lower = birth_place.lower()
@@ -115,12 +115,12 @@ def get_bpl_prefixes(birth_place):
 
     for state, prefixes in crosswalk.items():
         if state in bp_lower:
-            main_logger.info(f"Found birth_place: {birth_place}  {prefixes}")
+            main_logger.info(f"Found {desc} birth_place: {birth_place}  {prefixes}")
             return prefixes
     return None
 
 
-def get_state_from_code(bpl_code):
+def get_state_from_code(bpl_code, desc):
     """Translates an IPUMS BPL numeric code back into a readable state/country name."""
     if not bpl_code: return "Unknown"
 
@@ -154,7 +154,7 @@ def get_state_from_code(bpl_code):
 
     for state, codes in crosswalk.items():
         if clean_code in codes or clean_code.lstrip("0") in codes:
-            main_logger.info(f"Found birth_place: {bpl_code}  {state.title()}")
+            main_logger.info(f"Found {desc} birth_place: {bpl_code}  {state.title()}")
             return state.title()
 
     return f"Unknown Code ({bpl_code})"
@@ -172,16 +172,24 @@ def log_individuals(h_indi, w_indi):
 
 
 def log_dict(dik, desc=""):
-    rich_console = Console()
-    with rich_console.capture() as capture:
-        inspect(dik, console=rich_console, private=True, value=True)
-    main_logger.info(f"\n{desc}\n{capture.get()}")
+    str = desc
+    str += "\n"
+    for key, value in dik.items():
+        str += (f"  {key} | {value}")
+        str += "\n"
+
+    main_logger.info(str)
+
+    # rich_console = Console()
+    # with rich_console.capture() as capture:
+    #     inspect(dik, console=rich_console, private=True, value=True, sort=True, all=False)
+    # main_logger.info(f"\n{desc}\n{capture.get()}")
 
 
 def log_obj(obj, desc=""):
     rich_console = Console()
     with rich_console.capture() as capture:
-        inspect(obj, console=rich_console, private=True, value=True)
+        inspect(obj, console=rich_console, private=True, value=True, sort=True)
     main_logger.info(f"\n{desc}\n{capture.get()}")
 
 
@@ -279,6 +287,15 @@ def find_person(name, byr_str, people_by_name):
     return candidates[0]
 
 
+def get_code(reader, code_name):
+    """Returns the code from the reader if it exists, otherwise returns an empty string."""
+    for row1 in reader:
+        r = row1.get(code_name, '').strip()
+        if r:
+            return r
+    return ''
+
+
 def parse_csv_names_and_dates(filepath):
     """Reads the gedcom_individuals.csv and extracts target families.
     """
@@ -287,12 +304,13 @@ def parse_csv_names_and_dates(filepath):
 
     with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
         reader = csv.DictReader(f)
+
         for row in reader:
             first = row.get('First Name', '').strip()
             last = row.get('Last Name', '').strip()
             if not last or '--' in last or 'Hidden' in last or '[' in last:
                 continue
-
+            
             name_key = f"{first} {last}".strip()
             if name_key not in people_by_name:
                 people_by_name[name_key] = []
@@ -311,9 +329,9 @@ def parse_csv_names_and_dates(filepath):
             if not p1_fbpl: p1_fbpl = p1_bpl
             if not p1_mbpl: p1_mbpl = p1_bpl
 
-            row['BPL_Codes'] = get_bpl_prefixes(p1_bpl)
-            row['FBPL_Codes'] = get_bpl_prefixes(p1_fbpl)
-            row['MBPL_Codes'] = get_bpl_prefixes(p1_mbpl)
+            row['BPL_Codes'] = f"'{p1_bpl}' -> {get_bpl_prefixes(p1_bpl, 'p1_bpl')}"
+            row['FBPL_Codes'] = f"'{p1_fbpl}' -> {get_bpl_prefixes(p1_fbpl, 'p1_fbpl')}"
+            row['MBPL_Codes'] = f"'{p1_mbpl}' -> {get_bpl_prefixes(p1_mbpl, 'p1_mbpl')}"
 
             log_dict(row, filepath)
 
@@ -456,16 +474,16 @@ def apply_gedcom_names(logger):
             'h_sex': '1',  # Male
             'h_byr': fam['h_byr'],
             'h_bmo': fam['h_bmo'],
-            'h_bpl_pref': get_bpl_prefixes(fam['h_bpl']),
-            'h_fbpl_pref': get_bpl_prefixes(fam['h_fbpl']),
-            'h_mbpl_pref': get_bpl_prefixes(fam['h_mbpl']),
+            'h_bpl_pref': get_bpl_prefixes(fam['h_bpl'], "h_bpl"),
+            'h_fbpl_pref': get_bpl_prefixes(fam['h_fbpl'], "h_fbpl"),
+            'h_mbpl_pref': get_bpl_prefixes(fam['h_mbpl'], "h_mbpl"),
 
             'w_sex': '2',  # Female
             'w_byr': fam['w_byr'],
             'w_bmo': fam['w_bmo'],
-            'w_bpl_pref': get_bpl_prefixes(fam['w_bpl']),
-            'w_fbpl_pref': get_bpl_prefixes(fam['w_fbpl']),
-            'w_mbpl_pref': get_bpl_prefixes(fam['w_mbpl']),
+            'w_bpl_pref': get_bpl_prefixes(fam['w_bpl'], "w_bpl"),
+            'w_fbpl_pref': get_bpl_prefixes(fam['w_fbpl'], "w_fbpl"),
+            'w_mbpl_pref': get_bpl_prefixes(fam['w_mbpl'], "w_mbpl"),
 
             'marr_yr': fam['marr_yr'],
             'num_children': fam.get('num_children', 0)
@@ -541,10 +559,10 @@ def apply_gedcom_names(logger):
                 w_name = f"{match_data['fam']['w_first']} {match_data['fam']['w_last']}"
                 logger.info(
                     f"\n[SEARCHING] Couple: {h_name} (b. {match_data['h_byr']}) & {w_name} (b. {match_data['w_byr']}) | Kids: {match_data['num_children']}")
-                logger.info(
-                    f"   HUSB: {h_name} -> BMO: {match_data['h_bmo']} | BPL: {match_data['h_bpl_pref']} | FBPL: {match_data['h_fbpl_pref']} | MBPL: {match_data['h_mbpl_pref']}")
-                logger.info(
-                    f"   WIFE: {w_name} -> BMO: {match_data['w_bmo']} | BPL: {match_data['w_bpl_pref']} | FBPL: {match_data['w_fbpl_pref']} | MBPL: {match_data['w_mbpl_pref']}")
+                # logger.info(
+                #     f"   HUSB: {h_name} -> BMO: {match_data['h_bmo']} | BPL: {match_data['h_bpl_pref']} | FBPL: {match_data['h_fbpl_pref']} | MBPL: {match_data['h_mbpl_pref']}")
+                # logger.info(
+                #     f"   WIFE: {w_name} -> BMO: {match_data['w_bmo']} | BPL: {match_data['w_bpl_pref']} | FBPL: {match_data['w_fbpl_pref']} | MBPL: {match_data['w_mbpl_pref']}")
 
             matches_this_decade = 0
 
@@ -665,12 +683,15 @@ def apply_gedcom_names(logger):
                         matches_this_decade += 1
 
                         if debug_print and matches_this_decade <= 5:
-                            logger.info(
-                                f"   [MATCH FOUND aja] H_BYR={db_row[4]} W_BYR={db_row[10]} | Score: {best_score} | FamID: {fam_id}")
-                            logger.info(
-                                f"      HBP={db_row[5]} WBP={db_row[11]}  HFBP={db_row[6]}  HMBP={db_row[7]}  WFBP={db_row[12]}  WMBP={db_row[13]} ")
-
-                            log_obj(db_row, "MATCH FOUND  aja")
+                            # Map the raw tuple to a dictionary so the rich logger displays it beautifully!
+                            dbg_row = {
+                                "family_id": db_row[0], "xnumprec": db_row[1],
+                                "xh_histid": db_row[2], "xh_sex": db_row[3], "h_birthyr": db_row[4],
+                                "h_bpld": db_row[5], "h_fbpl": db_row[6], "h_mbpl": db_row[7],
+                                "xw_histid": db_row[8], "xw_sex": db_row[9], "w_birthyr": db_row[10],
+                                "w_bpld": db_row[11], "w_fbpl": db_row[12], "w_mbpl": db_row[13], "xscore": score
+                            }
+                            log_dict(dbg_row, "MATCH FOUND  aja")
 
             if debug_print and matches_this_decade > 5:
                 logger.info(f"   ... and {matches_this_decade - 5} more matches found in this decade.")
@@ -726,12 +747,12 @@ def apply_gedcom_names(logger):
                 score, db_row = match_data['results'][0]
                 match_label = "PERFECT MATCH" if score <= 0 else "BEST MATCH"
 
-                h_bpl_str = get_state_from_code(db_row[5])
-                h_fbpl_str = get_state_from_code(db_row[6])
-                h_mbpl_str = get_state_from_code(db_row[7])
-                w_bpl_str = get_state_from_code(db_row[11])
-                w_fbpl_str = get_state_from_code(db_row[12])
-                w_mbpl_str = get_state_from_code(db_row[13])
+                h_bpl_str = get_state_from_code(db_row[5], "h_bpl_str")
+                h_fbpl_str = get_state_from_code(db_row[6], "h_fbpl_str")
+                h_mbpl_str = get_state_from_code(db_row[7], "h_mbpl_str")
+                w_bpl_str = get_state_from_code(db_row[11], "w_bpl_str")
+                w_fbpl_str = get_state_from_code(db_row[12], "w_fbpl_str")
+                w_mbpl_str = get_state_from_code(db_row[13], "w_mbpl_str")
 
                 # DECISION: Instantiate Genealogy Classes using the successfully matched data!
                 fam_id = db_row[0]
@@ -769,15 +790,10 @@ def apply_gedcom_names(logger):
                 w_indi.status = "SPOUSE"
 
                 if DEBUG_MODE:
-                    logger.info(f"  --- TARGET DEMOGRAPHICS ---")
-                    # logger.info(
-                    #     f"      HUSB: {h_name} (b.{match_data['h_byr']})| BPL: '{fam['h_bpl']}' -> {match_data['h_bpl_pref']} | FBPL: '{fam['h_fbpl']}' -> {match_data['h_fbpl_pref']} | MBPL: '{fam['h_mbpl']}' -> {match_data['h_mbpl_pref']}")
-                    # logger.info(
-                    #     f"      WIFE: {w_name} (b.{match_data['w_byr']}) | BPL: '{fam['w_bpl']}' -> {match_data['w_bpl_pref']} | FBPL: '{fam['w_fbpl']}' -> {match_data['w_fbpl_pref']} | MBPL: '{fam['w_mbpl']}' -> {match_data['w_mbpl_pref']}")
-                    # logger.info(f"      MARR: {match_data['marr_yr']} | KIDS: {match_data['num_children']}")
-                    #
-                    # logger.info(
-                    #     f"  [{match_label}] (Score: {score}) {h_name} & {w_name} -> FamID: {db_row[0]} | Size: {db_row[1]} | H: b.{db_row[4]} (BPL:{db_row[5]}:{h_bpl_str} F:{db_row[6]}:{h_fbpl_str} M:{db_row[7]}:{h_mbpl_str}) | W: b.{db_row[10]} (BPL:{db_row[11]}:{w_bpl_str} F:{db_row[12]}:{w_fbpl_str} M:{db_row[13]}:{w_mbpl_str})")
+                    logger.info(f" \n --- TARGET DEMOGRAPHICS ---")
+                    logger.info(f"      HUSB: {h_name}  {match_data['h_byr']}")
+                    logger.info(f"      WIFE: {w_name}  {match_data['w_byr']}")
+                    logger.info(f"      MARR: {match_data['marr_yr']} | KIDS: {match_data['num_children']}")
 
                     # Fire your custom object logging function!
                     log_individuals(h_indi, w_indi)
@@ -794,31 +810,42 @@ def apply_gedcom_names(logger):
 
                 # DECISION: If there are 8 or fewer matches, print them out so the user can see exactly why they tied!
                 if total_unique_entities <= 8:
-            
-                    logger.info(f"  --- TARGET DEMOGRAPHICS ---")
-            
-                    logger.info(
-                        f"      HUSB: {h_name} (b.{match_data['h_byr']} mo.{match_data['h_bmo']}) | BPL: '{fam['h_bpl']}' -> {match_data['h_bpl_pref']} | FBPL: '{fam['h_fbpl']}' -> {match_data['h_fbpl_pref']} | MBPL: '{fam['h_mbpl']}' -> {match_data['h_mbpl_pref']}")
-                    logger.info(
-                        f"      WIFE: {w_name} (b.{match_data['w_byr']} mo.{match_data['w_bmo']}) | BPL: '{fam['w_bpl']}' -> {match_data['w_bpl_pref']} | FBPL: '{fam['w_fbpl']}' -> {match_data['w_fbpl_pref']} | MBPL: '{fam['w_mbpl']}' -> {match_data['w_mbpl_pref']}")
+
+                    logger.info(f" \n --- TARGET DEMOGRAPHICS ---")
+                    logger.info(f"      HUSB: {h_name}  {match_data['h_byr']}")
+                    logger.info(f"      WIFE: {w_name}  {match_data['w_byr']}")
                     logger.info(f"      MARR: {match_data['marr_yr']} | KIDS: {match_data['num_children']}")
+
+                    # Fire your custom object logging function!
+                    log_individuals(h_indi, w_indi)
+
                     logger.info(f"  --- DATABASE MATCHES ---")
-            
+
                     printed_fams = set()
                     for score, db_row in match_data['results']:
                         fam_id = db_row[0]
                         if fam_id not in printed_fams:
-                            h_bpl_str = get_state_from_code(db_row[5])
-                            h_fbpl_str = get_state_from_code(db_row[6])
-                            h_mbpl_str = get_state_from_code(db_row[7])
-                            w_bpl_str = get_state_from_code(db_row[11])
-                            w_fbpl_str = get_state_from_code(db_row[12])
-                            w_mbpl_str = get_state_from_code(db_row[13])
-            
-                            logger.info(
-                                f"      Tie (Score: {score}) -> FamID: {fam_id} | Size: {db_row[1]} | H: b.{db_row[4]} (BPL:{db_row[5]}:{h_bpl_str} F:{db_row[6]}:{h_fbpl_str} M:{db_row[7]}:{h_mbpl_str}) | W: b.{db_row[10]} (BPL:{db_row[11]}:{w_bpl_str} F:{db_row[12]}:{w_fbpl_str} M:{db_row[13]}:{w_mbpl_str})")
+                            h_bpl_str = get_state_from_code(db_row[5], h_name + " : h_bpl_str")
+                            h_fbpl_str = get_state_from_code(db_row[6], h_name + " : h_fbpl_str")
+                            h_mbpl_str = get_state_from_code(db_row[7], h_name + " : h_mbpl_str")
+                            w_bpl_str = get_state_from_code(db_row[11], w_name + " : w_bpl_str")
+                            w_fbpl_str = get_state_from_code(db_row[12], w_name + " : w_fbpl_str")
+                            w_mbpl_str = get_state_from_code(db_row[13], w_name + " : w_mbpl_str")
+
+                            dbg_dict = {
+                                "h_bpl_str": h_bpl_str,
+                                "h_fbpl_str": h_fbpl_str,
+                                "h_mbpl_str": h_mbpl_str,
+                                "w_bpl_str": w_bpl_str,
+                                "w_fbpl_str": w_fbpl_str,
+                                "w_mbpl_str": w_mbpl_str,
+                                "score": score,
+                                "fam": fam_id
+                            }
+                            log_dict(dbg_dict, "MATCHES")
+
                             printed_fams.add(fam_id)
-            
+
                 for score, db_row in match_data['results']:
                     histid_h, histid_w, fam_id = db_row[2], db_row[8], db_row[0]  # Indices already shifted +1 in memory
                     if histid_h not in flagged_multiples:
@@ -827,7 +854,7 @@ def apply_gedcom_names(logger):
                     if histid_w not in flagged_multiples:
                         update_queue_by_year[fam_id.split('_')[0]].append(('Multiple', 'Bosselstink', histid_w))
                         flagged_multiples.add(histid_w)
-            
+
             else:
                 zero_count += 1
                 if DEBUG_MODE:
@@ -844,16 +871,16 @@ def apply_gedcom_names(logger):
     logger.info(f"  -> Too Many Matches (Skipped): {too_many_count:,}")
     logger.info(f"  -> Zero Matches (Skipped): {zero_count:,}")
     logger.info(f"  -> Biologically Impossible (Skipped): {ignored_count:,}")
-    
+
     # DECISION: The Living Room Sweep
     if clans_to_update or unclanned_to_update:
         logger.info("\n  -> Resolving 'Time Machine Echoes' & Sweeping Living Rooms...")
         for filename in os.listdir(NAMED_VAULT_DIR):
             if not (filename.startswith("NamedVault_") and filename.endswith(".db")): continue
             year_prefix = filename.replace("NamedVault_", "").replace(".db", "")
-    
+
             if TARGET_DECADE and TARGET_DECADE != year_prefix: continue
-    
+
             with sqlite3.connect(os.path.join(NAMED_VAULT_DIR, filename)) as conn:
                 rows = conn.execute("""
                                     SELECT i.histid, f.family_id, i.sex, i.birthyr, f.head_histid, f.spouse_histid
@@ -862,7 +889,7 @@ def apply_gedcom_names(logger):
                                     WHERE i.last_name = 'Bosselstink'
                                       AND i.first_name = 'Future'
                                     """).fetchall()
-    
+
                 for histid, fam_id, sex, byr, head_id, spouse_id in rows:
                     t_fam = None
                     c_id = clan_map.get(fam_id)
@@ -870,13 +897,13 @@ def apply_gedcom_names(logger):
                         t_fam = clans_to_update[c_id]
                     elif fam_id in unclanned_to_update:
                         t_fam = unclanned_to_update[fam_id]
-    
+
                     if t_fam:
                         if histid == head_id:
                             update_queue_by_year[year_prefix].append((t_fam['h_first'], t_fam['h_last'], histid))
                         elif histid == spouse_id:
                             update_queue_by_year[year_prefix].append((t_fam['w_first'], t_fam['w_last'], histid))
-    
+
     logger.info(f"\nStep 4/4: Applying historical names to the census records...")
     if DEBUG_MODE:
         logger.info("  -> [DEBUG MODE] Skipping database UPDATE to preserve 'Bosselstink' test data.")
@@ -890,8 +917,9 @@ def apply_gedcom_names(logger):
                     sqlite_conn.execute("PRAGMA journal_mode=WAL")
                     sqlite_conn.executemany("UPDATE individuals SET first_name = ?, last_name = ? WHERE histid = ?", q)
                     sqlite_conn.commit()
-    
+
     logger.info("\nSUCCESS! CSV Name Overlay complete.")
+
 
 if __name__ == "__main__":
     main_logger = gen_logging.setup_logging(logger_name="NAME_OVERLAY")

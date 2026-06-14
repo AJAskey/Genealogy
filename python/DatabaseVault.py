@@ -49,7 +49,7 @@ else:
     BASE_DATA_DIR = os.path.expanduser("~/Genealogy_Data")
 
 VAULT_DIR = os.path.join(BASE_DATA_DIR, "YearlyVaults")
-input_directory = os.path.join(BASE_DATA_DIR, "ShortTermCSVfiles")
+input_directory = r"E:\Census\IPUMS\Original"
 
 
 # ==============================================================================
@@ -274,9 +274,9 @@ def process_household(rows):
 
         individuals_by_fam[family_id].append((
             histid, first_name, last_name, year, row.get('SAMPLE'), serial, pernum, famunit,
-            row.get('AGE'), row.get('SEX'), row.get('BIRTHYR'), 
+            row.get('AGE'), row.get('SEX'), row.get('BIRTHYR'),
             row.get('BIRTHMO'), row.get('MARRNOYRS'),
-            row.get('BPLD') or row.get('BPL'), row.get('FBPLD') or row.get('FBPL'), 
+            row.get('BPLD') or row.get('BPL'), row.get('FBPLD') or row.get('FBPL'),
             row.get('MBPLD') or row.get('MBPL'),
             father_histid, mother_histid, family_id, raw_data_json
         ))
@@ -300,7 +300,7 @@ def process_household(rows):
             # This is a lone wolf. Keep the individual, but sever the family link.
             lone_wolf_tuple = family_members[0]
             list_version = list(lone_wolf_tuple)
-            list_version[16] = None  # Set family_id (the 17th element) to None
+            list_version[18] = None  # Set family_id (the 19th element) to None
             final_inds.append(tuple(list_version))
 
     return final_inds, final_fams
