@@ -65,7 +65,6 @@ from genealogy_classes import Individual, Family
 from rich import inspect
 from rich.console import Console
 
-
 if os.name == 'nt':
     BASE_DATA_DIR = r"D:\Data\Genealogy_Data"
 else:
@@ -116,12 +115,80 @@ def get_bpl_prefixes(birth_place):
 
     for state, prefixes in crosswalk.items():
         if state in bp_lower:
+            main_logger.info(f"Found birth_place: {birth_place}  {prefixes}")
             return prefixes
     return None
 
 
+def get_state_from_code(bpl_code):
+    """Translates an IPUMS BPL numeric code back into a readable state/country name."""
+    if not bpl_code: return "Unknown"
+
+    clean_code = str(bpl_code).strip()
+    if len(clean_code) > 2 and clean_code.endswith("00"):
+        clean_code = clean_code[:-2]
+
+    crosswalk = {
+        "alabama": ["01", "1"], "alaska": ["02", "2"], "arizona": ["04", "4"], "arkansas": ["05", "5"],
+        "california": ["06", "6"], "colorado": ["08", "8"], "connecticut": ["09", "9"],
+        "delaware": ["10"], "district of columbia": ["11"], "florida": ["12"],
+        "georgia": ["13"], "hawaii": ["15"], "idaho": ["16"], "illinois": ["17"],
+        "indiana": ["18"], "iowa": ["19"], "kansas": ["20"], "kentucky": ["21"],
+        "louisiana": ["22"], "maine": ["23"], "maryland": ["24"], "massachusetts": ["25"],
+        "michigan": ["26"], "minnesota": ["27"], "mississippi": ["28"], "missouri": ["29"],
+        "montana": ["30"], "nebraska": ["31"], "nevada": ["32"], "new hampshire": ["33"],
+        "new jersey": ["34"], "new mexico": ["35"], "new york": ["36"], "north carolina": ["37"],
+        "north dakota": ["38"], "ohio": ["39"], "oklahoma": ["40"], "oregon": ["41"],
+        "pennsylvania": ["42", "042"], "rhode island": ["44", "044"], "south carolina": ["45", "045"],
+        "south dakota": ["46", "046"], "tennessee": ["47", "047"], "texas": ["48", "048"],
+        "utah": ["49", "049"], "vermont": ["50", "050"], "virginia": ["51", "051"],
+        "washington": ["53", "053"], "west virginia": ["54", "054"], "wisconsin": ["55", "055"],
+        "wyoming": ["56", "056"],
+        "england": ["410"], "scotland": ["411"], "wales": ["412"],
+        "ireland": ["414"], "northern ireland": ["413"],
+        "germany": ["453"], "sweden": ["404"], "norway": ["401"],
+        "denmark": ["400"], "netherlands": ["425"], "france": ["421"],
+        "switzerland": ["426"], "canada": ["150"], "mexico": ["200"],
+        "japan": ["501"], "south korea": ["502"], "korea": ["502"]
+    }
+
+    for state, codes in crosswalk.items():
+        if clean_code in codes or clean_code.lstrip("0") in codes:
+            main_logger.info(f"Found birth_place: {bpl_code}  {state.title()}")
+            return state.title()
+
+    return f"Unknown Code ({bpl_code})"
+
+
+def log_individuals(h_indi, w_indi):
+    rich_console = Console()
+    with rich_console.capture() as capture:
+        inspect(h_indi, console=rich_console)
+    main_logger.info(f"\n[HUSBAND - OVERLAY VERIFIED]\n{capture.get()}")
+
+    with rich_console.capture() as capture:
+        inspect(w_indi, console=rich_console)
+    main_logger.info(f"\n[SPOUSE - OVERLAY VERIFIED]\n{capture.get()}")
+
+
+def log_dict(dik, desc=""):
+    rich_console = Console()
+    with rich_console.capture() as capture:
+        inspect(dik, console=rich_console, private=True, value=True)
+    main_logger.info(f"\n{desc}\n{capture.get()}")
+
+
+def log_obj(obj, desc=""):
+    rich_console = Console()
+    with rich_console.capture() as capture:
+        inspect(obj, console=rich_console, private=True, value=True)
+    main_logger.info(f"\n{desc}\n{capture.get()}")
+
+
 def is_bpl_match(db_val, allowed_prefixes):
     """Safely compares IPUMS detailed codes to general base codes using integer math."""
+
+    ret = False
     if not db_val: return False
     db_str = str(db_val).strip()
     for p in allowed_prefixes:
@@ -135,11 +202,12 @@ def is_bpl_match(db_val, allowed_prefixes):
         if db_str.startswith(p_strip):
             remainder = db_str[len(p_strip):]
             if remainder != '' and remainder.replace('0', '') == '':
-                return True
+                ret = True
             # Foreign countries have 3-digit base codes, allow sub-codes
             if len(p_strip) >= 3:
-                return True
-    return False
+                ret = True
+    # main_logger.info(f"is_bpl_match db_val: {db_val}  {ret}")
+    return ret
 
 
 def extract_state(loc_str):
@@ -235,13 +303,6 @@ def parse_csv_names_and_dates(filepath):
     with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
         reader = csv.DictReader(f)
         for row in reader:
-            p1_first = row.get('First Name', '').strip()
-            p1_last = row.get('Last Name', '').strip()
-            if not p1_last or '--' in p1_last or 'Hidden' in p1_last or '[' in p1_last:
-                continue
-
-            p1_sex = row.get('Sex', '').strip().upper()
-            p1_byr, p1_bmo = parse_date(row.get('Birth Date', ''))
             p1_bpl = extract_state(row.get('Birth Place', ''))
             p1_fbpl = extract_state(row.get('Father Birth Place', ''))
             p1_mbpl = extract_state(row.get('Mother Birth Place', ''))
@@ -249,6 +310,20 @@ def parse_csv_names_and_dates(filepath):
             # DECISION: Fallback to individual's birthplace if parent's birthplace is missing
             if not p1_fbpl: p1_fbpl = p1_bpl
             if not p1_mbpl: p1_mbpl = p1_bpl
+
+            row['BPL_Codes'] = get_bpl_prefixes(p1_bpl)
+            row['FBPL_Codes'] = get_bpl_prefixes(p1_fbpl)
+            row['MBPL_Codes'] = get_bpl_prefixes(p1_mbpl)
+
+            log_dict(row, filepath)
+
+            p1_first = row.get('First Name', '').strip()
+            p1_last = row.get('Last Name', '').strip()
+            if not p1_last or '--' in p1_last or 'Hidden' in p1_last or '[' in p1_last:
+                continue
+
+            p1_sex = row.get('Sex', '').strip().upper()
+            p1_byr, p1_bmo = parse_date(row.get('Birth Date', ''))
 
             spouses_str = row.get('Spouse(s)', '')
 
@@ -445,6 +520,7 @@ def apply_gedcom_names(logger):
         logger.info(f"     Matching targets against {filename}...")
 
         for i, match_data in target_matches.items():
+
             if match_data['too_many'] or not match_data['h_byr'] or not match_data['w_byr']:
                 continue
 
@@ -566,7 +642,6 @@ def apply_gedcom_names(logger):
                                             else:
                                                 score += 5
                             except (json.JSONDecodeError, TypeError):
-                                logger.error("  -> JSONDecodeError 2.")
                                 pass
 
                             scored_matches.append((score, db_row))
@@ -591,9 +666,11 @@ def apply_gedcom_names(logger):
 
                         if debug_print and matches_this_decade <= 5:
                             logger.info(
-                                f"   [MATCH FOUND] H_BYR={db_row[4]} W_BYR={db_row[10]} | Score: {best_score} | FamID: {fam_id}")
+                                f"   [MATCH FOUND aja] H_BYR={db_row[4]} W_BYR={db_row[10]} | Score: {best_score} | FamID: {fam_id}")
                             logger.info(
-                                f"      HBP={db_h_bpld} WBP={db_w_bpld}  HFBP={db_h_fbpl}  HMBP={db_h_mbpl}  WFBP={db_w_fbpl}  WMBP={db_w_mbpl} ")
+                                f"      HBP={db_row[5]} WBP={db_row[11]}  HFBP={db_row[6]}  HMBP={db_row[7]}  WFBP={db_row[12]}  WMBP={db_row[13]} ")
+
+                            log_obj(db_row, "MATCH FOUND  aja")
 
             if debug_print and matches_this_decade > 5:
                 logger.info(f"   ... and {matches_this_decade - 5} more matches found in this decade.")
@@ -626,13 +703,6 @@ def apply_gedcom_names(logger):
     unclanned_to_update = {}
     flagged_multiples = set()
 
-    logger.info(f"  --- Try TARGET DEMOGRAPHICS ---")
-    logger.info(
-        f"      HUSB: {h_name} (b.{match_data['h_byr']} mo.{match_data['h_bmo']}) | BPL: {match_data['h_bpl_pref']} | FBPL: {match_data['h_fbpl_pref']} | MBPL: {match_data['h_mbpl_pref']}")
-    logger.info(
-        f"      WIFE: {w_name} (b.{match_data['w_byr']} mo.{match_data['w_bmo']}) | BPL: {match_data['w_bpl_pref']} | FBPL: {match_data['w_fbpl_pref']} | MBPL: {match_data['w_mbpl_pref']}")
-    logger.info(f"      MARR: {match_data['marr_yr']} | KIDS: {match_data['num_children']}")
-
     for match_data in target_matches.values():
         fam = match_data['fam']
         h_name = f"{fam['h_first']} {fam['h_last']}"
@@ -654,8 +724,14 @@ def apply_gedcom_names(logger):
             # Print the perfect match details!
             if match_data['results']:
                 score, db_row = match_data['results'][0]
-                logger.info(
-                    f"  [PERFECT MATCH] (Score: {score}) {h_name} & {w_name} -> FamID: {db_row[0]} | Size: {db_row[1]} | H: b.{db_row[4]} (BPL:{db_row[5]} F:{db_row[6]} M:{db_row[7]}) | W: b.{db_row[10]} (BPL:{db_row[11]} F:{db_row[12]} M:{db_row[13]})")
+                match_label = "PERFECT MATCH" if score <= 0 else "BEST MATCH"
+
+                h_bpl_str = get_state_from_code(db_row[5])
+                h_fbpl_str = get_state_from_code(db_row[6])
+                h_mbpl_str = get_state_from_code(db_row[7])
+                w_bpl_str = get_state_from_code(db_row[11])
+                w_fbpl_str = get_state_from_code(db_row[12])
+                w_mbpl_str = get_state_from_code(db_row[13])
 
                 # DECISION: Instantiate Genealogy Classes using the successfully matched data!
                 fam_id = db_row[0]
@@ -663,7 +739,7 @@ def apply_gedcom_names(logger):
                 fam_obj.husband_id = db_row[2]
                 fam_obj.wife_id = db_row[8]
                 fam_obj.score = score
-                
+
                 try:
                     h_raw = json.loads(db_row[14]) if db_row[14] else {}
                     w_raw = json.loads(db_row[15]) if db_row[15] else {}
@@ -674,6 +750,10 @@ def apply_gedcom_names(logger):
                 h_indi.first_name, h_indi.last_name = fam['h_first'], fam['h_last']
                 h_indi.sex, h_indi.birthyr = db_row[3], db_row[4]
                 h_indi.bpld, h_indi.fbpl, h_indi.mbpl = db_row[5], db_row[6], db_row[7]
+                h_indi.bpld_str, h_indi.fbpl_str, h_indi.mbpl_str = h_bpl_str, h_fbpl_str, h_mbpl_str
+                h_indi.target_bpl, h_indi.target_bpl_codes = fam['h_bpl'], match_data['h_bpl_pref']
+                h_indi.target_fbpl, h_indi.target_fbpl_codes = fam['h_fbpl'], match_data['h_fbpl_pref']
+                h_indi.target_mbpl, h_indi.target_mbpl_codes = fam['h_mbpl'], match_data['h_mbpl_pref']
                 h_indi.birthmo, h_indi.marrnoyrs = h_raw.get('BIRTHMO'), h_raw.get('MARRNOYRS')
                 h_indi.status = "HUSBAND"
 
@@ -681,64 +761,82 @@ def apply_gedcom_names(logger):
                 w_indi.first_name, w_indi.last_name = fam['w_first'], fam['w_last']
                 w_indi.sex, w_indi.birthyr = db_row[9], db_row[10]
                 w_indi.bpld, w_indi.fbpl, w_indi.mbpl = db_row[11], db_row[12], db_row[13]
+                w_indi.bpld_str, w_indi.fbpl_str, w_indi.mbpl_str = w_bpl_str, w_fbpl_str, w_mbpl_str
+                w_indi.target_bpl, w_indi.target_bpl_codes = fam['w_bpl'], match_data['w_bpl_pref']
+                w_indi.target_fbpl, w_indi.target_fbpl_codes = fam['w_fbpl'], match_data['w_fbpl_pref']
+                w_indi.target_mbpl, w_indi.target_mbpl_codes = fam['w_mbpl'], match_data['w_mbpl_pref']
                 w_indi.birthmo, w_indi.marrnoyrs = w_raw.get('BIRTHMO'), w_raw.get('MARRNOYRS')
                 w_indi.status = "SPOUSE"
-                
+
                 if DEBUG_MODE:
-                    rich_console = Console()
-                    with rich_console.capture() as capture:
-                        inspect(h_indi, console=rich_console)
-                    logger.info(f"\n[HUSBAND - OVERLAY VERIFIED]\n{capture.get()}")
-                    
-                    with rich_console.capture() as capture:
-                        inspect(w_indi, console=rich_console)
-                    logger.info(f"\n[SPOUSE - OVERLAY VERIFIED]\n{capture.get()}")
+                    logger.info(f"  --- TARGET DEMOGRAPHICS ---")
+                    # logger.info(
+                    #     f"      HUSB: {h_name} (b.{match_data['h_byr']})| BPL: '{fam['h_bpl']}' -> {match_data['h_bpl_pref']} | FBPL: '{fam['h_fbpl']}' -> {match_data['h_fbpl_pref']} | MBPL: '{fam['h_mbpl']}' -> {match_data['h_mbpl_pref']}")
+                    # logger.info(
+                    #     f"      WIFE: {w_name} (b.{match_data['w_byr']}) | BPL: '{fam['w_bpl']}' -> {match_data['w_bpl_pref']} | FBPL: '{fam['w_fbpl']}' -> {match_data['w_fbpl_pref']} | MBPL: '{fam['w_mbpl']}' -> {match_data['w_mbpl_pref']}")
+                    # logger.info(f"      MARR: {match_data['marr_yr']} | KIDS: {match_data['num_children']}")
+                    #
+                    # logger.info(
+                    #     f"  [{match_label}] (Score: {score}) {h_name} & {w_name} -> FamID: {db_row[0]} | Size: {db_row[1]} | H: b.{db_row[4]} (BPL:{db_row[5]}:{h_bpl_str} F:{db_row[6]}:{h_fbpl_str} M:{db_row[7]}:{h_mbpl_str}) | W: b.{db_row[10]} (BPL:{db_row[11]}:{w_bpl_str} F:{db_row[12]}:{w_fbpl_str} M:{db_row[13]}:{w_mbpl_str})")
 
-            if len(match_data['clans']) == 1:
-                clans_to_update[list(match_data['clans'])[0]] = fam
-            else:
-                unclanned_to_update[list(match_data['unclanned'])[0]] = fam
+                    # Fire your custom object logging function!
+                    log_individuals(h_indi, w_indi)
 
-        elif total_unique_entities > 1:
-            logger.warning(
-                f"  [MULTIPLE] Found {total_unique_entities} distinct families for Couple: {h_name} & {w_name}. Flagging as 'Multiple'.")
-            multiple_count += 1
+                if len(match_data['clans']) == 1:
+                    clans_to_update[list(match_data['clans'])[0]] = fam
+                else:
+                    unclanned_to_update[list(match_data['unclanned'])[0]] = fam
 
-            # DECISION: If there are 8 or fewer matches, print them out so the user can see exactly why they tied!
-            if total_unique_entities <= 8:
-                logger.info(f"  --- TARGET DEMOGRAPHICS ---")
-                logger.info(
-                    f"      HUSB: {h_name} (b.{match_data['h_byr']} mo.{match_data['h_bmo']}) | BPL: {match_data['h_bpl_pref']} | FBPL: {match_data['h_fbpl_pref']} | MBPL: {match_data['h_mbpl_pref']}")
-                logger.info(
-                    f"      WIFE: {w_name} (b.{match_data['w_byr']} mo.{match_data['w_bmo']}) | BPL: {match_data['w_bpl_pref']} | FBPL: {match_data['w_fbpl_pref']} | MBPL: {match_data['w_mbpl_pref']}")
-                logger.info(f"      MARR: {match_data['marr_yr']} | KIDS: {match_data['num_children']}")
-                logger.info(f"  --- DATABASE MATCHES ---")
+            elif total_unique_entities > 1:
+                logger.warning(
+                    f"  [MULTIPLE] Found {total_unique_entities} distinct families for Couple: {h_name} & {w_name}. Flagging as 'Multiple'.")
+                multiple_count += 1
 
-                printed_fams = set()
+                # DECISION: If there are 8 or fewer matches, print them out so the user can see exactly why they tied!
+                if total_unique_entities <= 8:
+            
+                    logger.info(f"  --- TARGET DEMOGRAPHICS ---")
+            
+                    logger.info(
+                        f"      HUSB: {h_name} (b.{match_data['h_byr']} mo.{match_data['h_bmo']}) | BPL: '{fam['h_bpl']}' -> {match_data['h_bpl_pref']} | FBPL: '{fam['h_fbpl']}' -> {match_data['h_fbpl_pref']} | MBPL: '{fam['h_mbpl']}' -> {match_data['h_mbpl_pref']}")
+                    logger.info(
+                        f"      WIFE: {w_name} (b.{match_data['w_byr']} mo.{match_data['w_bmo']}) | BPL: '{fam['w_bpl']}' -> {match_data['w_bpl_pref']} | FBPL: '{fam['w_fbpl']}' -> {match_data['w_fbpl_pref']} | MBPL: '{fam['w_mbpl']}' -> {match_data['w_mbpl_pref']}")
+                    logger.info(f"      MARR: {match_data['marr_yr']} | KIDS: {match_data['num_children']}")
+                    logger.info(f"  --- DATABASE MATCHES ---")
+            
+                    printed_fams = set()
+                    for score, db_row in match_data['results']:
+                        fam_id = db_row[0]
+                        if fam_id not in printed_fams:
+                            h_bpl_str = get_state_from_code(db_row[5])
+                            h_fbpl_str = get_state_from_code(db_row[6])
+                            h_mbpl_str = get_state_from_code(db_row[7])
+                            w_bpl_str = get_state_from_code(db_row[11])
+                            w_fbpl_str = get_state_from_code(db_row[12])
+                            w_mbpl_str = get_state_from_code(db_row[13])
+            
+                            logger.info(
+                                f"      Tie (Score: {score}) -> FamID: {fam_id} | Size: {db_row[1]} | H: b.{db_row[4]} (BPL:{db_row[5]}:{h_bpl_str} F:{db_row[6]}:{h_fbpl_str} M:{db_row[7]}:{h_mbpl_str}) | W: b.{db_row[10]} (BPL:{db_row[11]}:{w_bpl_str} F:{db_row[12]}:{w_fbpl_str} M:{db_row[13]}:{w_mbpl_str})")
+                            printed_fams.add(fam_id)
+            
                 for score, db_row in match_data['results']:
-                    fam_id = db_row[0]
-                    if fam_id not in printed_fams:
-                        logger.info(
-                            f"      Tie (Score: {score}) -> FamID: {fam_id} | Size: {db_row[1]} | H: b.{db_row[4]} (BPL:{db_row[5]} F:{db_row[6]} M:{db_row[7]}) | W: b.{db_row[10]} (BPL:{db_row[11]} F:{db_row[12]} M:{db_row[13]})")
-                        printed_fams.add(fam_id)
-
-            for score, db_row in match_data['results']:
-                histid_h, histid_w, fam_id = db_row[2], db_row[8], db_row[0]  # Indices already shifted +1 in memory
-                if histid_h not in flagged_multiples:
-                    update_queue_by_year[fam_id.split('_')[0]].append(('Multiple', 'Bosselstink', histid_h))
-                    flagged_multiples.add(histid_h)
-                if histid_w not in flagged_multiples:
-                    update_queue_by_year[fam_id.split('_')[0]].append(('Multiple', 'Bosselstink', histid_w))
-                    flagged_multiples.add(histid_w)
-        else:
-            zero_count += 1
-            if DEBUG_MODE:
-                logger.info(
-                    f"  [ZERO MATCHES] No families found for {h_name} (b.{match_data['h_byr']}) & {w_name} (b.{match_data['w_byr']})")
-                logger.info(
-                    f"      HUSB: {h_name} -> BPL: {match_data['h_bpl_pref']} | FBPL: {match_data['h_fbpl_pref']} | MBPL: {match_data['h_mbpl_pref']}")
-                logger.info(
-                    f"      WIFE: {w_name} -> BPL: {match_data['w_bpl_pref']} | FBPL: {match_data['w_fbpl_pref']} | MBPL: {match_data['w_mbpl_pref']}")
+                    histid_h, histid_w, fam_id = db_row[2], db_row[8], db_row[0]  # Indices already shifted +1 in memory
+                    if histid_h not in flagged_multiples:
+                        update_queue_by_year[fam_id.split('_')[0]].append(('Multiple', 'Bosselstink', histid_h))
+                        flagged_multiples.add(histid_h)
+                    if histid_w not in flagged_multiples:
+                        update_queue_by_year[fam_id.split('_')[0]].append(('Multiple', 'Bosselstink', histid_w))
+                        flagged_multiples.add(histid_w)
+            
+            else:
+                zero_count += 1
+                if DEBUG_MODE:
+                    logger.info(
+                        f"  [ZERO MATCHES] No families found for {h_name} (b.{match_data['h_byr']}) & {w_name} (b.{match_data['w_byr']})")
+                    logger.info(
+                        f"      HUSB: {h_name} -> BPL: {match_data['h_bpl_pref']} | FBPL: {match_data['h_fbpl_pref']} | MBPL: {match_data['h_mbpl_pref']}")
+                    logger.info(
+                        f"      WIFE: {w_name} -> BPL: {match_data['w_bpl_pref']} | FBPL: {match_data['w_fbpl_pref']} | MBPL: {match_data['w_mbpl_pref']}")
 
     logger.info(f"\nLookup Complete:")
     logger.info(f"  -> Perfect Unique Anchors Found: {success_count:,}")
@@ -746,16 +844,16 @@ def apply_gedcom_names(logger):
     logger.info(f"  -> Too Many Matches (Skipped): {too_many_count:,}")
     logger.info(f"  -> Zero Matches (Skipped): {zero_count:,}")
     logger.info(f"  -> Biologically Impossible (Skipped): {ignored_count:,}")
-
+    
     # DECISION: The Living Room Sweep
     if clans_to_update or unclanned_to_update:
         logger.info("\n  -> Resolving 'Time Machine Echoes' & Sweeping Living Rooms...")
         for filename in os.listdir(NAMED_VAULT_DIR):
             if not (filename.startswith("NamedVault_") and filename.endswith(".db")): continue
             year_prefix = filename.replace("NamedVault_", "").replace(".db", "")
-
+    
             if TARGET_DECADE and TARGET_DECADE != year_prefix: continue
-
+    
             with sqlite3.connect(os.path.join(NAMED_VAULT_DIR, filename)) as conn:
                 rows = conn.execute("""
                                     SELECT i.histid, f.family_id, i.sex, i.birthyr, f.head_histid, f.spouse_histid
@@ -764,7 +862,7 @@ def apply_gedcom_names(logger):
                                     WHERE i.last_name = 'Bosselstink'
                                       AND i.first_name = 'Future'
                                     """).fetchall()
-
+    
                 for histid, fam_id, sex, byr, head_id, spouse_id in rows:
                     t_fam = None
                     c_id = clan_map.get(fam_id)
@@ -772,13 +870,13 @@ def apply_gedcom_names(logger):
                         t_fam = clans_to_update[c_id]
                     elif fam_id in unclanned_to_update:
                         t_fam = unclanned_to_update[fam_id]
-
+    
                     if t_fam:
                         if histid == head_id:
                             update_queue_by_year[year_prefix].append((t_fam['h_first'], t_fam['h_last'], histid))
                         elif histid == spouse_id:
                             update_queue_by_year[year_prefix].append((t_fam['w_first'], t_fam['w_last'], histid))
-
+    
     logger.info(f"\nStep 4/4: Applying historical names to the census records...")
     if DEBUG_MODE:
         logger.info("  -> [DEBUG MODE] Skipping database UPDATE to preserve 'Bosselstink' test data.")
@@ -792,9 +890,8 @@ def apply_gedcom_names(logger):
                     sqlite_conn.execute("PRAGMA journal_mode=WAL")
                     sqlite_conn.executemany("UPDATE individuals SET first_name = ?, last_name = ? WHERE histid = ?", q)
                     sqlite_conn.commit()
-
+    
     logger.info("\nSUCCESS! CSV Name Overlay complete.")
-
 
 if __name__ == "__main__":
     main_logger = gen_logging.setup_logging(logger_name="NAME_OVERLAY")

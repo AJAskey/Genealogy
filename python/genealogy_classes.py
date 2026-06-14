@@ -51,9 +51,22 @@ class Individual:
         self.birthmo = None
         self.sex = None
         self.bpld = None
+        self.bpld_str = None
         self.fbpl = None
+        self.fbpl_str = None
         self.mbpl = None
+        self.mbpl_str = None
         self.marrnoyrs = None
+
+        # ---------------------------------------------------------
+        # TARGET DEMOGRAPHICS (For debugging comparisons)
+        # ---------------------------------------------------------
+        self.target_bpl = None
+        self.target_bpl_codes = None
+        self.target_fbpl = None
+        self.target_fbpl_codes = None
+        self.target_mbpl = None
+        self.target_mbpl_codes = None
 
         # ---------------------------------------------------------
         # LINEAGE POINTERS (For Bottom-Up Traversal)
