@@ -310,7 +310,7 @@ def parse_csv_names_and_dates(filepath):
             last = row.get('Last Name', '').strip()
             if not last or '--' in last or 'Hidden' in last or '[' in last:
                 continue
-            
+
             name_key = f"{first} {last}".strip()
             if name_key not in people_by_name:
                 people_by_name[name_key] = []
@@ -559,10 +559,17 @@ def apply_gedcom_names(logger):
                 w_name = f"{match_data['fam']['w_first']} {match_data['fam']['w_last']}"
                 logger.info(
                     f"\n[SEARCHING] Couple: {h_name} (b. {match_data['h_byr']}) & {w_name} (b. {match_data['w_byr']}) | Kids: {match_data['num_children']}")
-                # logger.info(
-                #     f"   HUSB: {h_name} -> BMO: {match_data['h_bmo']} | BPL: {match_data['h_bpl_pref']} | FBPL: {match_data['h_fbpl_pref']} | MBPL: {match_data['h_mbpl_pref']}")
-                # logger.info(
-                #     f"   WIFE: {w_name} -> BMO: {match_data['w_bmo']} | BPL: {match_data['w_bpl_pref']} | FBPL: {match_data['w_fbpl_pref']} | MBPL: {match_data['w_mbpl_pref']}")
+
+                dbg_dik = {"h_name": h_name, "w_name": w_name,
+                           "h_bpl": match_data['h_bpl_pref'],
+                           "f_bpl": match_data['h_fbpl_pref'],
+                           "m_bpl": match_data['h_mbpl_pref'],
+                           "w_bpl": match_data['w_bpl_pref'],
+                           "w_bpl": match_data['w_fbpl_pref'],
+                           "w_bpl": match_data['w_mbpl_pref']
+                           }
+
+                log_dict(dbg_dik, "Searching couple")
 
             matches_this_decade = 0
 
@@ -685,13 +692,13 @@ def apply_gedcom_names(logger):
                         if debug_print and matches_this_decade <= 5:
                             # Map the raw tuple to a dictionary so the rich logger displays it beautifully!
                             dbg_row = {
-                                "family_id": db_row[0], "xnumprec": db_row[1],
-                                "xh_histid": db_row[2], "xh_sex": db_row[3], "h_birthyr": db_row[4],
+                                "family_id": db_row[0], "numprec": db_row[1],
+                                "h_histid": db_row[2], "h_sex": db_row[3], "h_birthyr": db_row[4],
                                 "h_bpld": db_row[5], "h_fbpl": db_row[6], "h_mbpl": db_row[7],
-                                "xw_histid": db_row[8], "xw_sex": db_row[9], "w_birthyr": db_row[10],
+                                "w_histid": db_row[8], "w_sex": db_row[9], "w_birthyr": db_row[10],
                                 "w_bpld": db_row[11], "w_fbpl": db_row[12], "w_mbpl": db_row[13], "xscore": score
                             }
-                            log_dict(dbg_row, "MATCH FOUND  aja")
+                            log_dict(dbg_row, "MATCH FOUND ")
 
             if debug_print and matches_this_decade > 5:
                 logger.info(f"   ... and {matches_this_decade - 5} more matches found in this decade.")
