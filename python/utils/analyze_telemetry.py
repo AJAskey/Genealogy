@@ -16,16 +16,7 @@ GitHub Open Source Project: /https://github.com/AJAskey/Genealogy
 -----------------------------------
 """
 
-"""
------------------------------------
-File: analyze_telemetry.py
-
-Summary: A utility script to parse massive log files and extract only
-         the [MULTIPLE] match anomalies for targeted debugging.
-
---------------------------------
-
-"""
+import glob
 import os
 
 
@@ -98,9 +89,12 @@ def analyze_log(log_filepath):
 
 
 if __name__ == '__main__':
-    # Ensure this path perfectly matches the file you want to scan!
-    target_log = r"E:\Users\Andy\PycharmProjects\Genealogy\log\vault_NAME_OVERLAY_2026-06-15_02-42-06.log"
-    if os.path.exists(target_log):
+    # Auto-grab the most recent log file
+    log_dir = r"E:\Users\Andy\PycharmProjects\Genealogy\log"
+    log_files = glob.glob(os.path.join(log_dir, "vault_NAME_OVERLAY_*.log"))
+
+    if log_files:
+        target_log = max(log_files, key=os.path.getctime)
         analyze_log(target_log)
     else:
-        print(f"Could not find log file: {target_log}")
+        print(f"No log files found in {log_dir}")

@@ -62,7 +62,7 @@ def link_households_across_decades(logger):
     # (Online Analytical Processing) engine. It is specifically designed to perform massive, 
     # memory-intensive Cartesian joins across millions of rows in seconds.
     con = duckdb.connect()
-    con.execute("PRAGMA memory_limit='90GB'")
+    con.execute("PRAGMA memory_limit='32GB'")
     con.execute("INSTALL sqlite; LOAD sqlite;")
 
     logger.info("Attaching Vaults...")
@@ -105,7 +105,8 @@ def link_households_across_decades(logger):
                 FROM vault_{year}.families f
                 JOIN vault_{year}.individuals h ON f.head_histid = h.histid
                 JOIN vault_{year}.individuals s ON f.spouse_histid = s.histid
-                WHERE h.birthyr IS NOT NULL AND s.birthyr IS NOT NULL;
+                WHERE h.birthyr IS NOT NULL AND s.birthyr IS NOT NULL
+                  AND f.num_kids > 0;
             """)
 
     step1_end = time.time()
@@ -171,8 +172,10 @@ def link_households_across_decades(logger):
 
             logger.info(f"  -> Comparing {base_year} to {target_year}...")
 
+            # DECISION: Create the raw matches table first so we can extract debug statistics
+            # before we filter and insert the 1-to-1 winners into the permanent database.
             con.execute(f"""
-                INSERT INTO match_db.household_links
+                CREATE TEMP TABLE raw_matches AS 
                 WITH y1 AS (SELECT * FROM hh_features WHERE year = {base_year}),
                      y2 AS (SELECT * FROM hh_features WHERE year = {target_year}),
                      raw_matches AS (
@@ -194,6 +197,14 @@ def link_households_across_decades(logger):
                            AND (y1.spouse_fbpl = y2.spouse_fbpl OR y1.spouse_fbpl IS NULL OR y2.spouse_fbpl IS NULL)
                            AND (y1.spouse_mbpl = y2.spouse_mbpl OR y1.spouse_mbpl IS NULL OR y2.spouse_mbpl IS NULL)
                      )
+                SELECT * FROM raw_matches;
+            """)
+
+            # TELEMETRY: Calculate how many matches were rejected due to ambiguity
+            raw_count = con.execute("SELECT COUNT(*) FROM raw_matches").fetchone()[0]
+
+            con.execute(f"""
+                INSERT INTO match_db.household_links
                 SELECT family_id_1, family_id_2, 
                        year_1, year_2,
                        head_histid_1, head_histid_2,
@@ -201,8 +212,26 @@ def link_households_across_decades(logger):
                 FROM raw_matches r1
                 WHERE family_id_1 IN (
                     SELECT family_id_1 FROM raw_matches GROUP BY family_id_1 HAVING COUNT(*) = 1
+                )
+                AND family_id_2 IN (
+                    SELECT family_id_2 FROM raw_matches GROUP BY family_id_2 HAVING COUNT(*) = 1
                 );
             """)
+
+            inserted_cnt = con.execute(
+                f"SELECT COUNT(*) FROM match_db.household_links WHERE year_1={base_year} AND year_2={target_year}").fetchone()[
+                0]
+            rejected_cnt = raw_count - inserted_cnt
+            logger.info(
+                f"     -> Linked {inserted_cnt:,} families. (Rejected {rejected_cnt:,} due to duplicate collisions)")
+
+            # TELEMETRY: Log a tiny sample of the matches so the human can see what is happening!
+            samples = con.execute(
+                f"SELECT family_id_1, family_id_2 FROM match_db.household_links WHERE year_1={base_year} AND year_2={target_year} LIMIT 3").fetchall()
+            for s1, s2 in samples:
+                logger.info(f"       [SAMPLE] {s1} <---> {s2}")
+
+            con.execute("DROP TABLE raw_matches")
 
             # Mark chunk as complete
             con.execute(f"INSERT INTO match_db.completed_chunks VALUES ({base_year}, {target_year})")
@@ -259,7 +288,13 @@ def link_households_across_decades(logger):
                     clans.append((fam, f"CLAN_{clan_id_counter}"))
                 clan_id_counter += 1
 
+        # TELEMETRY: Check for "Mega-Clans" (If a clan has thousands of members, the logic is broken)
+        clan_sizes = defaultdict(int)
+        for fam, clan in clans: clan_sizes[clan] += 1
+        top_clans = sorted(clan_sizes.items(), key=lambda x: x[1], reverse=True)[:5]
+
         logger.info(f"  -> Formed {clan_id_counter - 1:,} distinct family timelines.")
+        logger.info(f"  -> Top 5 Largest Clans (Safety Check): {top_clans}")
 
         sq_cursor.execute("DROP TABLE IF EXISTS clan_mapping")
         sq_cursor.execute("CREATE TABLE clan_mapping (family_id TEXT PRIMARY KEY, clan_id TEXT)")

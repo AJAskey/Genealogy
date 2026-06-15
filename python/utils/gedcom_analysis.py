@@ -194,6 +194,11 @@ def build_individuals_rows(individuals, families):
         return extract_county(individuals[indi_id].get('birth_place', ''))
 
     for indi_id, i in individuals.items():
+        # Skip individuals with placeholder names in the first name field.
+        if not i.get('first_name') or '-' in i.get('first_name') or '-' in i.get('last_name') or 'Living' in i.get(
+                'first_name'):
+            continue
+
         father_id = ''
         father_name = ''
         father_birth_year = ''

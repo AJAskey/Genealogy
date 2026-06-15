@@ -92,16 +92,52 @@ STATEICP_TO_FIPS = {
 
 # The most common counties found in your GEDCOM data
 COUNTY_CODES = {
-    "clearfield": ["033", "33", "042033", "14033"], 
-    "centre": ["027", "27", "042027", "14027"],
-    "clinton": ["035", "35", "042035", "14035"],
-    "lycoming": ["081", "81", "042081", "14081"],
-    "allegheny": ["003", "3", "042003", "14003"],
-    "jefferson": ["065", "65", "042065", "14065"],
-    "indiana": ["063", "63", "042063", "14063"],
-    "blair": ["013", "13", "042013", "14013"],
-    "cambria": ["021", "21", "042021", "14021"]
+    # FIPS and IPUMS ICPSR (trailing zero) codes
+    "clearfield": ["033", "33", "330", "042033", "14033"], 
+    "centre": ["027", "27", "270", "042027", "14027"],
+    "clinton": ["035", "35", "350", "042035", "14035"],
+    "lycoming": ["081", "81", "810", "042081", "14081"],
+    "allegheny": ["003", "3", "30", "042003", "14003"],
+    "jefferson": ["065", "65", "650", "042065", "14065"],
+    "indiana": ["063", "63", "630", "042063", "14063"],
+    "blair": ["013", "13", "130", "042013", "14013"],
+    "cambria": ["021", "21", "210", "042021", "14021"],
+    "venango": ["121", "1210", "042121", "14121"],
+    "washington": ["125", "1250", "042125", "14125"],
+    "fayette": ["051", "51", "510", "042051", "14051"],
+    "somerset": ["111", "1110", "042111", "14111"],
+    "perry": ["099", "99", "990", "042099", "14099"],
+    "dauphin": ["043", "43", "430", "042043", "14043"],
+    "forest": ["053", "53", "530", "042053", "14053"],
+    "armstrong": ["005", "5", "50", "042005", "14005"],
+    "tioga": ["117", "1170", "042117", "14117"],
+    "cameron": ["023", "23", "230", "042023", "14023"],
+    "elk": ["047", "47", "470", "042047", "14047"],
+    "potter": ["105", "1050", "042105", "14105"],
+    "warren": ["123", "1230", "042123", "14123"],
+    "mckean": ["083", "83", "830", "042083", "14083"],
+    "huntingdon": ["061", "61", "610", "042061", "14061"],
+    "mifflin": ["087", "87", "870", "042087", "14087"],
+    "bedford": ["009", "9", "90", "042009", "14009"],
+    "erie": ["049", "49", "490", "042049", "14049"],
+    "northumberland": ["097", "97", "970", "042097", "14097"],
+    
+    # Ohio Counties
+    "harrison": ["067", "67", "670", "039067", "24067"],
+    "noble": ["121", "1210", "039121", "24121"],
+    "coshocton": ["031", "31", "310", "039031", "24031"],
+    "hancock": ["063", "63", "630", "039063", "24063"],
+    "guernsey": ["059", "59", "590", "039059", "24059"],
+    "summit": ["153", "1530", "039153", "24153"],
+    "monroe": ["111", "1110", "039111", "24111"],
+    "cuyahoga": ["035", "35", "350", "039035", "24035"],
+    "franklin": ["049", "49", "490", "039049", "24049"],
+    "jefferson": ["081", "81", "810", "039081", "24081"]
 }
+
+# FIX: Make dictionary case-insensitive to match GEDCOM's capitalized strings
+COUNTY_CODES.update({k.title(): v for k, v in COUNTY_CODES.items()})
+COUNTY_CODES['McKean'] = COUNTY_CODES.get('mckean', [])
 
 
 # ==============================================================================
@@ -207,17 +243,20 @@ def is_bpl_match(db_val, allowed_prefixes):
     return ret
 
 
-def is_county_match(raw_json_str, county_name):
-    """Checks if the GEDCOM county name or its FIPS code exists in the raw IPUMS JSON."""
-    if not county_name or not raw_json_str: return False
+def is_county_match(parsed_json, county_name):
+    """Checks if the GEDCOM county name's FIPS code matches the parsed IPUMS JSON."""
+    if not county_name or not parsed_json: return False
+
     county_lower = county_name.lower().replace(" county", "").strip()
     if not county_lower: return False
     
-    if county_lower in raw_json_str.lower():
-        return True
+    db_countyicp = str(parsed_json.get('COUNTYICP', '')).strip()
+    db_countynhg = str(parsed_json.get('COUNTYNHG', '')).strip()
         
     for code in COUNTY_CODES.get(county_lower, []):
-        if f'"{code}"' in raw_json_str or f': {code}' in raw_json_str or f':{code}' in raw_json_str:
+        if db_countyicp == code or db_countyicp.lstrip('0') == code.lstrip('0'):
+            return True
+        if db_countynhg == code or db_countynhg.lstrip('0') == code.lstrip('0'):
             return True
             
     return False
@@ -482,6 +521,7 @@ def apply_gedcom_names(logger):
             'unclanned': set(),
             'too_many': False,
             'searched': False,
+            'intra_decade_multiple': False,
 
             'h_sex': '1',  # Male
             'h_byr': fam['h_byr'],
@@ -579,6 +619,11 @@ def apply_gedcom_names(logger):
             if not (14 <= h_age <= 110) or not (14 <= w_age <= 110):
                 continue
 
+            # DECISION: Zero-Data Filter.
+            # If they have 0 children in the GEDCOM, skip them because nameless childless couples are too ambiguous.
+            if match_data['num_children'] == 0:
+                continue
+
             match_data['searched'] = True
 
             h_name = f"{match_data['fam']['h_first']} {match_data['fam']['h_last']}"
@@ -591,9 +636,13 @@ def apply_gedcom_names(logger):
                        "h_bpl": match_data['h_bpl_pref'],
                        "f_bpl": match_data['h_fbpl_pref'],
                        "m_bpl": match_data['h_mbpl_pref'],
+                       "h_bpl_co": match_data['h_bpl_county'],
+                       "h_res_co": match_data['h_res_county'],
                        "w_bpl": match_data['w_bpl_pref'],
                        "w_fbpl": match_data['w_fbpl_pref'],
                        "w_mbpl": match_data['w_mbpl_pref'],
+                       "w_bpl_co": match_data['w_bpl_county'],
+                       "w_res_co": match_data['w_res_county'],
                        "h_res": match_data['h_res_prefs'],
                        "w_res": match_data['w_res_prefs']
                        }
@@ -649,8 +698,12 @@ def apply_gedcom_names(logger):
                                     numprec_str = str(db_row[1]).strip()
                                     db_kids = max(0, int(numprec_str) - 2) if numprec_str.isdigit() else 0
 
-                            # DECISION: The "Has Kids" Boolean Filter.
-                            if match_data['num_children'] > 0 and db_kids == 0:
+                                
+                            # TEMPORAL PARADOX FIX: The GEDCOM lists TOTAL kids over a lifetime. 
+                            # In a census, a young 24-year-old wife won't have all 4 of her kids yet,
+                            # and a 50-year-old wife's kids may have moved out!
+                            # We should only reject if the census has MORE kids than the GEDCOM total.
+                            if db_kids > match_data['num_children']:
                                 continue
 
                             size_diff = abs(db_kids - match_data['num_children'])
@@ -711,26 +764,23 @@ def apply_gedcom_names(logger):
                                     score_breakdown['w_mbpl'] = 2
                                     
                             # DECISION: Apply the High-Fidelity County Anchors!
-                            h_raw_str = str(db_row[14]).lower() if db_row[14] else ""
-                            w_raw_str = str(db_row[15]).lower() if db_row[15] else ""
-                            
-                            if match_data['h_bpl_county'] and is_county_match(h_raw_str, match_data['h_bpl_county']):
+                            if match_data['h_bpl_county'] and is_county_match(h_raw, match_data['h_bpl_county']):
                                 score -= 3
                                 score_breakdown['h_bpl_county'] = -3
-                            if match_data['h_fbpl_county'] and is_county_match(h_raw_str, match_data['h_fbpl_county']):
+                            if match_data['h_fbpl_county'] and is_county_match(h_raw, match_data['h_fbpl_county']):
                                 score -= 1
                                 score_breakdown['h_fbpl_county'] = -1
-                            if match_data['h_mbpl_county'] and is_county_match(h_raw_str, match_data['h_mbpl_county']):
+                            if match_data['h_mbpl_county'] and is_county_match(h_raw, match_data['h_mbpl_county']):
                                 score -= 1
                                 score_breakdown['h_mbpl_county'] = -1
                                 
-                            if match_data['w_bpl_county'] and is_county_match(w_raw_str, match_data['w_bpl_county']):
+                            if match_data['w_bpl_county'] and is_county_match(w_raw, match_data['w_bpl_county']):
                                 score -= 3
                                 score_breakdown['w_bpl_county'] = -3
-                            if match_data['w_fbpl_county'] and is_county_match(w_raw_str, match_data['w_fbpl_county']):
+                            if match_data['w_fbpl_county'] and is_county_match(w_raw, match_data['w_fbpl_county']):
                                 score -= 1
                                 score_breakdown['w_fbpl_county'] = -1
-                            if match_data['w_mbpl_county'] and is_county_match(w_raw_str, match_data['w_mbpl_county']):
+                            if match_data['w_mbpl_county'] and is_county_match(w_raw, match_data['w_mbpl_county']):
                                 score -= 1
                                 score_breakdown['w_mbpl_county'] = -1
 
@@ -752,13 +802,13 @@ def apply_gedcom_names(logger):
                                         score -= 10;
                                         score_breakdown['h_res'] = -10
                                         # If state is a match, check the county for a massive tie-breaking bonus!
-                                        if h_res_co and is_county_match(h_raw_str, h_res_co):
+                                        if h_res_co and is_county_match(h_raw, h_res_co):
                                             score -= 15
                                             score_breakdown['h_res_county'] = -15
                                     else:
                                         score += 25;
                                         score_breakdown['h_res'] = 25
-                            elif w_res_pref:
+                            if w_res_pref:
                                 db_w_statefip = str(w_raw.get('STATEFIP', '')).strip().lstrip('0')
                                 if not db_w_statefip:
                                     db_w_stateicp = str(w_raw.get('STATEICP', '')).strip()
@@ -768,7 +818,7 @@ def apply_gedcom_names(logger):
                                         score -= 10;
                                         score_breakdown['w_res'] = -10
                                         # If state is a match, check the county for a massive tie-breaking bonus!
-                                        if w_res_co and is_county_match(w_raw_str, w_res_co):
+                                        if w_res_co and is_county_match(w_raw, w_res_co):
                                             score -= 15
                                             score_breakdown['w_res_county'] = -15
                                     else:
@@ -853,6 +903,11 @@ def apply_gedcom_names(logger):
             elif matches_this_decade == 0:
                 logger.info(f"   [NO MATCH FOUND] Zero records matched these demographics in {filename}.")
 
+            # DECISION: Mega-Clan Bug Prevention
+            # If they matched more than one family in the exact same year, it's a multiple.
+            if matches_this_decade > 1:
+                match_data['intra_decade_multiple'] = True
+
             # Enforce the cap immediately
             total_entities = len(match_data['clans']) + len(match_data['unclanned'])
             if total_entities > 20:
@@ -892,6 +947,10 @@ def apply_gedcom_names(logger):
             continue
 
         total_unique_entities = len(match_data['clans']) + len(match_data['unclanned'])
+
+        # Force multiple behavior if they tied within the same census year, regardless of clan corruption
+        if match_data['intra_decade_multiple']:
+            total_unique_entities = max(2, total_unique_entities)
 
         if total_unique_entities == 1:
             success_count += 1
@@ -1055,11 +1114,36 @@ def apply_gedcom_names(logger):
                         t_fam = unclanned_to_update[fam_id]
 
                     if t_fam:
+                        # DECISION: The "Living Room Sweep" Fail-Safe.
+                        # Before applying a name via clan, do a final sanity check on the birth year.
+                        # This is a circuit-breaker to prevent a corrupted "Mega-Clan" from naming
+                        # people with wildly different demographics.
+                        
                         if histid == head_id:
-                            logger.info(f"    [NAME APPLIED] {year_prefix} Vault -> Naming Head: {t_fam['h_first']} {t_fam['h_last']} (HISTID: {histid})")
-                            update_queue_by_year[year_prefix].append((t_fam['h_first'], t_fam['h_last'], histid))
+                            target_byr = t_fam.get('h_byr')
                         elif histid == spouse_id:
-                            logger.info(f"    [NAME APPLIED] {year_prefix} Vault -> Naming Spouse: {t_fam['w_first']} {t_fam['w_last']} (HISTID: {histid})")
+                            target_byr = t_fam.get('w_byr')
+                        else:
+                            # This is a child. We only sweep Heads and Spouses right now.
+                            continue
+                            
+                        age_diff = 0
+                        if target_byr and byr:
+                            age_diff = abs(target_byr - byr)
+
+                        # Allow a +/- 5 year tolerance for the sweep.
+                        if age_diff > 5:
+                            h_name = f"{t_fam.get('h_first', '')} {t_fam.get('h_last', '')}".strip()
+                            w_name = f"{t_fam.get('w_first', '')} {t_fam.get('w_last', '')}".strip()
+                            logger.warning(f"    [SWEEP REJECTED] Clan match for {h_name or w_name} in {fam_id} has wrong birth year.")
+                            logger.warning(f"      -> GEDCOM says b. {target_byr}, but DB record says b. {byr}. Clan may be corrupted.")
+                            continue
+
+                        if histid == head_id and t_fam.get('h_first'):
+                            logger.info(f"    [LIVING ROOM SWEEP] {year_prefix} Vault -> Naming Head: {t_fam['h_first']} {t_fam['h_last']} (HISTID: {histid})")
+                            update_queue_by_year[year_prefix].append((t_fam['h_first'], t_fam['h_last'], histid))
+                        elif histid == spouse_id and t_fam.get('w_first'):
+                            logger.info(f"    [LIVING ROOM SWEEP] {year_prefix} Vault -> Naming Spouse: {t_fam['w_first']} {t_fam['w_last']} (HISTID: {histid})")
                             update_queue_by_year[year_prefix].append((t_fam['w_first'], t_fam['w_last'], histid))
 
     logger.info(f"\nStep 4/4: Applying historical names to the census records...")
