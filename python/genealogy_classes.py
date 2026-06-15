@@ -67,6 +67,8 @@ class Individual:
         self.target_fbpl_codes = None
         self.target_mbpl = None
         self.target_mbpl_codes = None
+        self.target_residences = {}
+        self.target_residences_codes = {}
 
         # ---------------------------------------------------------
         # LINEAGE POINTERS (For Bottom-Up Traversal)

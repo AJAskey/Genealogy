@@ -104,7 +104,9 @@ def setup_database(db_path, logger):
                        yngch
                        TEXT,
                        relate
-                       TEXT
+                       TEXT,
+                       num_kids
+                       INTEGER
                    )
                    ''')
 
@@ -275,7 +277,7 @@ def process_household(rows):
         individuals_by_fam[family_id].append((
             histid, first_name, last_name, year, row.get('SAMPLE'), serial, pernum, famunit,
             row.get('AGE'), row.get('SEX'), row.get('BIRTHYR'),
-            row.get('BIRTHMO'), row.get('MARRNOYRS'),
+            row.get('BIRTHMO'), row.get('MARRNOYR') or row.get('MARRNOYRS'),
             row.get('BPLD') or row.get('BPL'), row.get('FBPLD') or row.get('FBPL'),
             row.get('MBPLD') or row.get('MBPL'),
             father_histid, mother_histid, family_id, raw_data_json
@@ -290,11 +292,17 @@ def process_household(rows):
     for fid, data in families_dict.items():
         family_members = individuals_by_fam[fid]
 
+        num_kids = sum(
+            1 for ind in family_members
+            if (data['head_histid'] and ind[16] == data['head_histid']) or
+               (data['spouse_histid'] and ind[17] == data['spouse_histid'])
+        )
+
         if len(family_members) > 1:
             # This is a valid family, process as before.
             final_fams.append(
                 (fid, data['year'], data['serial'], data['famunit'], data['head_histid'], data['spouse_histid'],
-                 data['hhtype'], data['numprec'], data['pernum'], data['eldch'], data['yngch'], data['relate']))
+                 data['hhtype'], data['numprec'], data['pernum'], data['eldch'], data['yngch'], data['relate'], num_kids))
             final_inds.extend(family_members)
         elif len(family_members) == 1:
             # This is a lone wolf. Keep the individual, but sever the family link.
@@ -341,8 +349,8 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
     fam_insert_query = """
                        INSERT \
                        OR IGNORE INTO families 
-        (family_id, year, serial, famunit, head_histid, spouse_histid, hhtype, numprec, pernum, eldch, yngch, relate)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
+        (family_id, year, serial, famunit, head_histid, spouse_histid, hhtype, numprec, pernum, eldch, yngch, relate, num_kids)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
                        """
 
     count = 0
@@ -484,11 +492,12 @@ if __name__ == '__main__':
     if os.path.exists(VAULT_DIR):
         main_logger.info(f"Starting fresh! Clearing old databases in {VAULT_DIR}...")
         for filename in os.listdir(VAULT_DIR):
-            if filename.startswith("YearVault_") and filename.endswith(".db"):
+            if filename.startswith("YearVault_"):
                 try:
                     os.remove(os.path.join(VAULT_DIR, filename))
-                except OSError:
-                    pass
+                except OSError as e:
+                    main_logger.error(f"CRITICAL: Could not delete {filename}! Is it open in another program? {e}")
+                    sys.exit(1)
     else:
         os.makedirs(VAULT_DIR, exist_ok=True)
 
