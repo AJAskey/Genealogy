@@ -526,6 +526,131 @@ def update_csv_matched_column(filepath, matched_ids, logger):
     logger.info(f"  -> Updated {matched_count:,} matched individuals in {os.path.basename(filepath)}")
 
 
+def compare_couple(h_indi_c, w_indi_c, h_indi_g, w_indi_g):
+    return False
+
+
+def compare_kids(g_kids, c_kids):
+    return False
+
+
+def ApplyFingerprintAnalysis(match_data, db_row):
+    """
+
+    db_row     ==> census vault
+             0  f.family_id,
+             1  f.numprec,
+             2  h.histid,
+             3  h.sex,
+             4  h.birthyr,
+             5  h.bpld,
+             6  h.fbpl,
+             7  h.mbpl,
+             8  s.histid,
+             9  s.sex,
+             10  s.birthyr,
+             11  s.bpld,
+             12  s.fbpl,
+             13  s.mbpl,
+             14  f.num_kids,
+             15  h.raw_data,
+             16  s.raw_data,
+
+    match_data -->  gedcom/CSV
+            'fam': fam,
+            'h_sex': '1',  # Male
+            'h_byr': fam['h_byr'],
+            'h_bmo': fam['h_bmo'],
+            'h_bpl_pref': get_bpl_prefixes(fam['h_bpl'], "h_bpl"),
+            'h_fbpl_pref': get_bpl_prefixes(fam['h_fbpl'], "h_fbpl"),
+            'h_mbpl_pref': get_bpl_prefixes(fam['h_mbpl'], "h_mbpl"),
+            'h_res_prefs': {yr: get_bpl_prefixes(extract_state(loc), f"h_res_{yr}") for yr, loc in fam['h_res'].items()
+                            if loc},
+            'h_bpl_county': fam.get('h_bpl_county', ''),
+            'h_fbpl_county': fam.get('h_fbpl_county', ''),
+            'h_mbpl_county': fam.get('h_mbpl_county', ''),
+            'h_res_county': fam.get('h_res_county', {}),
+
+            'w_sex': '2',  # Female
+            'w_byr': fam['w_byr'],
+            'w_bmo': fam['w_bmo'],
+            'w_bpl_pref': get_bpl_prefixes(fam['w_bpl'], "w_bpl"),
+            'w_fbpl_pref': get_bpl_prefixes(fam['w_fbpl'], "w_fbpl"),
+            'w_mbpl_pref': get_bpl_prefixes(fam['w_mbpl'], "w_mbpl"),
+            'w_res_prefs': {yr: get_bpl_prefixes(extract_state(loc), f"w_res_{yr}") for yr, loc in fam['w_res'].items()
+                            if loc},
+            'w_bpl_county': fam.get('w_bpl_county', ''),
+            'w_fbpl_county': fam.get('w_fbpl_county', ''),
+            'w_mbpl_county': fam.get('w_mbpl_county', ''),
+            'w_res_county': fam.get('w_res_county', {}),
+
+
+# """
+#     Compare husband and wife's age/birth year and birthplace from the census to GEDCOM
+    #
+        try:
+            h_raw_c = json.loads(db_row[15])
+            w_raw_c = json.loads(db_row[16])
+        except (json.JSONDecodeError, TypeError):
+            h_raw_c, w_raw_c = {}, {}
+
+        h_bpl_c_str = get_state_from_code(db_row[5], "h_bpl_str")
+        h_fbpl_c_str = get_state_from_code(db_row[6], "h_fbpl_str")
+        h_mbpl_c_str = get_state_from_code(db_row[7], "h_mbpl_str")
+        w_bpl_c_str = get_state_from_code(db_row[11], "w_bpl_str")
+        w_fbpl_c_str = get_state_from_code(db_row[12], "w_fbpl_str")
+        w_mbpl_c_str = get_state_from_code(db_row[13], "w_mbpl_str")
+
+        fam_id_c = db_row[0]
+        fam_obj_c = Family(family_id=fam_id_c)
+        fam_obj_c.husband_id = db_row[2]
+        fam_obj_c.wife_id = db_row[8]
+
+        h_indi_c = Individual(st_joes_id=fam_obj_c.husband_id, raw_composite_id=fam_obj_c.husband_id, fam_id=fam_id_c)
+        h_indi_c.first_name, h_indi_c.last_name = fam_c['h_first'], fam_c['h_last']
+        h_indi_c.sex, h_indi_c.birthyr = db_row[3], db_row[4]
+        h_indi_c.bpld, h_indi_c.fbpl, h_indi_c.mbpl = db_row[5], db_row[6], db_row[7]
+        h_indi_c.bpld_str, h_indi_c.fbpl_str, h_indi_c.mbpl_str = h_bpl_c_str, h_fbpl_c_str, h_mbpl_c_str
+        h_indi_c.target_bpl, h_indi_c.target_bpl_codes = fam['h_bpl'], match_data['h_bpl_pref']
+        h_indi_c.target_fbpl, h_indi_c.target_fbpl_codes = fam['h_fbpl'], match_data['h_fbpl_pref']
+        h_indi_c.target_mbpl, h_indi_c.target_mbpl_codes = fam['h_mbpl'], match_data['h_mbpl_pref']
+        h_indi_c.target_residences = fam_c['h_res']
+        h_indi_c.target_residences_codes = match_data['h_res_prefs']
+        h_indi_c.birthmo, h_indi_c.marrnoyrs = h_raw_c.get('BIRTHMO'), h_raw_c.get('MARRNOYRS')
+        h_indi_c.status = "HUSBAND"
+
+        w_indi_c = Individual(st_joes_id=fam_obj_c.wife_id, raw_composite_id=fam_obj_c.wife_id, fam_id=fam_id_c)
+        w_indi_c.first_name, w_indi_c.last_name = fam_c['w_first'], fam['w_last']
+        w_indi_c.sex, w_indi.birthyr = db_row[9], db_row[10]
+        w_indi_c.bpld, w_indi_c.fbpl, w_indi_c.mbpl = db_row[11], db_row[12], db_row[13]
+        w_indi_c.bpld_str, w_indi_c.fbpl_str, w_indi_c.mbpl_str = w_bpl_c_str, w_fbpl_c_str, w_mbpl_c_str
+        w_indi_c.target_bpl, w_indi_c.target_bpl_codes = fam_c['w_bpl'], match_data['w_bpl_pref']
+        w_indi_c.target_fbpl, w_indi_c.target_fbpl_codes = fam_c['w_fbpl'], match_data['w_fbpl_pref']
+        w_indi_c.target_mbpl, w_indi_c.target_mbpl_codes = fam_c['w_mbpl'], match_data['w_mbpl_pref']
+        w_indi_c.target_residences = fam_c['w_res']
+        w_indi_c.target_residences_codes = match_data['w_res_prefs']
+        w_indi_c.birthmo, w_indi_c.marrnoyrs = w_raw_c.get('BIRTHMO'), w_raw_c.get('MARRNOYRS')
+        w_indi_c.status = "SPOUSE"
+
+        res= compare_couple(h_indi_c, w_indi_c)
+#
+#     Compare the husband and wife's mother and father's birthplace between the two sources.
+#
+#     Compare the child count between both sources.
+#
+#     Compare the birth year of each child.
+#
+#     Compare the residences of the husband and wife versus both sources.
+
+
+
+
+
+
+
+    return False
+
+
 def apply_gedcom_names(logger):
     logger.info("Step 1/4: Preparing the 'Named' Database Vaults...")
     os.makedirs(NAMED_VAULT_DIR, exist_ok=True)
@@ -735,6 +860,9 @@ def apply_gedcom_names(logger):
             for offsets in pass_configs:
                 if matches_this_decade > 0:
                     break
+
+                flg = False
+                flg = ApplyFingerprintAnalysis(match_data, db_row)
 
                 scored_matches = []
 
