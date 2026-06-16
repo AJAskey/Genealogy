@@ -284,9 +284,13 @@ def link_households_across_decades(logger):
                             if neighbor not in visited:
                                 stack.append(neighbor)
 
-                for fam in current_clan:
-                    clans.append((fam, f"CLAN_{clan_id_counter}"))
-                clan_id_counter += 1
+                # DECISION: The Highlander Rule. There can be only one household per decade in a valid clan!
+                # If a clan has two households in 1880, a false transitive link corrupted the graph. Discard it.
+                years_in_clan = [fam.split('_')[0] for fam in current_clan]
+                if len(years_in_clan) == len(set(years_in_clan)):
+                    for fam in current_clan:
+                        clans.append((fam, f"CLAN_{clan_id_counter}"))
+                    clan_id_counter += 1
 
         # TELEMETRY: Check for "Mega-Clans" (If a clan has thousands of members, the logic is broken)
         clan_sizes = defaultdict(int)

@@ -77,23 +77,23 @@ GEDCOM_INPUT_DIR = os.path.join(project_root, "gedcom_sources")
 # ==============================================================================
 # DIAGNOSTIC MODE SETTINGS
 # ==============================================================================
-TARGET_DECADE = "1880"  # Lock exactly to the specified database for testing
+TARGET_DECADE = "1870"  # Lock exactly to the specified database for testing
 
 # FIPS mapping to resolve NameError crash during state code evaluation
 STATEICP_TO_FIPS = {
-    "1": "09", "2": "23", "3": "25", "4": "33", "5": "44", "6": "50", "11": "10", 
-    "12": "34", "13": "36", "14": "42", "21": "17", "22": "18", "23": "26", "24": "39", 
-    "25": "55", "31": "19", "32": "20", "33": "27", "34": "29", "35": "31", "36": "38", 
-    "37": "46", "40": "51", "41": "01", "42": "05", "43": "12", "44": "13", "45": "22", 
-    "46": "28", "47": "37", "48": "45", "49": "48", "51": "21", "52": "24", "53": "40", 
-    "54": "47", "56": "54", "61": "04", "62": "08", "63": "16", "64": "30", "65": "32", 
+    "1": "09", "2": "23", "3": "25", "4": "33", "5": "44", "6": "50", "11": "10",
+    "12": "34", "13": "36", "14": "42", "21": "17", "22": "18", "23": "26", "24": "39",
+    "25": "55", "31": "19", "32": "20", "33": "27", "34": "29", "35": "31", "36": "38",
+    "37": "46", "40": "51", "41": "01", "42": "05", "43": "12", "44": "13", "45": "22",
+    "46": "28", "47": "37", "48": "45", "49": "48", "51": "21", "52": "24", "53": "40",
+    "54": "47", "56": "54", "61": "04", "62": "08", "63": "16", "64": "30", "65": "32",
     "66": "35", "67": "49", "68": "56", "71": "06", "72": "41", "73": "53", "81": "02", "82": "15"
 }
 
 # The most common counties found in your GEDCOM data
 COUNTY_CODES = {
     # FIPS and IPUMS ICPSR (trailing zero) codes
-    "clearfield": ["033", "33", "330", "042033", "14033"], 
+    "clearfield": ["033", "33", "330", "042033", "14033"],
     "centre": ["027", "27", "270", "042027", "14027"],
     "clinton": ["035", "35", "350", "042035", "14035"],
     "lycoming": ["081", "81", "810", "042081", "14081"],
@@ -121,7 +121,7 @@ COUNTY_CODES = {
     "bedford": ["009", "9", "90", "042009", "14009"],
     "erie": ["049", "49", "490", "042049", "14049"],
     "northumberland": ["097", "97", "970", "042097", "14097"],
-    
+
     # Ohio Counties
     "harrison": ["067", "67", "670", "039067", "24067"],
     "noble": ["121", "1210", "039121", "24121"],
@@ -249,17 +249,18 @@ def is_county_match(parsed_json, county_name):
 
     county_lower = county_name.lower().replace(" county", "").strip()
     if not county_lower: return False
-    
+
     db_countyicp = str(parsed_json.get('COUNTYICP', '')).strip()
     db_countynhg = str(parsed_json.get('COUNTYNHG', '')).strip()
-        
+
     for code in COUNTY_CODES.get(county_lower, []):
         if db_countyicp == code or db_countyicp.lstrip('0') == code.lstrip('0'):
             return True
         if db_countynhg == code or db_countynhg.lstrip('0') == code.lstrip('0'):
             return True
-            
+
     return False
+
 
 def extract_state(loc_str):
     """Strips city/county and returns only the state/country name."""
@@ -338,9 +339,9 @@ def parse_csv_names_and_dates(filepath):
             res = {str(yr): extract_state(row.get(f'{yr} Place', '')) for yr in range(1850, 1960, 10)}
             res_county = {str(yr): row.get(f'{yr} County', '').strip() for yr in range(1850, 1960, 10)}
 
-            h_first, h_last, h_byr, h_bmo, h_bpl, h_fbpl, h_mbpl = "", "", None, "", "", "", ""
+            h_id, h_first, h_last, h_byr, h_bmo, h_bpl, h_fbpl, h_mbpl = "", "", "", None, "", "", "", ""
             h_bpl_county, h_fbpl_county, h_mbpl_county = "", "", ""
-            w_first, w_last, w_byr, w_bmo, w_bpl, w_fbpl, w_mbpl = "", "", None, "", "", "", ""
+            w_id, w_first, w_last, w_byr, w_bmo, w_bpl, w_fbpl, w_mbpl = "", "", "", None, "", "", "", ""
             w_bpl_county, w_fbpl_county, w_mbpl_county = "", "", ""
             h_res = {str(yr): "" for yr in range(1850, 1960, 10)}
             w_res = {str(yr): "" for yr in range(1850, 1960, 10)}
@@ -348,6 +349,7 @@ def parse_csv_names_and_dates(filepath):
             w_res_county = {str(yr): "" for yr in range(1850, 1960, 10)}
 
             if sex == 'M':
+                h_id = row.get('ID', '')
                 h_first, h_last = row.get('First Name', ''), row.get('Last Name', '')
                 h_byr, h_bmo = byr, bmo
                 h_bpl, h_fbpl, h_mbpl = bpl, fbpl, mbpl
@@ -355,6 +357,7 @@ def parse_csv_names_and_dates(filepath):
                 h_res = res
                 h_res_county = res_county
             elif sex == 'F':
+                w_id = row.get('ID', '')
                 w_first, w_last = row.get('First Name', ''), row.get('Last Name', '')
                 w_byr, w_bmo = byr, bmo
                 w_bpl, w_fbpl, w_mbpl = bpl, fbpl, mbpl
@@ -373,13 +376,17 @@ def parse_csv_names_and_dates(filepath):
                 continue
 
             target_couples.append({
+                'h_id': h_id, 'w_id': w_id,
                 'h_first': h_first, 'h_last': h_last, 'h_byr': h_byr, 'h_bmo': h_bmo,
                 'h_bpl': h_bpl, 'h_fbpl': h_fbpl, 'h_mbpl': h_mbpl, 'h_res': h_res,
-                'h_bpl_county': h_bpl_county, 'h_fbpl_county': h_fbpl_county, 'h_mbpl_county': h_mbpl_county, 'h_res_county': h_res_county,
+                'h_bpl_county': h_bpl_county, 'h_fbpl_county': h_fbpl_county, 'h_mbpl_county': h_mbpl_county,
+                'h_res_county': h_res_county,
                 'w_first': w_first, 'w_last': w_last, 'w_byr': w_byr, 'w_bmo': w_bmo,
                 'w_bpl': w_bpl, 'w_fbpl': w_fbpl, 'w_mbpl': w_mbpl, 'w_res': w_res,
-                'w_bpl_county': w_bpl_county, 'w_fbpl_county': w_fbpl_county, 'w_mbpl_county': w_mbpl_county, 'w_res_county': w_res_county,
-                'marr_yr': None, 'num_children': 0
+                'w_bpl_county': w_bpl_county, 'w_fbpl_county': w_fbpl_county, 'w_mbpl_county': w_mbpl_county,
+                'w_res_county': w_res_county,
+                'marr_yr': None, 'num_children': 0, 'children_names': '',
+                'child_demographics': []
             })
             continue
 
@@ -395,8 +402,11 @@ def parse_csv_names_and_dates(filepath):
             else:
                 husb, wife = spouse, row
 
+            h_id, w_id = husb.get('ID', ''), wife.get('ID', '')
             h_first, h_last = husb.get('First Name', ''), husb.get('Last Name', '')
             w_first, w_last = wife.get('First Name', ''), wife.get('Last Name', '')
+            children_names = wife.get('Children', '')
+            children_byrs = wife.get('Children Birth Yr', '')
 
             couple_key = f"{h_first}_{h_last}_{w_first}_{w_last}"
             if couple_key in seen_couples:
@@ -423,7 +433,7 @@ def parse_csv_names_and_dates(filepath):
             h_mbpl = extract_state(husb.get('Mother Birth Place', ''))
             if not h_fbpl: h_fbpl = h_bpl
             if not h_mbpl: h_mbpl = h_bpl
-            
+
             h_bpl_county = husb.get('Birth County', '').strip()
             h_fbpl_county = husb.get('Father Birth County', '').strip()
             h_mbpl_county = husb.get('Mother Birth County', '').strip()
@@ -433,7 +443,7 @@ def parse_csv_names_and_dates(filepath):
             w_mbpl = extract_state(wife.get('Mother Birth Place', ''))
             if not w_fbpl: w_fbpl = w_bpl
             if not w_mbpl: w_mbpl = w_bpl
-            
+
             w_bpl_county = wife.get('Birth County', '').strip()
             w_fbpl_county = wife.get('Father Birth County', '').strip()
             w_mbpl_county = wife.get('Mother Birth County', '').strip()
@@ -446,20 +456,74 @@ def parse_csv_names_and_dates(filepath):
             marr_yr_str, _ = parse_date(marr_dates[idx])
             marr_yr = int(marr_yr_str) if marr_yr_str.isdigit() else None
 
-            num_children_str = husb.get('Num Children', '0')
-            num_children = int(num_children_str) if num_children_str.isdigit() else 0
+            # DECISION: The US Census 'CHBORN' question was asked to women, not men.
+            # We must pull the wife's total children to correctly match the census definition!
+            num_children_str = wife.get('Num Children', '0')
+            csv_num_children = int(num_children_str) if num_children_str.isdigit() else 0
+
+            # DECISION: Recount the GEDCOM children from the actual names string to guarantee accuracy!
+            recounted_gedcom_kids = len([k for k in children_names.split('|') if k.strip()])
+            num_children = max(csv_num_children, recounted_gedcom_kids)
+
+            # DECISION: Capture child demographics for exact matching!
+            child_ids = [c.strip() for c in wife.get('Children ID(s)', '').split('|') if c.strip()]
+            child_demographics = []
+            for c_id in child_ids:
+                c_indi = individuals.get(c_id)
+                if c_indi:
+                    c_sex = c_indi.get('Sex', '')
+                    c_byr, _ = parse_date(c_indi.get('Birth Date', ''))
+                    if c_sex and c_byr.isdigit():
+                        child_demographics.append({
+                            'sex': c_sex, 'byr': int(c_byr),
+                            'first_name': c_indi.get('First Name', ''),
+                            'last_name': c_indi.get('Last Name', '')
+                        })
 
             target_couples.append({
+                'h_id': h_id, 'w_id': w_id,
                 'h_first': h_first, 'h_last': h_last, 'h_byr': h_byr, 'h_bmo': h_bmo,
                 'h_bpl': h_bpl, 'h_fbpl': h_fbpl, 'h_mbpl': h_mbpl, 'h_res': h_res,
-                'h_bpl_county': h_bpl_county, 'h_fbpl_county': h_fbpl_county, 'h_mbpl_county': h_mbpl_county, 'h_res_county': h_res_county,
+                'h_bpl_county': h_bpl_county, 'h_fbpl_county': h_fbpl_county, 'h_mbpl_county': h_mbpl_county,
+                'h_res_county': h_res_county,
                 'w_first': w_first, 'w_last': w_last, 'w_byr': w_byr, 'w_bmo': w_bmo,
                 'w_bpl': w_bpl, 'w_fbpl': w_fbpl, 'w_mbpl': w_mbpl, 'w_res': w_res,
-                'w_bpl_county': w_bpl_county, 'w_fbpl_county': w_fbpl_county, 'w_mbpl_county': w_mbpl_county, 'w_res_county': w_res_county,
-                'marr_yr': marr_yr, 'num_children': num_children
+                'w_bpl_county': w_bpl_county, 'w_fbpl_county': w_fbpl_county, 'w_mbpl_county': w_mbpl_county,
+                'w_res_county': w_res_county,
+                'marr_yr': marr_yr, 'num_children': num_children,
+                'children_names': children_names,
+                'children_byrs': children_byrs,
+                'child_demographics': child_demographics
             })
 
     return target_couples
+
+
+def update_csv_matched_column(filepath, matched_ids, logger):
+    """Updates the 'Matched' column in the GEDCOM CSV for successfully matched individuals."""
+    updated_rows = []
+    matched_count = 0
+
+    with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+        reader = csv.DictReader(f)
+        fieldnames = list(reader.fieldnames)
+        if 'Matched' not in fieldnames:
+            fieldnames.append('Matched')
+
+        for row in reader:
+            if row.get('ID') in matched_ids:
+                row['Matched'] = 'Yes'
+                matched_count += 1
+            else:
+                row['Matched'] = 'No'
+            updated_rows.append(row)
+
+    with open(filepath, 'w', encoding='utf-8', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(updated_rows)
+
+    logger.info(f"  -> Updated {matched_count:,} matched individuals in {os.path.basename(filepath)}")
 
 
 def apply_gedcom_names(logger):
@@ -583,11 +647,20 @@ def apply_gedcom_names(logger):
                                                s.bpld,
                                                s.fbpl,
                                                s.mbpl,
+                                               f.num_kids,
                                                h.raw_data,
-                                               s.raw_data
+                                               s.raw_data,
+                                               (SELECT GROUP_CONCAT(c.histid || ':' ||
+                                                                    (CASE WHEN c.sex = '1' THEN 'M' WHEN c.sex = '2' THEN 'F' ELSE 'U' END) ||
+                                                                    ' age ' || IFNULL(c.age, '?') || ' b.' || c.birthyr,
+                                                                    ' | ')
+                                                FROM individuals c
+                                                WHERE c.family_id = f.family_id
+                                                  AND c.histid != h.histid AND c.histid != s.histid) AS kids_names
                                         FROM families f
-                                                 JOIN individuals h ON f.head_histid = h.histid
-                                                 JOIN individuals s ON f.spouse_histid = s.histid
+                                            JOIN individuals h
+                                        ON f.head_histid = h.histid
+                                            JOIN individuals s ON f.spouse_histid = s.histid
                                         WHERE h.last_name = 'Bosselstink'
                                           AND h.first_name = 'Future'
                                           AND h.birthyr IS NOT NULL
@@ -629,7 +702,7 @@ def apply_gedcom_names(logger):
             h_name = f"{match_data['fam']['h_first']} {match_data['fam']['h_last']}"
             w_name = f"{match_data['fam']['w_first']} {match_data['fam']['w_last']}"
             logger.info(
-                f"\n[SEARCHING] Couple: {h_name} (b. {match_data['h_byr']}) & {w_name} (b. {match_data['w_byr']}) | Kids: {match_data['num_children']}")
+                f"\n[SEARCHING] Couple: {h_name} (b. {match_data['h_byr']}) & {w_name} (b. {match_data['w_byr']}) | Kids: {match_data['num_children']} ({match_data['fam'].get('children_names', '')})")
 
             dbg_dik = {"h_name": h_name, "w_name": w_name,
                        "h_age": h_age, "w_age": w_age,
@@ -643,6 +716,9 @@ def apply_gedcom_names(logger):
                        "w_mbpl": match_data['w_mbpl_pref'],
                        "w_bpl_co": match_data['w_bpl_county'],
                        "w_res_co": match_data['w_res_county'],
+                       "gedcom_kids": match_data['num_children'],
+                       "gedcom_kids_names": match_data['fam'].get('children_names', ''),
+                       "gedcom_kids_bys": match_data['fam'].get('children_byrs', ''),
                        "h_res": match_data['h_res_prefs'],
                        "w_res": match_data['w_res_prefs']
                        }
@@ -679,110 +755,104 @@ def apply_gedcom_names(logger):
                             match_dbg.update({'dbh_sex': db_row[3]})
 
                             try:
-                                h_raw = json.loads(db_row[14])
-                                w_raw = json.loads(db_row[15])
+                                h_raw = json.loads(db_row[15])
+                                w_raw = json.loads(db_row[16])
                             except (json.JSONDecodeError, TypeError):
                                 h_raw, w_raw = {}, {}
 
-                            # DECISION: Extract exact child count from the JSON Bread Crumbs
-                            # Try the 1900 CHBORN variable first (Total children ever born to the wife)
-                            db_chborn_str = str(w_raw.get('CHBORN', '')).strip()
-                            if db_chborn_str.isdigit() and int(db_chborn_str) < 99:  # IPUMS uses 99/999 for N/A
-                                db_kids = int(db_chborn_str)
-                            else:
-                                # Fallback to NCHILD or numprec for other census years
-                                db_nchild_str = str(h_raw.get('NCHILD', '')).strip()
-                                if db_nchild_str.isdigit():
-                                    db_kids = int(db_nchild_str)
-                                else:
-                                    numprec_str = str(db_row[1]).strip()
-                                    db_kids = max(0, int(numprec_str) - 2) if numprec_str.isdigit() else 0
+                            # DECISION: Extract the biologically verified child count from DatabaseVault.
+                            # We added these up based on POPLOC/MOMLOC pointers. This is a physical,
+                            # verified snapshot of the children living in the house on census day.
+                            db_kids_raw = db_row[14] or 0
 
-                                
-                            # TEMPORAL PARADOX FIX: The GEDCOM lists TOTAL kids over a lifetime. 
-                            # In a census, a young 24-year-old wife won't have all 4 of her kids yet,
-                            # and a 50-year-old wife's kids may have moved out!
-                            # We should only reject if the census has MORE kids than the GEDCOM total.
-                            if db_kids > match_data['num_children']:
-                                continue
+                            # DECISION: Recount the database children from the actual names string to guarantee accuracy!
+                            db_kids_names_str = str(db_row[17]) if db_row[17] else ""
+                            db_recounted_kids = len([k for k in db_kids_names_str.split('|') if k.strip()])
+                            db_kids = max(db_kids_raw, db_recounted_kids)
 
-                            size_diff = abs(db_kids - match_data['num_children'])
+                            # DECISION: Soft Child Count Penalty
+                            # We used to hard-reject if db_kids > gedcom_kids. But GEDCOMs are notoriously
+                            # incomplete! If the census found 4 kids and the GEDCOM only knows 2, we shouldn't
+                            # abort the match. We apply a penalty, but allow strong geographic anchors to save it.
+                            kids_penalty = max(0, db_kids - match_data['num_children']) * 2
+
                             age_diff = abs(h_off) + abs(w_off)
 
-                            score = size_diff + age_diff
+                            score = kids_penalty + age_diff
 
-                            # DECISION: Soft-Score the Birthplaces!
-                            # We apply a penalty for wrong states, but a BONUS for correct states
-                            # to create a massive scoring gap between true matches and false positives!
                             score_breakdown = {
                                 "base": score,
-                                "kids_penalty": size_diff,
+                                "kids_penalty": kids_penalty,
                                 "age_penalty": age_diff
                             }
-                            if match_data['h_bpl_pref']:
-                                if is_bpl_match(db_h_bpld, match_data['h_bpl_pref']):
-                                    score -= 5;
-                                    score_breakdown['h_bpl'] = -5
-                                else:
-                                    score += 5;
-                                    score_breakdown['h_bpl'] = 5
-                            if match_data['h_fbpl_pref']:
-                                if is_bpl_match(db_h_fbpl, match_data['h_fbpl_pref']):
-                                    score -= 2;
-                                    score_breakdown['h_fbpl'] = -2
-                                else:
-                                    score += 2;
-                                    score_breakdown['h_fbpl'] = 2
-                            if match_data['h_mbpl_pref']:
-                                if is_bpl_match(db_h_mbpl, match_data['h_mbpl_pref']):
-                                    score -= 2;
-                                    score_breakdown['h_mbpl'] = -2
-                                else:
-                                    score += 2;
-                                    score_breakdown['h_mbpl'] = 2
 
-                            if match_data['w_bpl_pref']:
-                                if is_bpl_match(db_w_bpld, match_data['w_bpl_pref']):
-                                    score -= 5;
-                                    score_breakdown['w_bpl'] = -5
-                                else:
-                                    score += 5;
-                                    score_breakdown['w_bpl'] = 5
-                            if match_data['w_fbpl_pref']:
-                                if is_bpl_match(db_w_fbpl, match_data['w_fbpl_pref']):
-                                    score -= 2;
-                                    score_breakdown['w_fbpl'] = -2
-                                else:
-                                    score += 2;
-                                    score_breakdown['w_fbpl'] = 2
-                            if match_data['w_mbpl_pref']:
-                                if is_bpl_match(db_w_mbpl, match_data['w_mbpl_pref']):
-                                    score -= 2;
-                                    score_breakdown['w_mbpl'] = -2
-                                else:
-                                    score += 2;
-                                    score_breakdown['w_mbpl'] = 2
-                                    
+                            # DECISION: Exact Kids Demographic Match Bonus!
+                            # The nameless database lacks names, so we match the kids by SEX and BIRTH YEAR!
+                            # The goal isn't just to find a couple with the same number of kids,
+                            # but the couple with the EXACT SAME KIDS!
+                            db_kids_list = [k.strip() for k in db_kids_names_str.split('|') if k.strip()]
+
+                            matched_kids_count = 0
+                            unmatched_gedcom_kids = list(match_data['fam'].get('child_demographics', []))
+                            mapped_kids_for_this_row = {}
+
+                            for db_k in db_kids_list:
+                                if ':' not in db_k: continue
+                                c_histid, c_demo = db_k.split(':', 1)
+                                parts = c_demo.upper().split(' B.')
+                                if len(parts) == 2:
+                                    db_sex_age, db_byr_str = parts[0].strip(), parts[1].strip()
+                                    db_sex = db_sex_age[0] if db_sex_age else 'U'
+                                    if db_byr_str.isdigit():
+                                        db_byr = int(db_byr_str)
+                                        # Find a matching GEDCOM kid (Allow +/- 2 years for census variation)
+                                        for i, gk in enumerate(unmatched_gedcom_kids):
+                                            if gk['sex'] == db_sex and abs(gk['byr'] - db_byr) <= 2:
+                                                matched_kids_count += 1
+
+                                                # Calculate the "offset" (Expected Age) at run time!
+                                                gk_expected_age = census_year - gk['byr']
+                                                enhanced_demo = f"{c_demo.strip()} | Expected Age: {gk_expected_age}"
+
+                                                mapped_kids_for_this_row[c_histid] = (gk['first_name'], gk['last_name'],
+                                                                                      enhanced_demo)
+                                                unmatched_gedcom_kids.pop(i)
+                                                break
+
+                            if matched_kids_count > 0:
+                                score -= (matched_kids_count * 50)
+                                score_breakdown['matched_kids'] = -(matched_kids_count * 50)
+
+                                # DECISION: The "Macaroni" Bonus!
+                                # If >= 2 kids match, it's statistically impossible to be a clone.
+                                if matched_kids_count >= 2:
+                                    score -= 100
+                                    score_breakdown['macaroni_bonus'] = -100
+                            elif db_kids_list and match_data['fam'].get('child_demographics'):
+                                # If both sources have kids, but NONE of their names match, massive penalty!
+                                score += 100
+                                score_breakdown['mismatched_kids'] = 100
+
                             # DECISION: Apply the High-Fidelity County Anchors!
                             if match_data['h_bpl_county'] and is_county_match(h_raw, match_data['h_bpl_county']):
-                                score -= 3
-                                score_breakdown['h_bpl_county'] = -3
+                                score -= 50
+                                score_breakdown['h_bpl_county'] = -50
                             if match_data['h_fbpl_county'] and is_county_match(h_raw, match_data['h_fbpl_county']):
-                                score -= 1
-                                score_breakdown['h_fbpl_county'] = -1
+                                score -= 20
+                                score_breakdown['h_fbpl_county'] = -20
                             if match_data['h_mbpl_county'] and is_county_match(h_raw, match_data['h_mbpl_county']):
-                                score -= 1
-                                score_breakdown['h_mbpl_county'] = -1
-                                
+                                score -= 20
+                                score_breakdown['h_mbpl_county'] = -20
+
                             if match_data['w_bpl_county'] and is_county_match(w_raw, match_data['w_bpl_county']):
-                                score -= 3
-                                score_breakdown['w_bpl_county'] = -3
+                                score -= 50
+                                score_breakdown['w_bpl_county'] = -50
                             if match_data['w_fbpl_county'] and is_county_match(w_raw, match_data['w_fbpl_county']):
-                                score -= 1
-                                score_breakdown['w_fbpl_county'] = -1
+                                score -= 20
+                                score_breakdown['w_fbpl_county'] = -20
                             if match_data['w_mbpl_county'] and is_county_match(w_raw, match_data['w_mbpl_county']):
-                                score -= 1
-                                score_breakdown['w_mbpl_county'] = -1
+                                score -= 20
+                                score_breakdown['w_mbpl_county'] = -20
 
                             # DECISION: The Decadal Residence Anchor!
                             # Dynamically grab the GEDCOM's residence for THIS specific census year.
@@ -799,15 +869,15 @@ def apply_gedcom_names(logger):
                                     db_h_statefip = STATEICP_TO_FIPS.get(db_h_stateicp, '')
                                 if db_h_statefip:
                                     if is_bpl_match(db_h_statefip, h_res_pref):
-                                        score -= 10;
-                                        score_breakdown['h_res'] = -10
+                                        score -= 25;
+                                        score_breakdown['h_res'] = -25
                                         # If state is a match, check the county for a massive tie-breaking bonus!
                                         if h_res_co and is_county_match(h_raw, h_res_co):
-                                            score -= 15
-                                            score_breakdown['h_res_county'] = -15
+                                            score -= 50
+                                            score_breakdown['h_res_county'] = -50
                                     else:
-                                        score += 25;
-                                        score_breakdown['h_res'] = 25
+                                        score += 50;
+                                        score_breakdown['h_res'] = 50
                             if w_res_pref:
                                 db_w_statefip = str(w_raw.get('STATEFIP', '')).strip().lstrip('0')
                                 if not db_w_statefip:
@@ -815,15 +885,15 @@ def apply_gedcom_names(logger):
                                     db_w_statefip = STATEICP_TO_FIPS.get(db_w_stateicp, '')
                                 if db_w_statefip:
                                     if is_bpl_match(db_w_statefip, w_res_pref):
-                                        score -= 10;
-                                        score_breakdown['w_res'] = -10
+                                        score -= 25;
+                                        score_breakdown['w_res'] = -25
                                         # If state is a match, check the county for a massive tie-breaking bonus!
                                         if w_res_co and is_county_match(w_raw, w_res_co):
-                                            score -= 15
-                                            score_breakdown['w_res_county'] = -15
+                                            score -= 50
+                                            score_breakdown['w_res_county'] = -50
                                     else:
-                                        score += 25;
-                                        score_breakdown['w_res'] = 25
+                                        score += 50;
+                                        score_breakdown['w_res'] = 50
 
                             # DECISION: Extract Birth Month and Years Married.
                             try:
@@ -864,7 +934,7 @@ def apply_gedcom_names(logger):
                             except (json.JSONDecodeError, TypeError):
                                 pass
 
-                            scored_matches.append((score, db_row, score_breakdown))
+                            scored_matches.append((score, db_row, score_breakdown, mapped_kids_for_this_row))
 
                 if scored_matches:
                     scored_matches.sort(key=lambda x: x[0])
@@ -873,6 +943,7 @@ def apply_gedcom_names(logger):
 
                     for w in winners:
                         db_row = w[1]
+                        mapped_kids = w[3]
                         fam_id = db_row[0]
                         clan_id = clan_map.get(fam_id)
 
@@ -881,18 +952,27 @@ def apply_gedcom_names(logger):
                         else:
                             match_data['unclanned'].add(fam_id)
 
-                        match_data['results'].append((best_score, db_row))
+                        match_data['results'].append((best_score, db_row, mapped_kids))
                         matches_this_decade += 1
 
                         if matches_this_decade <= 5:
                             # Map the raw tuple to a dictionary so the rich logger displays it beautifully!
+                            db_kids_names_str = str(db_row[17]) if db_row[17] else ""
+                            db_kids_list_display = [k.strip() for k in db_kids_names_str.split('|') if k.strip()]
+                            db_kids_display_str = " | ".join(
+                                [k.split(':', 1)[1].strip() if ':' in k else k for k in db_kids_list_display])
+                            db_recounted_kids = len(db_kids_list_display)
+                            db_kids = max(db_row[14] or 0, db_recounted_kids)
+
                             dbg_row = {
                                 "h_sex": db_row[3], "h_birthyr": db_row[4],
                                 "h_bpld_raw": db_row[5], "h_fbpl_raw": db_row[6], "h_mbpl_raw": db_row[7],
                                 "w_sex": db_row[9], "w_birthyr": db_row[10],
                                 "w_bpld_raw": db_row[11], "w_fbpl_raw": db_row[12], "w_mbpl_raw": db_row[13],
                                 "family_id": db_row[0], "numprec": db_row[1], "h_histid": db_row[2],
-                                "w_histid": db_row[8], "h_data": db_row[14], "w_data": db_row[15],
+                                "w_histid": db_row[8], "h_data": db_row[15], "w_data": db_row[16],
+                                "db_kids": db_kids,
+                                "db_kids_bys": db_kids_display_str,
                                 "score": w[0]
                             }
                             dbg_row.update(w[2])
@@ -932,6 +1012,7 @@ def apply_gedcom_names(logger):
     clans_to_update = {}
     unclanned_to_update = {}
     flagged_multiples = set()
+    matched_indi_ids = set()
 
     for match_data in target_matches.values():
         fam = match_data['fam']
@@ -954,10 +1035,12 @@ def apply_gedcom_names(logger):
 
         if total_unique_entities == 1:
             success_count += 1
+            if fam.get('h_id'): matched_indi_ids.add(fam['h_id'])
+            if fam.get('w_id'): matched_indi_ids.add(fam['w_id'])
 
             # Print the perfect match details!
             if match_data['results']:
-                score, db_row = match_data['results'][0]
+                score, db_row, mapped_kids = match_data['results'][0]
                 match_label = "PERFECT MATCH" if score <= 0 else "BEST MATCH"
 
                 h_bpl_str = get_state_from_code(db_row[5], "h_bpl_str")
@@ -975,8 +1058,8 @@ def apply_gedcom_names(logger):
                 fam_obj.score = score
 
                 try:
-                    h_raw = json.loads(db_row[14]) if db_row[14] else {}
-                    w_raw = json.loads(db_row[15]) if db_row[15] else {}
+                    h_raw = json.loads(db_row[15]) if db_row[15] else {}
+                    w_raw = json.loads(db_row[16]) if db_row[16] else {}
                 except (json.JSONDecodeError, TypeError):
                     h_raw, w_raw = {}, {}
 
@@ -1011,8 +1094,23 @@ def apply_gedcom_names(logger):
                 logger.info(f"      WIFE: {w_name}  {match_data['w_byr']}")
                 logger.info(f"      MARR: {match_data['marr_yr']} | KIDS: {match_data['num_children']}")
 
+                # DECISION: Log Discrepancies for CHBORN (Children Ever Born - 1900+)
+                db_chborn_str = str(w_raw.get('CHBORN', '')).strip()
+                if db_chborn_str.isdigit() and int(db_chborn_str) < 99:
+                    c_kids = int(db_chborn_str)
+                    if c_kids != match_data['num_children']:
+                        logger.warning(
+                            f"      [SURVEY DISCREPANCY] 1900+ Census survey (CHBORN) claims {c_kids} lifetime kids, but GEDCOM says {match_data['num_children']}.")
+
                 # Fire your custom object logging function!
                 gen_logging.log_individuals(main_logger, h_indi, w_indi)
+
+                # DECISION: Enqueue the mapped children for immediate naming!
+                year_prefix = fam_id.split('_')[0]
+                for c_histid, (c_first, c_last, c_demo) in mapped_kids.items():
+                    if c_first:
+                        update_queue_by_year[year_prefix].append((c_first, c_last, c_histid))
+                        logger.info(f"      [CHILD MAPPED] {c_first} {c_last} -> {c_demo} ({c_histid})")
 
                 if len(match_data['clans']) == 1:
                     clans_to_update[list(match_data['clans'])[0]] = fam
@@ -1038,7 +1136,7 @@ def apply_gedcom_names(logger):
                     logger.info(f"  --- DATABASE MATCHES ---")
 
                     printed_fams = set()
-                    for score, db_row in match_data['results']:
+                    for score, db_row, mapped_kids in match_data['results']:
                         fam_id = db_row[0]
                         if fam_id not in printed_fams:
                             h_bpl_str = get_state_from_code(db_row[5], h_name + " : h_bpl_str")
@@ -1048,6 +1146,13 @@ def apply_gedcom_names(logger):
                             w_fbpl_str = get_state_from_code(db_row[12], w_name + " : w_fbpl_str")
                             w_mbpl_str = get_state_from_code(db_row[13], w_name + " : w_mbpl_str")
 
+                            db_kids_names_str = str(db_row[17]) if db_row[17] else ""
+                            db_kids_list_display = [k.strip() for k in db_kids_names_str.split('|') if k.strip()]
+                            db_kids_byrs_str = " | ".join(
+                                [k.split('b.')[-1].strip() if 'b.' in k else '?' for k in db_kids_list_display])
+                            db_recounted_kids = len(db_kids_list_display)
+                            db_kids = max(db_row[14] or 0, db_recounted_kids)
+
                             dbg_dict = {
                                 "h_bpl_str": h_bpl_str,
                                 "h_fbpl_str": h_fbpl_str,
@@ -1056,13 +1161,16 @@ def apply_gedcom_names(logger):
                                 "w_fbpl_str": w_fbpl_str,
                                 "w_mbpl_str": w_mbpl_str,
                                 "score": score,
+                                "db_kids": db_kids,
+                                "db_kids_byrs": db_kids_byrs_str,
                                 "fam": fam_id
                             }
+                            dbg_dict.update(w[2])
                             gen_logging.log_dict(main_logger, dbg_dict, "MATCHES")
 
                             printed_fams.add(fam_id)
 
-                for score, db_row in match_data['results']:
+                for score, db_row, mapped_kids in match_data['results']:
                     histid_h, histid_w, fam_id = db_row[2], db_row[8], db_row[0]  # Indices already shifted +1 in memory
                     if histid_h not in flagged_multiples:
                         update_queue_by_year[fam_id.split('_')[0]].append(('Multiple', 'Bosselstink', histid_h))
@@ -1085,7 +1193,7 @@ def apply_gedcom_names(logger):
     logger.info(f"  -> Multiple Matches Flagged (<20): {multiple_count:,}")
     logger.info(f"  -> Too Many Matches (Skipped): {too_many_count:,}")
     logger.info(f"  -> Zero Matches (Skipped): {zero_count:,}")
-    logger.info(f"  -> Biologically Impossible (Skipped): {ignored_count:,}")
+    logger.info(f"  -> Out of Era / Not Searched (Skipped): {ignored_count:,}")
 
     # DECISION: The Living Room Sweep
     if clans_to_update or unclanned_to_update:
@@ -1093,6 +1201,8 @@ def apply_gedcom_names(logger):
         for filename in os.listdir(NAMED_VAULT_DIR):
             if not (filename.startswith("NamedVault_") and filename.endswith(".db")): continue
             year_prefix = filename.replace("NamedVault_", "").replace(".db", "")
+
+            assigned_fam_for_couple = {}  # Tracks (couple_key) -> fam_id for this decade
 
             if TARGET_DECADE and TARGET_DECADE != year_prefix: continue
 
@@ -1118,7 +1228,7 @@ def apply_gedcom_names(logger):
                         # Before applying a name via clan, do a final sanity check on the birth year.
                         # This is a circuit-breaker to prevent a corrupted "Mega-Clan" from naming
                         # people with wildly different demographics.
-                        
+
                         if histid == head_id:
                             target_byr = t_fam.get('h_byr')
                         elif histid == spouse_id:
@@ -1126,7 +1236,7 @@ def apply_gedcom_names(logger):
                         else:
                             # This is a child. We only sweep Heads and Spouses right now.
                             continue
-                            
+
                         age_diff = 0
                         if target_byr and byr:
                             age_diff = abs(target_byr - byr)
@@ -1135,15 +1245,30 @@ def apply_gedcom_names(logger):
                         if age_diff > 5:
                             h_name = f"{t_fam.get('h_first', '')} {t_fam.get('h_last', '')}".strip()
                             w_name = f"{t_fam.get('w_first', '')} {t_fam.get('w_last', '')}".strip()
-                            logger.warning(f"    [SWEEP REJECTED] Clan match for {h_name or w_name} in {fam_id} has wrong birth year.")
-                            logger.warning(f"      -> GEDCOM says b. {target_byr}, but DB record says b. {byr}. Clan may be corrupted.")
+                            logger.warning(
+                                f"    [SWEEP REJECTED] Clan match for {h_name or w_name} in {fam_id} has wrong birth year.")
+                            logger.warning(
+                                f"      -> GEDCOM says b. {target_byr}, but DB record says b. {byr}. Clan may be corrupted.")
                             continue
 
+                        # DECISION: The Clone War Safety Valve
+                        couple_key = f"{t_fam.get('h_first', '')}_{t_fam.get('h_last', '')}_{t_fam.get('w_first', '')}_{t_fam.get('w_last', '')}"
+
+                        if couple_key in assigned_fam_for_couple:
+                            if assigned_fam_for_couple[couple_key] != fam_id:
+                                logger.warning(
+                                    f"    [CLONE WAR PREVENTED] Stopped second {year_prefix} assignment for {couple_key}")
+                                continue
+                        else:
+                            assigned_fam_for_couple[couple_key] = fam_id
+
                         if histid == head_id and t_fam.get('h_first'):
-                            logger.info(f"    [LIVING ROOM SWEEP] {year_prefix} Vault -> Naming Head: {t_fam['h_first']} {t_fam['h_last']} (HISTID: {histid})")
+                            logger.info(
+                                f"    [LIVING ROOM SWEEP] {year_prefix} Vault -> Naming Head: {t_fam['h_first']} {t_fam['h_last']} (HISTID: {histid})")
                             update_queue_by_year[year_prefix].append((t_fam['h_first'], t_fam['h_last'], histid))
                         elif histid == spouse_id and t_fam.get('w_first'):
-                            logger.info(f"    [LIVING ROOM SWEEP] {year_prefix} Vault -> Naming Spouse: {t_fam['w_first']} {t_fam['w_last']} (HISTID: {histid})")
+                            logger.info(
+                                f"    [LIVING ROOM SWEEP] {year_prefix} Vault -> Naming Spouse: {t_fam['w_first']} {t_fam['w_last']} (HISTID: {histid})")
                             update_queue_by_year[year_prefix].append((t_fam['w_first'], t_fam['w_last'], histid))
 
     logger.info(f"\nStep 4/4: Applying historical names to the census records...")
@@ -1157,6 +1282,12 @@ def apply_gedcom_names(logger):
                 sqlite_conn.executemany("UPDATE individuals SET first_name = ?, last_name = ? WHERE histid = ?", q)
                 sqlite_conn.commit()
             sqlite_conn.close()
+
+    if matched_indi_ids:
+        logger.info("\n  -> Updating GEDCOM CSV with 'Matched' status...")
+        for file in csv_files:
+            filepath = os.path.join(GEDCOM_INPUT_DIR, file)
+            update_csv_matched_column(filepath, matched_indi_ids, logger)
 
     logger.info("\nSUCCESS! CSV Name Overlay complete.")
 

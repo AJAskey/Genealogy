@@ -245,12 +245,14 @@ def build_individuals_rows(individuals, families):
 
         child_ids = []
         child_names = []
+        child_byrs = []
         for fam_id in i['fams']:
             fam = families.get(fam_id)
             if fam:
                 for c_id in fam['children']:
                     child_ids.append(c_id)
                     child_names.append(name_of(c_id))
+                    child_byrs.append(birth_year_of(c_id))
 
         residences = {str(yr): '' for yr in range(1850, 1960, 10)}
         for ev in i['events']:
@@ -304,6 +306,8 @@ def build_individuals_rows(individuals, families):
             'Num Children': len(child_ids),
             'Children ID(s)': ' | '.join(filter(None, child_ids)),
             'Children': ' | '.join(filter(None, child_names)),
+            'Children Birth Yr': ' | '.join(filter(None, child_byrs)),
+            'Matched': ''
         })
 
     rows.sort(key=lambda r: (r['Last Name'].upper(), r['First Name'].upper()))

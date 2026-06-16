@@ -1,4 +1,4 @@
-\"""
+"""
 -----------------------------------
 File: ExportCensusToGedcom.py
 
@@ -57,6 +57,7 @@ REVERSE_BPL = {
     200: "Mexico", 501: "Japan", 502: "South Korea"
 }
 
+
 def decode_bpld(bpld_str):
     if not bpld_str or str(bpld_str).strip() == '': return "Unknown"
     try:
@@ -65,6 +66,7 @@ def decode_bpld(bpld_str):
         return REVERSE_BPL.get(prefix, str(val))
     except ValueError:
         return str(bpld_str)
+
 
 def export_gedcom(logger):
     logger.info(f"Extracting '{TARGET_LAST_NAME}' lineage from the Decade Vaults...")
@@ -81,23 +83,33 @@ def export_gedcom(logger):
 
                 # Step 1: Ripple
                 cursor.execute("""
-                    UPDATE individuals
-                    SET last_name = (SELECT p.last_name FROM individuals p WHERE p.histid = individuals.father_histid)
-                    WHERE last_name = 'Bosselstink' AND father_histid IS NOT NULL
-                      AND (SELECT p.last_name FROM individuals p WHERE p.histid = individuals.father_histid) != 'Bosselstink';
-                """)
+                               UPDATE individuals
+                               SET last_name = (SELECT p.last_name
+                                                FROM individuals p
+                                                WHERE p.histid = individuals.father_histid)
+                               WHERE last_name = 'Bosselstink'
+                                 AND father_histid IS NOT NULL
+                                 AND (SELECT p.last_name
+                                      FROM individuals p
+                                      WHERE p.histid = individuals.father_histid) != 'Bosselstink';
+                               """)
                 conn.commit()
 
                 # Step 2: Fetch Targets
-                cursor.execute(f"SELECT DISTINCT family_id FROM individuals WHERE last_name COLLATE NOCASE = '{TARGET_LAST_NAME}' AND family_id IS NOT NULL")
+                cursor.execute(
+                    f"SELECT DISTINCT family_id FROM individuals WHERE last_name COLLATE NOCASE = '{TARGET_LAST_NAME}' AND family_id IS NOT NULL")
                 target_families = [r[0] for r in cursor.fetchall()]
 
                 if target_families:
                     fam_placeholders = ','.join(['?'] * len(target_families))
-                    cursor.execute(f"SELECT histid, first_name, last_name, sex, birthyr, bpld, family_id, father_histid, mother_histid FROM individuals WHERE family_id IN ({fam_placeholders})", target_families)
+                    cursor.execute(
+                        f"SELECT histid, first_name, last_name, sex, birthyr, bpld, family_id, father_histid, mother_histid FROM individuals WHERE family_id IN ({fam_placeholders})",
+                        target_families)
                     individuals_data.extend(cursor.fetchall())
 
-                    cursor.execute(f"SELECT family_id, head_histid, spouse_histid FROM families WHERE family_id IN ({fam_placeholders})", target_families)
+                    cursor.execute(
+                        f"SELECT family_id, head_histid, spouse_histid FROM families WHERE family_id IN ({fam_placeholders})",
+                        target_families)
                     families_data.extend(cursor.fetchall())
 
     if not individuals_data:
@@ -120,8 +132,10 @@ def export_gedcom(logger):
             histid, fname, lname, sex, byr, bpld, fam_id, f_id, m_id = ind
             f.write(f"0 @I{histid}@ INDI\n")
 
-            if fname == 'Future' and lname == 'Bosselstink': f.write("1 NAME Unknown /Unknown/\n")
-            else: f.write(f"1 NAME {fname} /{lname}/\n")
+            if fname == 'Future' and lname == 'Bosselstink':
+                f.write("1 NAME Unknown /Unknown/\n")
+            else:
+                f.write(f"1 NAME {fname} /{lname}/\n")
 
             f.write(f"1 SEX {'M' if sex == '1' else 'F' if sex == '2' else 'U'}\n")
 
@@ -130,8 +144,10 @@ def export_gedcom(logger):
                 state_name = decode_bpld(bpld)
                 if state_name != "Unknown": f.write(f"2 PLAC {state_name}, USA\n")
 
-            if f_id or m_id: f.write(f"1 FAMC @F{fam_id}@\n")
-            else: f.write(f"1 FAMS @F{fam_id}@\n")
+            if f_id or m_id:
+                f.write(f"1 FAMC @F{fam_id}@\n")
+            else:
+                f.write(f"1 FAMS @F{fam_id}@\n")
 
         for fam in families_data:
             fam_id, head_id, spouse_id = fam
@@ -144,6 +160,7 @@ def export_gedcom(logger):
         f.write("0 TRLR\n")
 
     logger.info(f"\nSUCCESS! Your Census-Level GEDCOM is ready: {OUTPUT_GEDCOM}")
+
 
 if __name__ == "__main__":
     main_logger = gen_logging.setup_logging(logger_name="EXPORT_GEDCOM")

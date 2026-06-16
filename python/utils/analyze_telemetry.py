@@ -73,7 +73,7 @@ def analyze_log(log_filepath):
             if capturing_multiple:
                 if any(keyword in line for keyword in
                        ["--- TARGET DEMOGRAPHICS ---", "--- DATABASE MATCHES ---", "MATCHES", "score |", "h_bpl_str |",
-                        "w_bpl_str |", "fam |", "HUSB:", "WIFE:", "MARR:", "KIDS:"]):
+                        "w_bpl_str |", "fam |", "HUSB:", "WIFE:", "MARR:", "KIDS:", "gedcom_kids", "db_kids"]):
                     multiple_buffer.append(line.strip() + "\n")
 
         # Catch the final multiple if it was at the very end of the file

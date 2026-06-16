@@ -8,7 +8,7 @@ Summary: Ingests raw IPUMS data into a strictly normalized SQLite database.
          for parents, and writes to 'families' and 'individuals' tables.
 
 Design:  Single-threaded, sequential read.
-         Assigns "Future Bosselstink" to nameless records.
+         Preserves empty names if the dataset lacks them.
          Saves the entire raw CSV row as JSON "bread crumbs" so no data is lost.
 
 Architect & Designer: Andy Askey
@@ -260,16 +260,15 @@ def process_household(rows):
         elif relate_str in ('2', '02') or related_pad.startswith('02') or 'spouse' in txt or 'wife' in txt:
             families_dict[family_id]['spouse_histid'] = histid
 
-        # DECISION: Never allow NULL or blank names. If the IPUMS 100% database lacks names,
-        # we assign a highly unique placeholder ("Future Bosselstink"). Downstream GEDCOM overlays
-        # will explicitly look for and overwrite these placeholders with true historical names.
+        # DECISION: Keep names exactly as they are in the database. 
+        # If the IPUMS database lacks names, we let them be blank.
         first_name = str(row.get('NAMEFRST', '')).strip()
         last_name = str(row.get('NAMELAST', '')).strip()
 
         if not first_name:
-            first_name = "Future"
+            first_name = ""
         if not last_name:
-            last_name = "Bosselstink"
+            last_name = ""
 
         # DECISION: The JSON Bread Crumbs. Serialize the entire raw CSV row into a JSON string.
         raw_data_json = json.dumps(row)
