@@ -2,9 +2,32 @@
 -----------------------------------
 File: LinkFamiliesByDemographics.py
 
-Summary: "The Time Machine"
-         Links Relational Families across 10-year census gaps using an unbreakable
-         10-variable demographic hash (Sex, BirthYr, BPL, FBPL, MBPL) for the couple.
+Summary: "THE TIME MACHINE" - Blind Demographic Linking Engine
+
+         THE GOAL: 
+         To mathematically prove that a nameless family living in 1880 is the 
+         exact same family living in 1900, 1910, or 1920, without ever looking at 
+         their names. Names change, get misspelled, or are transcribed poorly. 
+         Core biological demographics do not.
+
+         WHAT IT IS DOING:
+         1. Extracts a 10-variable "Demographic Fingerprint" (Sex, Birth Year, 
+            Birthplace, Father's BPL, Mother's BPL for both Husband and Wife) 
+            for every family across a century of census data.
+         2. Uses DuckDB to perform massive, cross-decade Cartesian joins, finding 
+            identical demographic fingerprints across time.
+         3. Enforces the "Highlander Rule" to discard any ambiguous matches 
+            (e.g., if one 1870 fingerprint matches two 1880 fingerprints, both 
+            are discarded). Only mathematically certain, 1-to-1 links survive.
+         4. Employs Graph Theory (Depth First Search) to stitch these individual 
+            decade-to-decade links into continuous, multi-generational timelines 
+            called "Clans".
+
+         EXPECTED OUTPUT:
+         A definitive `DemographicMatches.db` database containing a `clan_mapping` 
+         table. This master key assigns a single, persistent `CLAN_ID` to multiple 
+         `family_id`s across different decades, permanently linking them together 
+         in time, ready for names to be overlaid onto their timelines.
 
 Architect & Designer: Andy Askey
 Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
@@ -69,6 +92,23 @@ def link_households_across_decades(logger):
     con.execute(f"ATTACH '{MATCH_DB}' AS match_db (TYPE SQLITE);")
 
     logger.info("Step 1/3: Extracting Head and Spouse Demographics...")
+    # ==================================================================================================
+    #  STEP 1: THE DEMOGRAPHIC FINGERPRINT EXTRACTION
+    # --------------------------------------------------------------------------------------------------
+    #  PLAN: To link families across decades, we first need to define what makes a family unique.
+    #        We are using a "demographic fingerprint" composed of 10 key variables for the
+    #        husband and wife: Sex, Birth Year, Birth Place, Father's Birth Place, and Mother's
+    #        Birth Place. The statistical probability of two different couples in the same
+    #        region sharing this exact 10-variable signature is practically zero.
+    #
+    #  PROCESS: Instead of joining the massive, multi-gigabyte YearVault databases directly,
+    #           we first create a temporary, in-memory table called `hh_features`. We then iterate
+    #           through each YearVault and extract ONLY these 10 key variables (plus HISTIDs and
+    #           family IDs) into this lean, optimized table. This dramatically speeds up the
+    #           main linking query in Step 2 by allowing DuckDB to work with a much smaller,
+    #           more focused dataset in memory. We also filter for families that have children,
+    #           as childless couples are too demographically ambiguous to link with high confidence.
+    # ==================================================================================================
     step1_start = time.time()
     con.execute("""
                 CREATE
@@ -114,6 +154,34 @@ def link_households_across_decades(logger):
     logger.info(f"  -> Extracted {feature_cnt:,} target couples in {step1_end - step1_start:.2f} seconds.")
 
     logger.info("Step 2/3: Executing 10-Variable Nationwide Demographic Hash...")
+    # ==================================================================================================
+    #  STEP 2 & 3: THE TIME MACHINE - LINKING DECADES & ENFORCING UNIQUENESS
+    # --------------------------------------------------------------------------------------------------
+    #  PLAN: This is the core of the Time Machine. We will join the `hh_features` table against
+    #        itself to find identical demographic fingerprints across different decades. To manage
+    #        the immense scale, we use a "Divide and Conquer" strategy, comparing only two
+    #        decades at a time (e.g., 1870 vs. 1880, 1870 vs. 1900, etc.). The key is to
+    #        only accept "1-to-1" matches. If a family from 1870 matches two families in 1880,
+    #        it's an ambiguous "clone" and we discard it. Likewise, if two families from 1870
+    #        match the same family in 1880, we also discard it. Only perfect, unambiguous
+    #        links are saved.
+    #
+    #  PROCESS:
+    #    1. LOOP STRATEGY: We loop through each possible pair of decades, separated by gaps of
+    #       10, 20, and 30 years. This allows us to bridge the 1890 census gap.
+    #    2. THE 10-VARIABLE HASH JOIN: For each pair of years (e.g., y1 and y2), we perform a
+    #       JOIN where the 10 fingerprint variables are identical. We use a `TEMP TABLE`
+    #       called `raw_matches` to hold all potential links for that specific year-pair.
+    #    3. THE HIGHLANDER RULE (UNIQUENESS FILTER): "There can be only one!" We query the
+    #       `raw_matches` table to find `family_id_1` and `family_id_2` values that appear
+    #       EXACTLY ONCE. This is done with a `GROUP BY ... HAVING COUNT(*) = 1`. This
+    #       brilliantly and efficiently filters out all ambiguous "one-to-many" or
+    #       "many-to-one" matches, leaving only the mathematically certain 1-to-1 links.
+    #    4. PERSISTENCE: These unique, validated links are then inserted into a permanent
+    #       `household_links` table in the main `DemographicMatches.db` SQLite database.
+    #       A `completed_chunks` table tracks which year-pairs have been processed, allowing
+    #       the script to be stopped and resumed without losing progress.
+    # ==================================================================================================
     step2_start = time.time()
 
     # DECISION: We make raw_links a PERMANENT table inside our SQLite match_db so we don't lose data on reboot.
@@ -251,6 +319,30 @@ def link_households_across_decades(logger):
     # --------------------------------------------------------------------------
     # Step 4: Build the Clans
     # --------------------------------------------------------------------------
+    # ==================================================================================================
+    #  STEP 4: ASSEMBLING THE TIMELINES (CLAN BUILDING)
+    # --------------------------------------------------------------------------------------------------
+    #  PLAN: The `household_links` table now contains thousands of individual two-point links
+    #        (e.g., FamA -> FamB, FamB -> FamC, FamX -> FamY). The final step is to connect all
+    #        these disparate links into continuous family timelines, which we call "Clans".
+    #        A clan represents the definitive, multi-generational journey of a single family
+    #        through time.
+    #
+    #  PROCESS:
+    #    1. GRAPH BUILDING: We treat each family as a "node" and each link as an "edge" in a
+    #       massive graph. We build an adjacency list, which is a dictionary mapping each
+    #       family ID to a list of all other family IDs it's linked to.
+    #    2. CONNECTED COMPONENTS: We traverse this graph using a standard algorithm (Depth First
+    #       Search) to find all "connected components." Each component is a group of families
+    #       that are all interconnected, forming a single clan.
+    #    3. FINAL VALIDATION & NAMING: As we identify each clan, we perform one last sanity check:
+    #       The "Highlander Rule." A valid clan can only have ONE household from any given
+    #       census year. If a clan somehow contains two households from 1880, it means a
+    #       bad link created a data paradox, and the entire clan is discarded. Valid clans
+    #       are assigned a unique ID (e.g., "CLAN_1", "CLAN_2") and the results are saved to
+    #       the final `clan_mapping` table. This table becomes the master key for the entire
+    #       Time Machine, linking any family from any census year to its complete timeline.
+    # ==================================================================================================
     logger.info("\nStep 4: Building Time Machine Clans (Connected Components)...")
     with sqlite3.connect(MATCH_DB) as sq_conn:
         sq_cursor = sq_conn.cursor()
@@ -291,6 +383,11 @@ def link_households_across_decades(logger):
                     for fam in current_clan:
                         clans.append((fam, f"CLAN_{clan_id_counter}"))
                     clan_id_counter += 1
+                else:
+                    # TELEMETRY: Log the paradox! If a clan has two families from 1880, we want to know WHO they are.
+                    if len(current_clan) <= 15:  # Keep log clean from massive runaway cascades
+                        logger.warning(f"  [CLAN PARADOX DETECTED] Discarding interconnected component due to 'Highlander' violation.")
+                        logger.warning(f"    └─> Conflicting Families: {current_clan}")
 
         # TELEMETRY: Check for "Mega-Clans" (If a clan has thousands of members, the logic is broken)
         clan_sizes = defaultdict(int)
