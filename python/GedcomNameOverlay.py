@@ -389,6 +389,15 @@ def apply_gedcom_names(logger):
         all_target_couples.extend(couples)
         logger.info(f"  -> Extracted {len(couples)} target couples for 10-Variable Anchoring from {file}")
 
+    # DECISION: Pre-computation. To massively speed up the search, we'll create a "superset" of all
+    # possible birthplaces (for the husband, wife, and all parents) from the entire GEDCOM.
+    # This allows us to pre-filter the massive census tables down to a tiny fraction of their
+    # original size before we even attempt the complex demographic join.
+    all_bpl_prefixes = set()
+    for g in all_target_couples:
+        for key in ['h_bpl_pref', 'h_fbpl_pref', 'h_mbpl_pref', 'w_bpl_pref', 'w_fbpl_pref', 'w_mbpl_pref']:
+            all_bpl_prefixes.update(g.get(key, []))
+
     logger.info("\nStep 3/4: Searching for nameless couples in the Named Vaults...")
 
     logger.info("  -> Loading Clan Mappings from the Time Machine...")
@@ -418,14 +427,12 @@ def apply_gedcom_names(logger):
         
         target_rows = []
         
-        # DECISION: Convert IPUMS prefixes into ultra-strict regular expressions for SQL!
-        # Examples: PA ['42'] becomes "^0*420*$"  | Ireland ['414'] becomes "^0*414.*$"
-        def get_sql_regex(pref_list):
-            if not pref_list: return '.*'
-            p = str(pref_list[0]).lstrip('0')
-            if not p: p = str(pref_list[0])
-            if len(p) >= 3: return f"^0*{p}.*$"
-            else: return f"^0*{p}0*$"
+        # DECISION: Convert IPUMS prefixes into Integers for mathematically safe SQL!
+        def get_bpl_base(pref_list):
+            if not pref_list: return None
+            p = str(pref_list[0]).strip().lstrip('0')
+            if not p: return None
+            return int(p)
             
         for i, g_dict in enumerate(all_target_couples):
             if not g_dict['h_byr'] or not g_dict['w_byr']:
@@ -439,13 +446,13 @@ def apply_gedcom_names(logger):
             target_rows.append((
                 i, 
                 '1', g_dict['h_byr'], 
-                get_sql_regex(g_dict['h_bpl_pref']), 
-                get_sql_regex(g_dict['h_fbpl_pref']), 
-                get_sql_regex(g_dict['h_mbpl_pref']),
+                get_bpl_base(g_dict['h_bpl_pref']), 
+                get_bpl_base(g_dict['h_fbpl_pref']), 
+                get_bpl_base(g_dict['h_mbpl_pref']),
                 '2', g_dict['w_byr'], 
-                get_sql_regex(g_dict['w_bpl_pref']), 
-                get_sql_regex(g_dict['w_fbpl_pref']), 
-                get_sql_regex(g_dict['w_mbpl_pref'])
+                get_bpl_base(g_dict['w_bpl_pref']), 
+                get_bpl_base(g_dict['w_fbpl_pref']), 
+                get_bpl_base(g_dict['w_mbpl_pref'])
             ))
 
         if not target_rows:
@@ -457,12 +464,28 @@ def apply_gedcom_names(logger):
         con.execute("""
             CREATE TABLE targets (
                 target_idx INTEGER, 
-                h_sex VARCHAR, h_byr INTEGER, h_bpl_rx VARCHAR, h_fbpl_rx VARCHAR, h_mbpl_rx VARCHAR, 
-                w_sex VARCHAR, w_byr INTEGER, w_bpl_rx VARCHAR, w_fbpl_rx VARCHAR, w_mbpl_rx VARCHAR
+                h_sex VARCHAR, h_byr INTEGER, h_bpl_base INTEGER, h_fbpl_base INTEGER, h_mbpl_base INTEGER, 
+                w_sex VARCHAR, w_byr INTEGER, w_bpl_base INTEGER, w_fbpl_base INTEGER, w_mbpl_base INTEGER
             )
         """)
         con.executemany("INSERT INTO targets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", target_rows)
         con.execute(f"ATTACH '{db_path}' AS vault (TYPE SQLITE, READ_ONLY);")
+
+        # DECISION: The "Dead Weight" Filter. Instead of joining against 80M+ rows, we first
+        # create a temporary, in-memory table containing ONLY the individuals from the census
+        # who were born in a state/country that appears in our GEDCOM file. This reduces the
+        # search space by over 90% before the main query even runs.
+        bpl_filter_values = tuple(p for p in all_bpl_prefixes if p)
+        con.execute(f"""
+            CREATE TEMP TABLE relevant_individuals AS
+            SELECT *
+            FROM vault.individuals i
+            WHERE EXISTS (
+                SELECT 1
+                FROM (VALUES {', '.join([f'({p})' for p in bpl_filter_values])}) AS p(prefix)
+                WHERE (TRY_CAST(i.bpld AS INTEGER) = p.prefix OR TRY_CAST(i.bpld AS INTEGER) // 100 = p.prefix)
+            );
+        """)
 
         # DECISION: The Big Database Filter! Execute one massive join to test everything at once.
         query = """
@@ -472,8 +495,8 @@ def apply_gedcom_names(logger):
                    s.histid, s.sex, s.birthyr, s.bpld, s.fbpl, s.mbpl,
                    h.raw_data, s.raw_data
             FROM vault.families f
-            JOIN vault.individuals h ON f.head_histid = h.histid
-            JOIN vault.individuals s ON f.spouse_histid = s.histid
+            JOIN relevant_individuals h ON f.head_histid = h.histid
+            JOIN relevant_individuals s ON f.spouse_histid = s.histid
             JOIN targets t
               ON h.birthyr BETWEEN t.h_byr - 1 AND t.h_byr + 1
              AND s.birthyr BETWEEN t.w_byr - 1 AND t.w_byr + 1
@@ -481,12 +504,12 @@ def apply_gedcom_names(logger):
              AND s.sex = t.w_sex
             WHERE h.last_name = 'Bosselstink'
               AND h.first_name = 'Future'
-              AND regexp_matches(COALESCE(h.bpld, ''), t.h_bpl_rx)
-              AND regexp_matches(COALESCE(h.fbpl, ''), t.h_fbpl_rx)
-              AND regexp_matches(COALESCE(h.mbpl, ''), t.h_mbpl_rx)
-              AND regexp_matches(COALESCE(s.bpld, ''), t.w_bpl_rx)
-              AND regexp_matches(COALESCE(s.fbpl, ''), t.w_fbpl_rx)
-              AND regexp_matches(COALESCE(s.mbpl, ''), t.w_mbpl_rx)
+              AND (t.h_bpl_base IS NULL OR TRY_CAST(h.bpld AS INTEGER) = t.h_bpl_base OR TRY_CAST(h.bpld AS INTEGER) // 100 = t.h_bpl_base)
+              AND (t.h_fbpl_base IS NULL OR TRY_CAST(h.fbpl AS INTEGER) = t.h_fbpl_base OR TRY_CAST(h.fbpl AS INTEGER) // 100 = t.h_fbpl_base)
+              AND (t.h_mbpl_base IS NULL OR TRY_CAST(h.mbpl AS INTEGER) = t.h_mbpl_base OR TRY_CAST(h.mbpl AS INTEGER) // 100 = t.h_mbpl_base)
+              AND (t.w_bpl_base IS NULL OR TRY_CAST(s.bpld AS INTEGER) = t.w_bpl_base OR TRY_CAST(s.bpld AS INTEGER) // 100 = t.w_bpl_base)
+              AND (t.w_fbpl_base IS NULL OR TRY_CAST(s.fbpl AS INTEGER) = t.w_fbpl_base OR TRY_CAST(s.fbpl AS INTEGER) // 100 = t.w_fbpl_base)
+              AND (t.w_mbpl_base IS NULL OR TRY_CAST(s.mbpl AS INTEGER) = t.w_mbpl_base OR TRY_CAST(s.mbpl AS INTEGER) // 100 = t.w_mbpl_base)
         """
         
         logger.info("     Executing massive bulk demographic cross-match via DuckDB...")

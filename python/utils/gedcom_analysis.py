@@ -24,14 +24,22 @@ import sys
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 
+import common_utils
+import gen_logging
+
 # ==============================================================================
 # CONFIGURATION — edit these paths before running
 # ==============================================================================
-INPUT_GEDCOM = r"E:\Users\Andy\PycharmProjects\Genealogy\design\ThomasAskey.ged"
+INPUT_GEDCOM = \
+    r"E:\Users\Andy\PycharmProjects\Genealogy\design\AskeyWorking_20150125_2019-10-03_2026-06-01.ged"
 OUTPUT_DIR = r"E:\Users\Andy\PycharmProjects\Genealogy\output"
 
 
 # ==============================================================================
+
+def add_place(p):
+    p1 = p.lower().strip()
+    places.append(p1)
 
 
 def parse_gedcom(filepath):
@@ -42,7 +50,7 @@ def parse_gedcom(filepath):
     cur_fam_id = None
     cur_event = None
 
-    WANTED_EVENTS = {'BIRT', 'DEAT', 'BURI', 'MARR', 'CENS', 'RESI'}
+    WANTED_EVENTS = {'BIRT', 'DEAT', 'BURI', 'MARR', 'CENS', 'RESI', 'PAGE'}
 
     def new_indi():
         return {
@@ -62,9 +70,14 @@ def parse_gedcom(filepath):
             'children': [],
         }
 
+    linecnt = 0
     with open(filepath, encoding='utf-8', errors='replace') as f:
         for raw_line in f:
             line = raw_line.rstrip('\r\n')
+
+            linecnt += 1
+            # print(f"{linecnt}  {line}")
+
             if not line.strip():
                 continue
 
@@ -139,7 +152,25 @@ def parse_gedcom(filepath):
                             indi['burial_place'] = value
                         elif cur_event in ('CENS', 'RESI') and indi['events']:
                             indi['events'][-1]['place'] = value
+                            add_place(common_utils.extract_state(value))
                     continue
+
+                if level == '3':
+                    if tag == 'PAGE':
+                        if "census" in line.lower():
+                            year_pattern = re.compile(r"(\d{4})\s*U\s*S\s*Census")
+                            place_pattern = re.compile(r"Census\s+Place:\s*([^;]+)")
+
+                            year_match = year_pattern.search(line)
+                            place_match = place_pattern.search(line)
+
+                            year = year_match.group(1) if year_match else "Not Found"
+                            place = place_match.group(1).strip() if place_match else "Not Found"
+                            if year is not None and place is not None:
+                                indi['events'].append({'date': year, 'place': place})
+                                add_place(common_utils.extract_state(place))
+                            else:
+                                print(f"{linecnt}  {line}")
 
             if cur_fam_id:
                 fam = families[cur_fam_id]
@@ -222,6 +253,8 @@ def build_individuals_rows(individuals, families):
                 mother_birth_year = birth_year_of(fam['wife'])
                 mother_birth_place = birth_place_of(fam['wife'])
                 mother_birth_county = birth_county_of(fam['wife'])
+                add_place(common_utils.extract_state(mother_birth_place))
+                add_place(common_utils.extract_state(father_birth_place))
 
         spouse_ids = []
         spouse_names = []
@@ -351,28 +384,6 @@ def build_families_rows(individuals, families):
     return rows
 
 
-def extract_state(loc_str):
-    """Strips city/county and returns only the state/country name."""
-    if not loc_str: return ""
-    loc_lower = loc_str.lower()
-    states = [
-        "alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut",
-        "delaware", "district of columbia", "florida", "georgia", "hawaii", "idaho", "illinois",
-        "indiana", "iowa", "kansas", "kentucky", "louisiana", "maine", "maryland", "massachusetts",
-        "michigan", "minnesota", "mississippi", "missouri", "montana", "nebraska", "nevada", "new hampshire",
-        "new jersey", "new mexico", "new york", "north carolina", "north dakota", "ohio", "oklahoma", "oregon",
-        "pennsylvania", "rhode island", "south carolina", "south dakota", "tennessee", "texas",
-        "utah", "vermont", "virginia", "washington", "west virginia", "wisconsin", "wyoming",
-        "england", "scotland", "wales", "ireland", "northern ireland", "germany", "sweden", "norway",
-        "denmark", "netherlands", "france", "switzerland", "canada", "mexico", "japan", "south korea"
-    ]
-    for s in states:
-        if s in loc_lower:
-            if s == "district of columbia": return "District of Columbia"
-            return s.title()
-    return loc_str.strip()
-
-
 def extract_county(loc_str):
     """Strips city/state and returns only the county name."""
     if not loc_str: return ""
@@ -404,7 +415,7 @@ def get_parent_bpl(indi_id, parent_type, individuals, families):
     if not indi_id or indi_id not in individuals: return ""
     i = individuals[indi_id]
     if not i['famc']: return ""
-    fam = families.get(i['famc'][0])
+    fam = families.get(['famc'][0])
     if not fam: return ""
     p_id = fam['husb'] if parent_type == 'father' else fam['wife']
     if not p_id or p_id not in individuals: return ""
@@ -431,16 +442,16 @@ def build_couples_rows(individuals, families):
         byr, bmo = parse_date(i.get('birth_date', ''))
         dyr, _ = parse_date(i.get('death_date', ''))
 
-        bpl = extract_state(i.get('birth_place', ''))
-        dpl = extract_state(i.get('death_place', ''))
+        bpl = common_utils.extract_state(i.get('birth_place', ''))
+        dpl = common_utils.extract_state(i.get('death_place', ''))
 
-        fbpl = extract_state(get_parent_bpl(indi_id, 'father', individuals, families))
-        mbpl = extract_state(get_parent_bpl(indi_id, 'mother', individuals, families))
+        fbpl = common_utils.extract_state(get_parent_bpl(indi_id, 'father', individuals, families))
+        mbpl = common_utils.extract_state(get_parent_bpl(indi_id, 'mother', individuals, families))
 
         if not fbpl: fbpl = bpl
         if not mbpl: mbpl = bpl
 
-        residences = {str(yr): extract_state(get_res(indi_id, str(yr))) for yr in range(1850, 1960, 10)}
+        residences = {str(yr): common_utils.extract_state(get_res(indi_id, str(yr))) for yr in range(1850, 1960, 10)}
 
         return first, last, byr, bmo, bpl, fbpl, mbpl, residences, dyr, dpl
 
@@ -451,7 +462,7 @@ def build_couples_rows(individuals, families):
         w_first, w_last, w_byr, w_bmo, w_bpl, w_fbpl, w_mbpl, w_res, w_dyr, w_dpl = get_fingerprint(w_id)
 
         marr_yr, _ = parse_date(fam.get('marr_date', ''))
-        marr_pl = extract_state(fam.get('marr_place', ''))
+        marr_pl = common_utils.extract_state(fam.get('marr_place', ''))
         num_children = len(fam.get('children', []))
 
         if (not h_last or '--' in h_last or 'Hidden' in h_last or '[' in h_last) and \
@@ -625,6 +636,10 @@ def write_xlsx(indi_rows, fam_rows, couple_rows, filepath):
 
 
 if __name__ == '__main__':
+    places = []
+
+    logger = gen_logging.setup_logging(logger_name="gedcom_analysisb")
+
     parser = argparse.ArgumentParser(description="Parse GEDCOM and export to CSV and formatted XLSX.")
     parser.add_argument("-i", "--input", default=INPUT_GEDCOM, help="Path to input GEDCOM file.")
     parser.add_argument("-o", "--outdir", default=OUTPUT_DIR, help="Path to output directory.")
@@ -656,6 +671,19 @@ if __name__ == '__main__':
 
     print("Writing Excel workbook...")
     write_xlsx(indi_rows, fam_rows, couple_rows, os.path.join(out_dir, f"{base_name}.xlsx"))
+
+    places.sort()
+    uplaces = set(places)
+
+    out_f = os.path.join(out_dir, f"{OUTPUT_DIR}/statecodes.txt")
+    with open(out_f, "a") as file:
+        for p in uplaces:
+            if p and len(p.strip()) > 0:
+                dbg = common_utils.get_bpl_prefixes(p, "gedcom state")
+                file.write(f"{dbg} - {p}\n")
+
+    str = common_utils.dict_to_str(individuals, 1)
+    logger.info(str)
 
     print("\nDone!")
     print(f"Output folder: {out_dir}")
