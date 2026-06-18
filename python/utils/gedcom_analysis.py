@@ -19,20 +19,22 @@ import argparse
 import csv
 import os
 import re
-import sys
+import sys, json
 
+from networkx.generators.geometric import geographical_threshold_graph
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
+from pandas.core.dtypes.common import is_numeric_dtype
 
 import common_utils
+import gedcom_to_csv
 import gen_logging
 
 # ==============================================================================
 # CONFIGURATION — edit these paths before running
 # ==============================================================================
-INPUT_GEDCOM = \
-    r"E:\Users\Andy\PycharmProjects\Genealogy\design\AskeyWorking_20150125_2019-10-03_2026-06-01.ged"
 OUTPUT_DIR = r"E:\Users\Andy\PycharmProjects\Genealogy\output"
+INPUT_GEDCOM = r"E:\Users\Andy\PycharmProjects\Genealogy\design\AskeyWorking_2026.ged"
 
 
 # ==============================================================================
@@ -415,7 +417,7 @@ def get_parent_bpl(indi_id, parent_type, individuals, families):
     if not indi_id or indi_id not in individuals: return ""
     i = individuals[indi_id]
     if not i['famc']: return ""
-    fam = families.get(['famc'][0])
+    fam = families.get(i['famc'][0])
     if not fam: return ""
     p_id = fam['husb'] if parent_type == 'father' else fam['wife']
     if not p_id or p_id not in individuals: return ""
@@ -465,17 +467,51 @@ def build_couples_rows(individuals, families):
         marr_pl = common_utils.extract_state(fam.get('marr_place', ''))
         num_children = len(fam.get('children', []))
 
-        if (not h_last or '--' in h_last or 'Hidden' in h_last or '[' in h_last) and \
-                (not w_last or '--' in w_last or 'Hidden' in w_last or '[' in w_last):
+        # Build the 'kid fingerprint' - a sorted string of birth years
+        child_byrs = []
+        kid_fingerprint = 0
+        for c_id in fam.get('children', []):
+            c_byr, _ = parse_date(individuals.get(c_id, {}).get('birth_date', ''))
+            if c_byr:
+                child_byrs.append(c_byr)
+                kfp = 0
+
+        kidbys = '|'.join(sorted(child_byrs))
+        for k in child_byrs:
+            kid_fingerprint += int(k)
+
+        # Filter out fake names.
+        if h_first and h_last and w_first and w_last:
+            if len(h_first.strip()) < 1 or len(h_last.strip()) < 1 or \
+                    len(w_first.strip()) < 1 or len(w_last.strip()) < 1:
+                continue
+            if ('--' in h_first or ' --' in h_last or 'Living' in h_last or '[' in h_last) or \
+                    ('--' in w_last or 'Living' in w_last or '[' in w_last):
+                continue
+        else:
             continue
 
-        if (not h_first and not w_first) or \
-                ('--' in h_first or 'Living' in h_first or '[' in h_first) or \
-                ('--' in w_first or 'Living' in w_first or '[' in w_first):
-            continue
+        # We have no data before 1950, so there's no sense processing this couple.
+        gtg = False
+        if h_byr and w_byr:
+            if h_byr.isnumeric() and w_byr.isnumeric():
+                if int(h_byr) < 1950 and int(w_byr) < 1950:
+                    gtg = True
+        if not gtg: continue
 
         couple_key = f"{h_first}_{h_last}_{w_first}_{w_last}"
         if couple_key not in seen_couples:
+            # Filter out fake names.
+            if h_first and h_last and w_first and w_last:
+                if len(h_first.strip()) < 1 or len(h_last.strip()) < 1 or \
+                        len(w_first.strip()) < 1 or len(w_last.strip()) < 1:
+                    continue
+                if ('--' in h_first or ' --' in h_last or 'Living' in h_last or '[' in h_last) or \
+                        ('--' in w_last or 'Living' in w_last or '[' in w_last):
+                    continue
+            else:
+                continue
+
             row = {
                 'h_first': h_first, 'h_last': h_last, 'h_byr': h_byr, 'h_bmo': h_bmo,
                 'h_bpl': h_bpl, 'h_fbpl': h_fbpl, 'h_mbpl': h_mbpl,
@@ -491,56 +527,60 @@ def build_couples_rows(individuals, families):
                 row[f'w_res_{yr}'] = w_res[str(yr)]
             row.update({
                 'w_dyr': w_dyr, 'w_dpl': w_dpl,
-                'marr_yr': marr_yr, 'marr_pl': marr_pl, 'num_children': num_children
+                'marr_yr': marr_yr, 'marr_pl': marr_pl, 'num_children': num_children,
+                'kid_fingerprint': kid_fingerprint
             })
             records.append(row)
             seen_couples.add(couple_key)
 
     # Process Lone Wolves
-    for indi_id, i in individuals.items():
-        if not i.get('fams'):
-            first, last, byr, bmo, bpl, fbpl, mbpl, res, dyr, dpl = get_fingerprint(indi_id)
-            if not last or '--' in last or 'Hidden' in last or '[' in last:
-                continue
-            if not first or '--' in first or 'Living' in first or '[' in first:
-                continue
+    # for indi_id, i in individuals.items():
+    #     if not i.get('fams'):
+    #         first, last, byr, bmo, bpl, fbpl, mbpl, res, dyr, dpl = get_fingerprint(indi_id)
+    #         if not last or '--' in last or 'Hidden' in last or '[' in last:
+    #             continue
+    #         if not first or '--' in first or 'Living' in first or '[' in first:
+    #             continue
+    #
+    #         row = {}
+    #         if i.get('sex', '').upper() == 'M':
+    #             row.update({
+    #                 'h_first': first, 'h_last': last, 'h_byr': byr, 'h_bmo': bmo,
+    #                 'h_bpl': bpl, 'h_fbpl': fbpl, 'h_mbpl': mbpl
+    #             })
+    #             for yr in range(1850, 1960, 10): row[f'h_res_{yr}'] = res[str(yr)]
+    #             row.update({
+    #                 'h_dyr': dyr, 'h_dpl': dpl,
+    #                 'w_first': '', 'w_last': '', 'w_byr': '', 'w_bmo': '',
+    #                 'w_bpl': '', 'w_fbpl': '', 'w_mbpl': ''
+    #             })
+    #             for yr in range(1850, 1960, 10): row[f'w_res_{yr}'] = ''
+    #             row.update({
+    #                 'w_dyr': '', 'w_dpl': '',
+    #                 'marr_yr': '', 'marr_pl': '', 'num_children': 0
+    #             })
+    #         else:
+    #             row.update({
+    #                 'h_first': '', 'h_last': '', 'h_byr': '', 'h_bmo': '',
+    #                 'h_bpl': '', 'h_fbpl': '', 'h_mbpl': ''
+    #             })
+    #             for yr in range(1850, 1960, 10): row[f'h_res_{yr}'] = ''
+    #             row.update({
+    #                 'h_dyr': '', 'h_dpl': '',
+    #                 'w_first': first, 'w_last': last, 'w_byr': byr, 'w_bmo': bmo,
+    #                 'w_bpl': bpl, 'w_fbpl': fbpl, 'w_mbpl': mbpl
+    #             })
+    #             for yr in range(1850, 1960, 10): row[f'w_res_{yr}'] = res[str(yr)]
+    #             row.update({
+    #                 'w_dyr': dyr, 'w_dpl': dpl,
+    #                 'marr_yr': '', 'marr_pl': '', 'num_children': 0
+    #             })
+    #
+    #         records.append(row)
 
-            row = {}
-            if i.get('sex', '').upper() == 'M':
-                row.update({
-                    'h_first': first, 'h_last': last, 'h_byr': byr, 'h_bmo': bmo,
-                    'h_bpl': bpl, 'h_fbpl': fbpl, 'h_mbpl': mbpl
-                })
-                for yr in range(1850, 1960, 10): row[f'h_res_{yr}'] = res[str(yr)]
-                row.update({
-                    'h_dyr': dyr, 'h_dpl': dpl,
-                    'w_first': '', 'w_last': '', 'w_byr': '', 'w_bmo': '',
-                    'w_bpl': '', 'w_fbpl': '', 'w_mbpl': ''
-                })
-                for yr in range(1850, 1960, 10): row[f'w_res_{yr}'] = ''
-                row.update({
-                    'w_dyr': '', 'w_dpl': '',
-                    'marr_yr': '', 'marr_pl': '', 'num_children': 0
-                })
-            else:
-                row.update({
-                    'h_first': '', 'h_last': '', 'h_byr': '', 'h_bmo': '',
-                    'h_bpl': '', 'h_fbpl': '', 'h_mbpl': ''
-                })
-                for yr in range(1850, 1960, 10): row[f'h_res_{yr}'] = ''
-                row.update({
-                    'h_dyr': '', 'h_dpl': '',
-                    'w_first': first, 'w_last': last, 'w_byr': byr, 'w_bmo': bmo,
-                    'w_bpl': bpl, 'w_fbpl': fbpl, 'w_mbpl': mbpl
-                })
-                for yr in range(1850, 1960, 10): row[f'w_res_{yr}'] = res[str(yr)]
-                row.update({
-                    'w_dyr': dyr, 'w_dpl': dpl,
-                    'marr_yr': '', 'marr_pl': '', 'num_children': 0
-                })
-
-            records.append(row)
-
+    with open(r'../../JSON/gedcom_couples.json', 'w', encoding='utf-8') as f:
+        json.dump(records, f, indent=4, ensure_ascii=False)
+    print("it")
     return records
 
 
