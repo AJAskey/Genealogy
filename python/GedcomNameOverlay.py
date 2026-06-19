@@ -45,7 +45,6 @@ Children	Josiah James Askey | Dortha Ellen Askey | Foster Edgar Askey | Richard 
 """
 
 import csv
-import gc
 import json
 import os
 import re
@@ -61,9 +60,6 @@ for p in [script_dir, project_root]:
         sys.path.append(p)
 
 from utils import gen_logging
-from genealogy_classes import Individual, Family
-from rich import inspect
-from rich.console import Console
 
 if os.name == 'nt':
     BASE_DATA_DIR = r"D:\Data\Genealogy_Data"
@@ -209,6 +205,7 @@ def find_person(name, byr_str, people_by_name):
             return c
     return candidates[0]
 
+
 def create_standard_dict(source, fam_id="", h_histid="", w_histid="",
                          h_first="", h_last="", h_byr=None, h_bmo="", h_bpl="", h_fbpl="", h_mbpl="",
                          w_first="", w_last="", w_byr=None, w_bmo="", w_bpl="", w_fbpl="", w_mbpl="",
@@ -243,6 +240,7 @@ def create_standard_dict(source, fam_id="", h_histid="", w_histid="",
         'num_children': num_children,
         'score': score
     }
+
 
 def parse_csv_names_and_dates(filepath):
     """Reads the gedcom_individuals.csv and extracts target families.
@@ -351,7 +349,7 @@ def parse_csv_names_and_dates(filepath):
                         g_dict['w_bpl_pref'] = get_bpl_prefixes(w_bpl) or []
                         g_dict['w_fbpl_pref'] = get_bpl_prefixes(w_fbpl) or []
                         g_dict['w_mbpl_pref'] = get_bpl_prefixes(w_mbpl) or []
-                        
+
                         target_couples.append(g_dict)
                         seen_couples.add(couple_key)
     return target_couples
@@ -424,16 +422,16 @@ def apply_gedcom_names(logger):
 
         db_path = os.path.join(NAMED_VAULT_DIR, filename)
         logger.info(f"  -> Formulating DuckDB Bulk Push-Down Query for {filename}...")
-        
+
         target_rows = []
-        
+
         # DECISION: Convert IPUMS prefixes into Integers for mathematically safe SQL!
         def get_bpl_base(pref_list):
             if not pref_list: return None
             p = str(pref_list[0]).strip().lstrip('0')
             if not p: return None
             return int(p)
-            
+
         for i, g_dict in enumerate(all_target_couples):
             if not g_dict['h_byr'] or not g_dict['w_byr']:
                 continue
@@ -444,14 +442,14 @@ def apply_gedcom_names(logger):
                 continue
 
             target_rows.append((
-                i, 
-                '1', g_dict['h_byr'], 
-                get_bpl_base(g_dict['h_bpl_pref']), 
-                get_bpl_base(g_dict['h_fbpl_pref']), 
+                i,
+                '1', g_dict['h_byr'],
+                get_bpl_base(g_dict['h_bpl_pref']),
+                get_bpl_base(g_dict['h_fbpl_pref']),
                 get_bpl_base(g_dict['h_mbpl_pref']),
-                '2', g_dict['w_byr'], 
-                get_bpl_base(g_dict['w_bpl_pref']), 
-                get_bpl_base(g_dict['w_fbpl_pref']), 
+                '2', g_dict['w_byr'],
+                get_bpl_base(g_dict['w_bpl_pref']),
+                get_bpl_base(g_dict['w_fbpl_pref']),
                 get_bpl_base(g_dict['w_mbpl_pref'])
             ))
 
@@ -462,12 +460,21 @@ def apply_gedcom_names(logger):
         con = duckdb.connect()
         con.execute("INSTALL sqlite; LOAD sqlite;")
         con.execute("""
-            CREATE TABLE targets (
-                target_idx INTEGER, 
-                h_sex VARCHAR, h_byr INTEGER, h_bpl_base INTEGER, h_fbpl_base INTEGER, h_mbpl_base INTEGER, 
-                w_sex VARCHAR, w_byr INTEGER, w_bpl_base INTEGER, w_fbpl_base INTEGER, w_mbpl_base INTEGER
-            )
-        """)
+                    CREATE TABLE targets
+                    (
+                        target_idx  INTEGER,
+                        h_sex       VARCHAR,
+                        h_byr       INTEGER,
+                        h_bpl_base  INTEGER,
+                        h_fbpl_base INTEGER,
+                        h_mbpl_base INTEGER,
+                        w_sex       VARCHAR,
+                        w_byr       INTEGER,
+                        w_bpl_base  INTEGER,
+                        w_fbpl_base INTEGER,
+                        w_mbpl_base INTEGER
+                    )
+                    """)
         con.executemany("INSERT INTO targets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", target_rows)
         con.execute(f"ATTACH '{db_path}' AS vault (TYPE SQLITE, READ_ONLY);")
 
@@ -489,35 +496,53 @@ def apply_gedcom_names(logger):
 
         # DECISION: The Big Database Filter! Execute one massive join to test everything at once.
         query = """
-            SELECT t.target_idx,
-                   f.family_id, f.numprec,
-                   h.histid, h.sex, h.birthyr, h.bpld, h.fbpl, h.mbpl,
-                   s.histid, s.sex, s.birthyr, s.bpld, s.fbpl, s.mbpl,
-                   h.raw_data, s.raw_data
-            FROM vault.families f
-            JOIN relevant_individuals h ON f.head_histid = h.histid
-            JOIN relevant_individuals s ON f.spouse_histid = s.histid
-            JOIN targets t
-              ON h.birthyr BETWEEN t.h_byr - 1 AND t.h_byr + 1
-             AND s.birthyr BETWEEN t.w_byr - 1 AND t.w_byr + 1
-             AND h.sex = t.h_sex
-             AND s.sex = t.w_sex
-            WHERE h.last_name = 'Bosselstink'
-              AND h.first_name = 'Future'
-              AND (t.h_bpl_base IS NULL OR TRY_CAST(h.bpld AS INTEGER) = t.h_bpl_base OR TRY_CAST(h.bpld AS INTEGER) // 100 = t.h_bpl_base)
-              AND (t.h_fbpl_base IS NULL OR TRY_CAST(h.fbpl AS INTEGER) = t.h_fbpl_base OR TRY_CAST(h.fbpl AS INTEGER) // 100 = t.h_fbpl_base)
-              AND (t.h_mbpl_base IS NULL OR TRY_CAST(h.mbpl AS INTEGER) = t.h_mbpl_base OR TRY_CAST(h.mbpl AS INTEGER) // 100 = t.h_mbpl_base)
-              AND (t.w_bpl_base IS NULL OR TRY_CAST(s.bpld AS INTEGER) = t.w_bpl_base OR TRY_CAST(s.bpld AS INTEGER) // 100 = t.w_bpl_base)
-              AND (t.w_fbpl_base IS NULL OR TRY_CAST(s.fbpl AS INTEGER) = t.w_fbpl_base OR TRY_CAST(s.fbpl AS INTEGER) // 100 = t.w_fbpl_base)
-              AND (t.w_mbpl_base IS NULL OR TRY_CAST(s.mbpl AS INTEGER) = t.w_mbpl_base OR TRY_CAST(s.mbpl AS INTEGER) // 100 = t.w_mbpl_base)
-        """
-        
+                SELECT t.target_idx,
+                       f.family_id,
+                       f.numprec,
+                       h.histid,
+                       h.sex,
+                       h.birthyr,
+                       h.bpld,
+                       h.fbpl,
+                       h.mbpl,
+                       s.histid,
+                       s.sex,
+                       s.birthyr,
+                       s.bpld,
+                       s.fbpl,
+                       s.mbpl,
+                       h.raw_data,
+                       s.raw_data
+                FROM vault.families f
+                         JOIN relevant_individuals h ON f.head_histid = h.histid
+                         JOIN relevant_individuals s ON f.spouse_histid = s.histid
+                         JOIN targets t
+                              ON h.birthyr BETWEEN t.h_byr - 1 AND t.h_byr + 1
+                                  AND s.birthyr BETWEEN t.w_byr - 1 AND t.w_byr + 1
+                                  AND h.sex = t.h_sex
+                                  AND s.sex = t.w_sex
+                WHERE h.last_name = 'Bosselstink'
+                  AND h.first_name = 'Future'
+                  AND (t.h_bpl_base IS NULL OR TRY_CAST(h.bpld AS INTEGER) = t.h_bpl_base OR
+                       TRY_CAST(h.bpld AS INTEGER) // 100 = t.h_bpl_base)
+                  AND (t.h_fbpl_base IS NULL OR TRY_CAST(h.fbpl AS INTEGER) = t.h_fbpl_base OR
+                       TRY_CAST(h.fbpl AS INTEGER) // 100 = t.h_fbpl_base)
+                  AND (t.h_mbpl_base IS NULL OR TRY_CAST(h.mbpl AS INTEGER) = t.h_mbpl_base OR
+                       TRY_CAST(h.mbpl AS INTEGER) // 100 = t.h_mbpl_base)
+                  AND (t.w_bpl_base IS NULL OR TRY_CAST(s.bpld AS INTEGER) = t.w_bpl_base OR
+                       TRY_CAST(s.bpld AS INTEGER) // 100 = t.w_bpl_base)
+                  AND (t.w_fbpl_base IS NULL OR TRY_CAST(s.fbpl AS INTEGER) = t.w_fbpl_base OR
+                       TRY_CAST(s.fbpl AS INTEGER) // 100 = t.w_fbpl_base)
+                  AND (t.w_mbpl_base IS NULL OR TRY_CAST(s.mbpl AS INTEGER) = t.w_mbpl_base OR
+                       TRY_CAST(s.mbpl AS INTEGER) // 100 = t.w_mbpl_base) \
+                """
+
         logger.info("     Executing massive bulk demographic cross-match via DuckDB...")
         matches = con.execute(query).fetchall()
         con.close()
 
         logger.info(f"     Found {len(matches):,} precise matches. Processing into timelines...")
-        
+
         matches_by_target = defaultdict(list)
         for db_row in matches:
             target_idx = db_row[0]
@@ -556,7 +581,7 @@ def apply_gedcom_names(logger):
             c_dict['w_bpl_pref'] = [db_row[12]] if db_row[12] else []
             c_dict['w_fbpl_pref'] = [db_row[13]] if db_row[13] else []
             c_dict['w_mbpl_pref'] = [db_row[14]] if db_row[14] else []
-            
+
             all_c_dicts_by_target[target_idx].append(c_dict)
 
     logger.info("\n  -> Evaluating Final Couple Matches...")
@@ -593,7 +618,7 @@ def apply_gedcom_names(logger):
         if len(distinct_entities) == 1:
             success_count += 1
             c_dict = list(distinct_entities.values())[0]
-            
+
             logger.info(f"  [PERFECT MATCH] (Score: {best_score}) {h_name} & {w_name}")
             logger.info(f"    g_dict = {g_dict}")
             logger.info(f"    c_dict = {c_dict}")
@@ -612,12 +637,14 @@ def apply_gedcom_names(logger):
             logger.info(f"  --- DATABASE MATCHES ---")
             for k, c_dict in distinct_entities.items():
                 logger.info(f"    c_dict = {c_dict}")
-                
+
                 if c_dict['h_histid'] not in flagged_multiples:
-                    update_queue_by_year[c_dict['fam_id'].split('_')[0]].append(('Multiple', 'Bosselstink', c_dict['h_histid']))
+                    update_queue_by_year[c_dict['fam_id'].split('_')[0]].append(
+                        ('Multiple', 'Bosselstink', c_dict['h_histid']))
                     flagged_multiples.add(c_dict['h_histid'])
                 if c_dict['w_histid'] not in flagged_multiples:
-                    update_queue_by_year[c_dict['fam_id'].split('_')[0]].append(('Multiple', 'Bosselstink', c_dict['w_histid']))
+                    update_queue_by_year[c_dict['fam_id'].split('_')[0]].append(
+                        ('Multiple', 'Bosselstink', c_dict['w_histid']))
                     flagged_multiples.add(c_dict['w_histid'])
 
     logger.info(f"\nLookup Complete:")

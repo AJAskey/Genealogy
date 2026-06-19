@@ -91,7 +91,8 @@ def export_gedcom(logger):
                                  AND father_histid IS NOT NULL
                                  AND (SELECT p.last_name
                                       FROM individuals p
-                                      WHERE p.histid = individuals.father_histid) != 'Bosselstink';
+                                      WHERE p.histid = individuals.father_histid)
+                                   != 'Bosselstink';
                                """)
                 conn.commit()
 

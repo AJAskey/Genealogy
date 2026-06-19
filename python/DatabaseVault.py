@@ -106,7 +106,41 @@ def setup_database(db_path, logger):
                        relate
                        TEXT,
                        num_kids
-                       INTEGER
+                       INTEGER,
+                       kids_byr_sum
+                       INTEGER,
+                       stateicp
+                       TEXT,
+                       statefip
+                       TEXT,
+                       countyicp
+                       TEXT,
+                       city
+                       TEXT,
+                       metarea
+                       TEXT,
+                       metaread
+                       TEXT,
+                       hhwt
+                       TEXT,
+                       numperhh
+                       TEXT,
+                       gq
+                       TEXT,
+                       farm
+                       TEXT,
+                       nmothers
+                       TEXT,
+                       nfathers
+                       TEXT,
+                       reel
+                       TEXT,
+                       pageno
+                       TEXT,
+                       line
+                       TEXT,
+                       microseq
+                       TEXT
                    )
                    ''')
 
@@ -159,6 +193,42 @@ def setup_database(db_path, logger):
                        TEXT,
                        raw_data
                        TEXT, -- The Bread Crumbs! (JSON)
+                       versionhist
+                       TEXT,
+                       famsize
+                       TEXT,
+                       momloc
+                       TEXT,
+                       poploc
+                       TEXT,
+                       sploc
+                       TEXT,
+                       related
+                       TEXT,
+                       nchild
+                       TEXT,
+                       nsibs
+                       TEXT,
+                       chborn
+                       TEXT,
+                       marst
+                       TEXT,
+                       race
+                       TEXT,
+                       raced
+                       TEXT,
+                       bpl
+                       TEXT,
+                       mbpld
+                       TEXT,
+                       fbpld
+                       TEXT,
+                       occ1950
+                       TEXT,
+                       ind1950
+                       TEXT,
+                       perwt
+                       TEXT,
                        FOREIGN
                        KEY
                    (
@@ -227,6 +297,7 @@ def process_household(rows):
 
         poploc = str(row.get('POPLOC', '0')).strip()
         momloc = str(row.get('MOMLOC', '0')).strip()
+        sploc = str(row.get('SPLOC', '0')).strip()
 
         # DECISION: Use POPLOC and MOMLOC to assign the exact parent HISTID directly to the child.
         # This means the database natively understands the bloodline without needing future Python processing.
@@ -246,7 +317,23 @@ def process_household(rows):
                 'pernum': pernum,
                 'eldch': str(row.get('ELDCH', '')).strip(),
                 'yngch': str(row.get('YNGCH', '')).strip(),
-                'relate': str(row.get('RELATE', '')).strip()
+                'relate': str(row.get('RELATE', '')).strip(),
+                'stateicp': str(row.get('STATEICP', '')).strip(),
+                'statefip': str(row.get('STATEFIP', '')).strip(),
+                'countyicp': str(row.get('COUNTYICP', '')).strip(),
+                'city': str(row.get('CITY', '')).strip(),
+                'metarea': str(row.get('METAREA', '')).strip(),
+                'metaread': str(row.get('METAREAD', '')).strip(),
+                'hhwt': str(row.get('HHWT', '')).strip(),
+                'numperhh': str(row.get('NUMPERHH', '')).strip(),
+                'gq': str(row.get('GQ', '')).strip(),
+                'farm': str(row.get('FARM', '')).strip(),
+                'nmothers': str(row.get('NMOTHERS', '')).strip(),
+                'nfathers': str(row.get('NFATHERS', '')).strip(),
+                'reel': str(row.get('REEL', '')).strip(),
+                'pageno': str(row.get('PAGENO', '')).strip(),
+                'line': str(row.get('LINE', '')).strip(),
+                'microseq': str(row.get('MICROSEQ', '')).strip()
             }
             individuals_by_fam[family_id] = []
 
@@ -279,7 +366,11 @@ def process_household(rows):
             row.get('BIRTHMO'), row.get('MARRNOYR') or row.get('MARRNOYRS'),
             row.get('BPLD') or row.get('BPL'), row.get('FBPLD') or row.get('FBPL'),
             row.get('MBPLD') or row.get('MBPL'),
-            father_histid, mother_histid, family_id, raw_data_json
+            father_histid, mother_histid, family_id, raw_data_json,
+            row.get('VERSIONHIST'), row.get('FAMSIZE'), momloc, poploc, sploc,
+            related_str, row.get('NCHILD'), row.get('NSIBS'), row.get('CHBORN'),
+            row.get('MARST'), row.get('RACE'), row.get('RACED'), row.get('BPL'),
+            row.get('MBPLD'), row.get('FBPLD'), row.get('OCC1950'), row.get('IND1950'), row.get('PERWT')
         ))
 
     final_inds = []
@@ -291,17 +382,29 @@ def process_household(rows):
     for fid, data in families_dict.items():
         family_members = individuals_by_fam[fid]
 
-        num_kids = sum(
-            1 for ind in family_members
-            if (data['head_histid'] and ind[16] == data['head_histid']) or
-               (data['spouse_histid'] and ind[17] == data['spouse_histid'])
-        )
+        num_kids = 0
+        kids_byr_sum = 0
+
+        for ind in family_members:
+            # ind[16] is father_histid, ind[17] is mother_histid, ind[10] is birthyr
+            is_child = (data['head_histid'] and ind[16] == data['head_histid']) or \
+                       (data['spouse_histid'] and ind[17] == data['spouse_histid'])
+            if is_child:
+                num_kids += 1
+                try:
+                    kids_byr_sum += int(ind[10]) if ind[10] else 0
+                except ValueError:
+                    pass  # Catch edge cases where BIRTHYR might be blank or corrupted
 
         if len(family_members) > 1:
             # This is a valid family, process as before.
             final_fams.append(
                 (fid, data['year'], data['serial'], data['famunit'], data['head_histid'], data['spouse_histid'],
-                 data['hhtype'], data['numprec'], data['pernum'], data['eldch'], data['yngch'], data['relate'], num_kids))
+                 data['hhtype'], data['numprec'], data['pernum'], data['eldch'], data['yngch'], data['relate'],
+                 num_kids, kids_byr_sum, data['stateicp'], data['statefip'], data['countyicp'], data['city'],
+                 data['metarea'], data['metaread'],
+                 data['hhwt'], data['numperhh'], data['gq'], data['farm'], data['nmothers'], data['nfathers'],
+                 data['reel'], data['pageno'], data['line'], data['microseq']))
             final_inds.extend(family_members)
         elif len(family_members) == 1:
             # This is a lone wolf. Keep the individual, but sever the family link.
@@ -341,15 +444,19 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
                        INSERT \
                        OR IGNORE INTO individuals 
         (histid, first_name, last_name, year, sample, serial, pernum, famunit, 
-         age, sex, birthyr, birthmo, marrnoyrs, bpld, fbpl, mbpl, father_histid, mother_histid, family_id, raw_data)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
+         age, sex, birthyr, birthmo, marrnoyrs, bpld, fbpl, mbpl, father_histid, mother_histid, family_id, raw_data,
+         versionhist, famsize, momloc, poploc, sploc, related, nchild, nsibs, chborn, marst, race, raced, bpl, mbpld, fbpld, occ1950, ind1950, perwt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
                        """
 
     fam_insert_query = """
                        INSERT \
                        OR IGNORE INTO families 
-        (family_id, year, serial, famunit, head_histid, spouse_histid, hhtype, numprec, pernum, eldch, yngch, relate, num_kids)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
+        (family_id, year, serial, famunit, head_histid, spouse_histid, hhtype, numprec, pernum, eldch, yngch, relate, num_kids, kids_byr_sum,
+         stateicp, statefip, countyicp, city, metarea, metaread, hhwt, numperhh, gq, farm, nmothers, nfathers, reel, pageno, line, microseq)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
                        """
 
     count = 0

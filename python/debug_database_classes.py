@@ -10,7 +10,6 @@ import os
 import sqlite3
 import sys
 
-
 # Add the 'python' directory and project root to sys.path
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(script_dir, '..'))

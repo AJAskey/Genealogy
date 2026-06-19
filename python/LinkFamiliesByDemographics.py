@@ -386,7 +386,8 @@ def link_households_across_decades(logger):
                 else:
                     # TELEMETRY: Log the paradox! If a clan has two families from 1880, we want to know WHO they are.
                     if len(current_clan) <= 15:  # Keep log clean from massive runaway cascades
-                        logger.warning(f"  [CLAN PARADOX DETECTED] Discarding interconnected component due to 'Highlander' violation.")
+                        logger.warning(
+                            f"  [CLAN PARADOX DETECTED] Discarding interconnected component due to 'Highlander' violation.")
                         logger.warning(f"    └─> Conflicting Families: {current_clan}")
 
         # TELEMETRY: Check for "Mega-Clans" (If a clan has thousands of members, the logic is broken)
