@@ -158,7 +158,7 @@ def parse_gedcom(filepath):
                     continue
 
                 if level == '3':
-                    if tag == 'PAGE':
+                    if tag in ('PAGE', 'TEXT', 'DATA'):
                         if "census" in line.lower():
                             year_pattern = re.compile(r"(\d{4})\s*U\s*S\s*Census")
                             place_pattern = re.compile(r"Census\s+Place:\s*([^;]+)")
@@ -453,7 +453,7 @@ def build_couples_rows(individuals, families):
         if not fbpl: fbpl = bpl
         if not mbpl: mbpl = bpl
 
-        residences = {str(yr): common_utils.extract_state(get_res(indi_id, str(yr))) for yr in range(1850, 1960, 10)}
+        residences = {str(yr): get_res(indi_id, str(yr)) for yr in range(1850, 1960, 10)}
 
         return first, last, byr, bmo, bpl, fbpl, mbpl, residences, dyr, dpl
 
@@ -462,6 +462,12 @@ def build_couples_rows(individuals, families):
         h_id, w_id = fam.get('husb'), fam.get('wife')
         h_first, h_last, h_byr, h_bmo, h_bpl, h_fbpl, h_mbpl, h_res, h_dyr, h_dpl = get_fingerprint(h_id)
         w_first, w_last, w_byr, w_bmo, w_bpl, w_fbpl, w_mbpl, w_res, w_dyr, w_dpl = get_fingerprint(w_id)
+
+        # Filter out couples if either spouse died before 1850 (won't be in the census!)
+        if h_dyr and h_dyr.isnumeric() and int(h_dyr) < 1850:
+            continue
+        if w_dyr and w_dyr.isnumeric() and int(w_dyr) < 1850:
+            continue
 
         marr_yr, _ = parse_date(fam.get('marr_date', ''))
         marr_pl = common_utils.extract_state(fam.get('marr_place', ''))
@@ -715,7 +721,7 @@ if __name__ == '__main__':
     places.sort()
     uplaces = set(places)
 
-    out_f = os.path.join(out_dir, f"{OUTPUT_DIR}/statecodes.txt")
+    out_f = os.path.join(out_dir, "statecodes.txt")
     with open(out_f, "a") as file:
         for p in uplaces:
             if p and len(p.strip()) > 0:

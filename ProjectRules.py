@@ -3,8 +3,8 @@
 File: ProjectRules.py
 
 Summary: This genealogy project is used to merge all the digital nameless census records
-            into one large family tree and
-            then overlay an existing GEDCOM on top of that to add names to the family tree.
+            into one large family tree andthen overlay an existing GEDCOM on top of that
+            to add names to the family tree.
 
 These are the rules of work that we have agreed to over the past couple months.
 1. All census data is truth. All people and families entered into our
@@ -34,15 +34,22 @@ These are the rules of work that we have agreed to over the past couple months.
 10. Scoring must be deterministic and transparent. Tie-breakers (like county matches) should 
     heavily favor high-fidelity data over generic state-level matches to prevent "clone wars."
 
+11. It is far better to have an Individual without a name than it is to give an individual
+    the wrong name.
+
 Design:
     Andy uses the IPUMS interface to download the most recent CSV data representing census files.
 
     The script DatabaseVault.py reads the CSV files and creates a SQLite database of that information.
 
+    The script build_pa_1900_vault.py reads the full DB and creates a SQLite database
+    of A subset of that that information For testing. The subset only contains people from
+    Pennsylvania to execute the testing of generating an overlay from the JSON file.
+
     The script LinkFamiliesByDemographics.py uses duck DB to link the appropriate DB fields from
     the census data and creates one large linked web of census data individuals and families.
 
-    The script GedcomNameOverlay.py matches data fields up with the database and a CSV file
+    The script GedcomNameOverlay.py matches data fields up with the database and a JSON file
     created from a GEDCOM to overlay the names onto the nameless census data.
     Script gedcom_analysis.py is used To provide names and facts to be compared to the database
     for matching criteria

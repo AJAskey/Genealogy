@@ -189,9 +189,6 @@ class CountyLookup:
         return sorted(state_data.keys())
 
 
-S
-`1
-
 # ===========================================================================
 # SECTION 3: MAIN — builds the files, then does a quick smoke test
 # ===========================================================================

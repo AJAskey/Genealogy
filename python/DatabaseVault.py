@@ -49,7 +49,7 @@ else:
     BASE_DATA_DIR = os.path.expanduser("~/Genealogy_Data")
 
 VAULT_DIR = os.path.join(BASE_DATA_DIR, "YearlyVaults")
-input_directory = r"E:\Census\IPUMS\Original"
+input_directory = r"C:\tempc\ShortTermCSVfiles"
 
 
 # ==============================================================================
@@ -92,6 +92,10 @@ def setup_database(db_path, logger):
                        head_histid
                        TEXT,
                        spouse_histid
+                       TEXT,
+                       head_bpld
+                       TEXT,
+                       spouse_bpld
                        TEXT,
                        hhtype
                        TEXT,
@@ -312,6 +316,7 @@ def process_household(rows):
             families_dict[family_id] = {
                 'year': year, 'serial': serial, 'famunit': famunit,
                 'head_histid': None, 'spouse_histid': None,
+                'head_bpld': None, 'spouse_bpld': None,
                 'hhtype': str(row.get('HHTYPE', '')).strip(),
                 'numprec': str(row.get('NUMPREC', '')).strip(),
                 'pernum': pernum,
@@ -344,10 +349,12 @@ def process_household(rows):
 
         if relate_str in ('1', '01') or related_pad.startswith('01') or 'head' in txt:
             families_dict[family_id]['head_histid'] = histid
+            families_dict[family_id]['head_bpld'] = str(row.get('BPLD') or row.get('BPL', '')).strip()
         elif relate_str in ('2', '02') or related_pad.startswith('02') or 'spouse' in txt or 'wife' in txt:
             families_dict[family_id]['spouse_histid'] = histid
+            families_dict[family_id]['spouse_bpld'] = str(row.get('BPLD') or row.get('BPL', '')).strip()
 
-        # DECISION: Keep names exactly as they are in the database. 
+        # DECISION: Keep names exactly as they are in the database.
         # If the IPUMS database lacks names, we let them be blank.
         first_name = str(row.get('NAMEFRST', '')).strip()
         last_name = str(row.get('NAMELAST', '')).strip()
@@ -400,6 +407,7 @@ def process_household(rows):
             # This is a valid family, process as before.
             final_fams.append(
                 (fid, data['year'], data['serial'], data['famunit'], data['head_histid'], data['spouse_histid'],
+                 data['head_bpld'], data['spouse_bpld'],
                  data['hhtype'], data['numprec'], data['pernum'], data['eldch'], data['yngch'], data['relate'],
                  num_kids, kids_byr_sum, data['stateicp'], data['statefip'], data['countyicp'], data['city'],
                  data['metarea'], data['metaread'],
@@ -453,10 +461,10 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
     fam_insert_query = """
                        INSERT \
                        OR IGNORE INTO families 
-        (family_id, year, serial, famunit, head_histid, spouse_histid, hhtype, numprec, pernum, eldch, yngch, relate, num_kids, kids_byr_sum,
+        (family_id, year, serial, famunit, head_histid, spouse_histid, head_bpld, spouse_bpld, hhtype, numprec, pernum, eldch, yngch, relate, num_kids, kids_byr_sum,
          stateicp, statefip, countyicp, city, metarea, metaread, hhwt, numperhh, gq, farm, nmothers, nfathers, reel, pageno, line, microseq)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
                        """
 
     count = 0

@@ -6,11 +6,11 @@ Before suggesting code modifications, writing new queries, or debugging errors, 
 <PROJECT_OVERVIEW>
 This project mathematically links manual genealogy (Family Tree Maker reports) to 100 years of raw historical census data (1850-1950 IPUMS). 
 It uses a "Census-First Architecture":
-1. Raw IPUMS CSV data is ingested into strictly normalized SQLite Decade Vaults (approx. 800 million rows). Unnamed individuals are assigned the placeholder "Future Bosselstink".
+1. Raw IPUMS CSV data is ingested into strictly normalized SQLite Decade Vaults (approx. 800 million rows). Unnamed individuals are assigned a placeholder name.
 2. DuckDB is used as an in-memory OLAP "Time Machine" engine to perform lightning-fast cross-decade Cartesian joins, linking households over time.
 3. Connected Components (Graph algorithms) group these households into continuous 100-year "Clans".
-4. Family Tree Maker (FTM) descendant reports are flattened into 7-column CSVs (First, Last, Sex, BirthYr, BPL, FBPL, MBPL).
-5. Python executes a mathematically strict demographic handshake against the database to overwrite "Bosselstinks" with real historical names.
+4. Family Tree Maker (FTM) descendant reports are processed into detailed JSON documents containing names, facts, and relationships.
+5. Python executes a mathematically strict demographic handshake against the database to overwrite placeholder names with real historical names from the JSON data.
 6. Outputs are FTM-compliant GEDCOM 5.5.1 files containing fully verifiable census timelines.
 </PROJECT_OVERVIEW>
 
@@ -23,11 +23,11 @@ It uses a "Census-First Architecture":
 <PIPELINE_EXECUTION_ORDER>
 To process raw census data into a fully cited, expanded historical tree:
    
-1. `python python/utils/ftm_report_to_csv.py`
-   Parses an indented Family Tree Maker (FTM) descendant text/csv report. Intelligently maps Father's Birthplace (FBPL) and Mother's Birthplace (MBPL) down the bloodline into a flattened `ftm_extracted.csv`.
-   
+1. `python python/gedcom_analysis.py`
+   Parses a GEDCOM file to provide names, facts, and relationships to be compared to the database for matching criteria. The output is a JSON file.
+
 2. `python python/utils/ValidateLocations.py`
-   Scans `ftm_extracted.csv` to ensure all text birthplaces successfully translate to IPUMS numerical codes using the internal crosswalk dictionary.
+   Scans the generated JSON file to ensure all text birthplaces successfully translate to IPUMS numerical codes using the internal crosswalk dictionary.
 
 3. `python python/DatabaseVault.py`
    Ingests the raw IPUMS census CSV. Chunks data into 100,000-household memory buffers and dynamically writes to the `YearlyVaults` using WAL mode for speed and safety.
@@ -36,7 +36,7 @@ To process raw census data into a fully cited, expanded historical tree:
    "The Time Machine". Uses DuckDB to perform a 10-variable demographic hash across overlapping decades (10, 20, 30 year gaps). Builds the `clan_mapping` table.
 
 5. `python python/GedcomNameOverlay.py`
-   Searches the Named Vault using the FTM CSV. Uses the "Anchor Strategy" to find perfect 1880+ matches (where parent birthplaces exist) and ripples the names backward through the Time Machine Clans to 1850.
+   Searches the Named Vault using the JSON data. Uses the "Anchor Strategy" to find perfect 1880+ matches (where parent birthplaces exist) and ripples the names backward through the Time Machine Clans to 1850.
 
 6. `python python/ExportCensusToGedcom.py`
    Ripples the father's last name down to nameless children in the database, extracts target households, decodes IPUMS numbers to text, and generates the final `.ged` file.
