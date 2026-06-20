@@ -18,7 +18,7 @@ License: Apache License 2.0 http://www.apache.org/licenses/LICENSE-2.0
 
 GitHub Open Source Project: https://github.com/AJAskey/Genealogy
 
---------------------------------
+-----------------------------------
 """
 
 import argparse
@@ -41,6 +41,10 @@ from utils import gen_logging
 # ==============================================================================
 # TUNING KNOBS
 # ==============================================================================
+SAMPLE_MODE = True
+SAMPLE_CSV_PATH = r"C:\tempc\ShortTermCSVfiles\sample.csv"
+SAMPLE_DB_NAME = "CENSUS-SAMPLE.db"
+
 BATCH_SIZE = 100_000  # Number of *Households* to buffer before committing to DB
 
 if os.name == 'nt':
@@ -267,7 +271,7 @@ def process_household(rows):
         # DECISION: HHTYPE Filter. We only want Family Households (1, 2, or 3).
         # Note: If older census years (like 1850) use '0' (N/A) for HHTYPE, those households will be skipped!
         hhtype = str(row.get('HHTYPE', '')).strip()
-        if hhtype not in ('1', '2', '3'):
+        if not SAMPLE_MODE and hhtype not in ('1', '2', '3'):
             continue
 
         # DECISION: Relatives Filter. We only want immediate/extended family (RELATE 1-9 or RELATED 100-999).
@@ -289,13 +293,22 @@ def process_household(rows):
             if any(keyword in txt for keyword in ['head', 'spouse', 'wife', 'child', 'parent', 'sibling', 'grand']):
                 is_family = True
 
-        if not is_family:
+        if not SAMPLE_MODE and not is_family:
             continue
 
         histid = str(row.get('HISTID', '')).strip()
         year = str(row.get('YEAR', '')).strip()
         serial = str(row.get('SERIAL', '')).strip()
         pernum = str(row.get('PERNUM', '')).strip()
+
+        # DECISION: Failsafe for custom CSVs that lack a HISTID or YEAR
+        if not histid:
+            import uuid
+            # Generate a synthetic ID so the Primary Key doesn't collide
+            histid = f"SYNTH_{serial}_{pernum}_{uuid.uuid4().hex[:8]}"
+        if not year:
+            year = "1920"  # Fallback so the database doesn't reject the chunk
+
         # Safely default to '1' if the CSV provides a completely blank string instead of None
         famunit = str(row.get('FAMUNIT') or '1').strip()
 
@@ -356,13 +369,38 @@ def process_household(rows):
 
         # DECISION: Keep names exactly as they are in the database.
         # If the IPUMS database lacks names, we let them be blank.
-        first_name = str(row.get('NAMEFRST', '')).strip()
-        last_name = str(row.get('NAMELAST', '')).strip()
+        first_name = str(row.get('NAMEFRST') or row.get('FIRST_NAME') or '').strip()
+        last_name = str(row.get('NAMELAST') or row.get('LAST_NAME') or '').strip()
+
+        # Failsafe if the CSV just has a single "NAME" column
+        if not first_name and not last_name and row.get('NAME'):
+            name_parts = str(row.get('NAME')).strip().split(' ', 1)
+            first_name = name_parts[0]
+            if len(name_parts) > 1:
+                last_name = name_parts[1]
+
+        # DECISION: Filter out junk names (e.g., "! STOCK", "(UNKNOWN)", or single-character last names).
+        # A valid name must start with an alphabetical letter.
+        if first_name and not first_name[0].isalpha():
+            first_name = ""
+        if last_name and (len(last_name) < 3 or not last_name[0].isalpha()):
+            last_name = ""
+
+        # DECISION: Filter out IPUMS illegible/torn page markers (?, *, --, ..)
+        invalid_markers = ['?', '*', '--', '..']
+        if first_name and any(marker in first_name for marker in invalid_markers):
+            first_name = ""
+        if last_name and any(marker in last_name for marker in invalid_markers):
+            last_name = ""
 
         if not first_name:
             first_name = ""
         if not last_name:
             last_name = ""
+
+        # DECISION: In Sample Mode, skip adding anyone missing a first or last name
+        if SAMPLE_MODE and (not first_name or not last_name):
+            continue
 
         # DECISION: The JSON Bread Crumbs. Serialize the entire raw CSV row into a JSON string.
         raw_data_json = json.dumps(row)
@@ -434,19 +472,23 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
     ind_batch_by_year = {}
     fam_batch_by_year = {}
 
-    def get_db(year):
-        if year not in conns_by_year:
-            db_path = os.path.join(VAULT_DIR, f"YearVault_{year}.db")
+    def get_db(db_key, actual_year):
+        if db_key not in conns_by_year:
+            if SAMPLE_MODE:
+                db_path = os.path.join(VAULT_DIR, SAMPLE_DB_NAME)
+            else:
+                db_path = os.path.join(VAULT_DIR, f"YearVault_{actual_year}.db")
+
             if not os.path.exists(db_path):
                 setup_database(db_path, logger)
 
             conn = sqlite3.connect(db_path)
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA foreign_keys = ON;")
-            conns_by_year[year] = conn
-            ind_batch_by_year[year] = []
-            fam_batch_by_year[year] = []
-        return conns_by_year[year]
+            conns_by_year[db_key] = conn
+            ind_batch_by_year[db_key] = []
+            fam_batch_by_year[db_key] = []
+        return conns_by_year[db_key]
 
     ind_insert_query = """
                        INSERT \
@@ -471,12 +513,15 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
     households_processed = 0
     start_time = time.time()
 
-    with open(input_csv, mode='r', encoding='utf-8', errors='replace') as infile:
+    # DECISION: 'utf-8-sig' safely removes hidden BOM characters from the first column header
+    with open(input_csv, mode='r', encoding='utf-8-sig', errors='replace') as infile:
         reader = csv.DictReader(infile, delimiter=',')
         current_serial = None
         household_buffer = []
 
-        for row in reader:
+        for raw_row in reader:
+            # Normalize keys to uppercase to prevent case-sensitivity or spacing issues
+            row = {k.upper().strip(): v for k, v in raw_row.items() if k}
             raw_serial = str(row.get('SERIAL', '')).strip()
 
             # Initialize on the very first row
@@ -496,18 +541,19 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
                     hh_year = inds[0][3]
 
                 if hh_year:
-                    get_db(hh_year)
-                    ind_batch_by_year[hh_year].extend(inds)
-                    fam_batch_by_year[hh_year].extend(fams)
+                    db_key = "SAMPLE" if SAMPLE_MODE else hh_year
+                    get_db(db_key, hh_year)
+                    ind_batch_by_year[db_key].extend(inds)
+                    fam_batch_by_year[db_key].extend(fams)
 
-                    if len(fam_batch_by_year[hh_year]) >= BATCH_SIZE:
-                        conn = conns_by_year[hh_year]
+                    if len(fam_batch_by_year[db_key]) >= BATCH_SIZE:
+                        conn = conns_by_year[db_key]
                         cursor = conn.cursor()
-                        cursor.executemany(fam_insert_query, fam_batch_by_year[hh_year])
-                        cursor.executemany(ind_insert_query, ind_batch_by_year[hh_year])
+                        cursor.executemany(fam_insert_query, fam_batch_by_year[db_key])
+                        cursor.executemany(ind_insert_query, ind_batch_by_year[db_key])
                         conn.commit()
-                        ind_batch_by_year[hh_year] = []
-                        fam_batch_by_year[hh_year] = []
+                        ind_batch_by_year[db_key] = []
+                        fam_batch_by_year[db_key] = []
 
                 households_processed += 1
                 count += len(household_buffer)
@@ -540,19 +586,20 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
                 hh_year = inds[0][3]
 
             if hh_year:
-                get_db(hh_year)
-                fam_batch_by_year[hh_year].extend(fams)
-                ind_batch_by_year[hh_year].extend(inds)
+                db_key = "SAMPLE" if SAMPLE_MODE else hh_year
+                get_db(db_key, hh_year)
+                fam_batch_by_year[db_key].extend(fams)
+                ind_batch_by_year[db_key].extend(inds)
 
             count += len(household_buffer)
             households_processed += 1
 
-        for year, conn in conns_by_year.items():
+        for db_key, conn in conns_by_year.items():
             try:
-                if fam_batch_by_year[year]:
+                if fam_batch_by_year[db_key]:
                     cursor = conn.cursor()
-                    cursor.executemany(fam_insert_query, fam_batch_by_year[year])
-                    cursor.executemany(ind_insert_query, ind_batch_by_year[year])
+                    cursor.executemany(fam_insert_query, fam_batch_by_year[db_key])
+                    cursor.executemany(ind_insert_query, ind_batch_by_year[db_key])
                     conn.commit()
             finally:
                 conn.close()
@@ -571,18 +618,22 @@ def build_indices(vault_dir, logger):
     """
     logger.info("Building indices for downstream queries... (This may take a while)")
     for filename in os.listdir(vault_dir):
-        if filename.startswith("YearVault_") and filename.endswith(".db") and "Copy" not in filename:
-            db_path = os.path.join(vault_dir, filename)
-            logger.info(f"  -> Indexing {filename}...")
-            with sqlite3.connect(db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_individuals_parents ON individuals(father_histid, mother_histid);")
-                cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_individuals_names ON individuals(last_name, first_name);")
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_families_year_serial ON families(year, serial);")
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_individuals_family ON individuals(family_id);")
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_families_head ON families(head_histid);")
+        if SAMPLE_MODE:
+            if filename != SAMPLE_DB_NAME: continue
+        else:
+            if not (filename.startswith("YearVault_") and filename.endswith(".db") and "Copy" not in filename): continue
+
+        db_path = os.path.join(vault_dir, filename)
+        logger.info(f"  -> Indexing {filename}...")
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_individuals_parents ON individuals(father_histid, mother_histid);")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_individuals_names ON individuals(last_name, first_name);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_families_year_serial ON families(year, serial);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_individuals_family ON individuals(family_id);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_families_head ON families(head_histid);")
     logger.info("Indices built successfully!")
 
 
@@ -604,9 +655,15 @@ if __name__ == '__main__':
     main_logger.info("====================================================")
 
     if os.path.exists(VAULT_DIR):
-        main_logger.info(f"Starting fresh! Clearing old databases in {VAULT_DIR}...")
+        if not SAMPLE_MODE:  main_logger.info(f"Starting fresh! Clearing old databases in {VAULT_DIR}...")
         for filename in os.listdir(VAULT_DIR):
-            if filename.startswith("YearVault_"):
+            if SAMPLE_MODE and filename == SAMPLE_DB_NAME:
+                try:
+                    os.remove(os.path.join(VAULT_DIR, filename))
+                except OSError as e:
+                    main_logger.error(f"CRITICAL: Could not delete {filename}! Is it open in another program? {e}")
+                    sys.exit(1)
+            elif not SAMPLE_MODE and filename.startswith("YearVault_"):
                 try:
                     os.remove(os.path.join(VAULT_DIR, filename))
                 except OSError as e:
@@ -615,11 +672,17 @@ if __name__ == '__main__':
     else:
         os.makedirs(VAULT_DIR, exist_ok=True)
 
-    csv_files = [f for f in os.listdir(input_directory) if f.endswith(".csv")]
+    if SAMPLE_MODE:
+        main_logger.info(f"SAMPLE MODE ENABLED. Processing single file: {SAMPLE_CSV_PATH}")
+        files_to_process = [SAMPLE_CSV_PATH]
+    else:
+        files_to_process = [os.path.join(input_directory, f) for f in os.listdir(input_directory) if f.endswith(".csv")]
 
-    for filename in csv_files:
-        file_path = os.path.join(input_directory, filename)
-        ingest_to_vault(file_path, main_logger, record_limit)
+    for file_path in files_to_process:
+        if os.path.exists(file_path):
+            ingest_to_vault(file_path, main_logger, record_limit)
+        else:
+            main_logger.error(f"File not found: {file_path}")
 
     # Build indices at the very end of the script to guarantee max insert speed
     build_indices(VAULT_DIR, main_logger)

@@ -34,7 +34,7 @@ import gen_logging
 # CONFIGURATION — edit these paths before running
 # ==============================================================================
 OUTPUT_DIR = r"E:\Users\Andy\PycharmProjects\Genealogy\output"
-INPUT_GEDCOM = r"E:\Users\Andy\PycharmProjects\Genealogy\design\AskeyWorking_2026.ged"
+INPUT_GEDCOM = r"D:\Data\Genealogy_Data\Census_Ground_Truth.ged"
 
 
 # ==============================================================================
@@ -450,8 +450,8 @@ def build_couples_rows(individuals, families):
         fbpl = common_utils.extract_state(get_parent_bpl(indi_id, 'father', individuals, families))
         mbpl = common_utils.extract_state(get_parent_bpl(indi_id, 'mother', individuals, families))
 
-        if not fbpl: fbpl = bpl
-        if not mbpl: mbpl = bpl
+        # if not fbpl: fbpl = bpl
+        # if not mbpl: mbpl = bpl
 
         residences = {str(yr): get_res(indi_id, str(yr)) for yr in range(1850, 1960, 10)}
 
@@ -715,8 +715,8 @@ if __name__ == '__main__':
     write_csv(fam_rows, os.path.join(out_dir, f"{base_name}_families.csv"))
     write_csv(couple_rows, os.path.join(out_dir, f"{base_name}_couples.csv"))
 
-    print("Writing Excel workbook...")
-    write_xlsx(indi_rows, fam_rows, couple_rows, os.path.join(out_dir, f"{base_name}.xlsx"))
+    # print("Writing Excel workbook...")
+    # write_xlsx(indi_rows, fam_rows, couple_rows, os.path.join(out_dir, f"{base_name}.xlsx"))
 
     places.sort()
     uplaces = set(places)

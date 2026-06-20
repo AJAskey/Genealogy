@@ -55,16 +55,23 @@ for p in [script_dir, project_root]:
 
 from utils import gen_logging
 
-# ==============================================================================
+# ==============================================================================  
 # CONFIGURATION
 # ==============================================================================
+SAMPLE_MODE = True
+SAMPLE_DB_NAME = "CENSUS-SAMPLE.db"
+
 if os.name == 'nt':
     BASE_DATA_DIR = r"D:\Data\Genealogy_Data"
 else:
     BASE_DATA_DIR = os.path.expanduser("~/Genealogy_Data")
 
 VAULT_DIR = os.path.join(BASE_DATA_DIR, "YearlyVaults")
-MATCH_DB = os.path.join(BASE_DATA_DIR, "DemographicMatches.db")
+
+if SAMPLE_MODE:
+    MATCH_DB = os.path.join(BASE_DATA_DIR, "DemographicMatches_SAMPLE.db")
+else:
+    MATCH_DB = os.path.join(BASE_DATA_DIR, "DemographicMatches.db")
 
 
 def link_households_across_decades(logger):
@@ -87,9 +94,16 @@ def link_households_across_decades(logger):
     con = duckdb.connect()
     con.execute("PRAGMA memory_limit='32GB'")
     con.execute("INSTALL sqlite; LOAD sqlite;")
+    con.execute("SET sqlite_all_varchar=true;")
 
     logger.info("Attaching Vaults...")
     con.execute(f"ATTACH '{MATCH_DB}' AS match_db (TYPE SQLITE);")
+
+    if SAMPLE_MODE:
+        logger.info("SAMPLE MODE: Clearing previous match data so we start fresh...")
+        con.execute("DROP TABLE IF EXISTS match_db.completed_chunks;")
+        con.execute("DROP TABLE IF EXISTS match_db.household_links;")
+        con.execute("DROP TABLE IF EXISTS match_db.clan_mapping;")
 
     logger.info("Step 1/3: Extracting Head and Spouse Demographics...")
     # ==================================================================================================
@@ -131,23 +145,44 @@ def link_households_across_decades(logger):
                 """)
 
     decades = [1850, 1860, 1870, 1880, 1900, 1910, 1920, 1930, 1940, 1950]
-    for year in decades:
-        db_path = os.path.join(VAULT_DIR, f"YearVault_{year}.db")
+
+    if SAMPLE_MODE:
+        db_path = os.path.join(VAULT_DIR, SAMPLE_DB_NAME)
         if os.path.exists(db_path):
-            logger.info(f"  -> Extracting features from {year}...")
-            con.execute(f"ATTACH '{db_path}' AS vault_{year} (TYPE SQLITE, READ_ONLY);")
-            con.execute(f"""
-                INSERT INTO hh_features
-                SELECT 
-                    f.family_id, f.year,
-                    h.histid, h.sex, h.birthyr, h.bpld, h.fbpl, h.mbpl,
-                    s.histid, s.sex, s.birthyr, s.bpld, s.fbpl, s.mbpl
-                FROM vault_{year}.families f
-                JOIN vault_{year}.individuals h ON f.head_histid = h.histid
-                JOIN vault_{year}.individuals s ON f.spouse_histid = s.histid
-                WHERE h.birthyr IS NOT NULL AND s.birthyr IS NOT NULL
-                  AND f.num_kids > 0;
-            """)
+            con.execute(f"ATTACH '{db_path}' AS vault_sample (TYPE SQLITE, READ_ONLY);")
+            for year in decades:
+                logger.info(f"  -> Extracting features from {year} (SAMPLE MODE)...")
+                con.execute(f"""
+                    INSERT INTO hh_features
+                    SELECT 
+                        f.family_id, TRY_CAST(f.year AS INTEGER),
+                        h.histid, h.sex, TRY_CAST(h.birthyr AS INTEGER), h.bpld, h.fbpl, h.mbpl,
+                        s.histid, s.sex, TRY_CAST(s.birthyr AS INTEGER), s.bpld, s.fbpl, s.mbpl
+                    FROM vault_sample.families f
+                    JOIN vault_sample.individuals h ON f.head_histid = h.histid
+                    JOIN vault_sample.individuals s ON f.spouse_histid = s.histid
+                    WHERE TRY_CAST(f.year AS INTEGER) = {year}
+                      AND TRY_CAST(h.birthyr AS INTEGER) IS NOT NULL AND TRY_CAST(s.birthyr AS INTEGER) IS NOT NULL
+                      ;
+                """)
+    else:
+        for year in decades:
+            db_path = os.path.join(VAULT_DIR, f"YearVault_{year}.db")
+            if os.path.exists(db_path):
+                logger.info(f"  -> Extracting features from {year}...")
+                con.execute(f"ATTACH '{db_path}' AS vault_{year} (TYPE SQLITE, READ_ONLY);")
+                con.execute(f"""
+                    INSERT INTO hh_features
+                    SELECT 
+                        f.family_id, TRY_CAST(f.year AS INTEGER),
+                        h.histid, h.sex, TRY_CAST(h.birthyr AS INTEGER), h.bpld, h.fbpl, h.mbpl,
+                        s.histid, s.sex, TRY_CAST(s.birthyr AS INTEGER), s.bpld, s.fbpl, s.mbpl
+                    FROM vault_{year}.families f
+                    JOIN vault_{year}.individuals h ON f.head_histid = h.histid
+                    JOIN vault_{year}.individuals s ON f.spouse_histid = s.histid
+                    WHERE TRY_CAST(h.birthyr AS INTEGER) IS NOT NULL AND TRY_CAST(s.birthyr AS INTEGER) IS NOT NULL
+                      AND TRY_CAST(f.num_kids AS INTEGER) > -1;
+                """)
 
     step1_end = time.time()
     feature_cnt = con.execute("SELECT COUNT(*) FROM hh_features").fetchone()[0]
@@ -260,10 +295,10 @@ def link_households_across_decades(logger):
                           AND y1.spouse_bpld = y2.spouse_bpld
                           AND y1.head_birthyr = y2.head_birthyr
                           AND y1.spouse_birthyr = y2.spouse_birthyr
-                         WHERE (y1.head_fbpl = y2.head_fbpl OR y1.head_fbpl IS NULL OR y2.head_fbpl IS NULL)
-                           AND (y1.head_mbpl = y2.head_mbpl OR y1.head_mbpl IS NULL OR y2.head_mbpl IS NULL)
-                           AND (y1.spouse_fbpl = y2.spouse_fbpl OR y1.spouse_fbpl IS NULL OR y2.spouse_fbpl IS NULL)
-                           AND (y1.spouse_mbpl = y2.spouse_mbpl OR y1.spouse_mbpl IS NULL OR y2.spouse_mbpl IS NULL)
+                         WHERE (y1.head_fbpl = y2.head_fbpl OR y1.head_fbpl IS NULL OR y2.head_fbpl IS NULL OR y1.head_fbpl = '' OR y2.head_fbpl = '')
+                           AND (y1.head_mbpl = y2.head_mbpl OR y1.head_mbpl IS NULL OR y2.head_mbpl IS NULL OR y1.head_mbpl = '' OR y2.head_mbpl = '')
+                           AND (y1.spouse_fbpl = y2.spouse_fbpl OR y1.spouse_fbpl IS NULL OR y2.spouse_fbpl IS NULL OR y1.spouse_fbpl = '' OR y2.spouse_fbpl = '')
+                           AND (y1.spouse_mbpl = y2.spouse_mbpl OR y1.spouse_mbpl IS NULL OR y2.spouse_mbpl IS NULL OR y1.spouse_mbpl = '' OR y2.spouse_mbpl = '')
                      )
                 SELECT * FROM raw_matches;
             """)
