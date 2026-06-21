@@ -27,6 +27,8 @@ from functools import wraps
 from rich import inspect
 from rich.console import Console
 
+import common_utils
+
 # Force immediate console output at the OS level
 os.environ["PYTHONUNBUFFERED"] = "1"
 if hasattr(sys.stdout, 'reconfigure'):
@@ -138,6 +140,19 @@ def log_dict(logger, dik, desc=""):
     for key, value in dik.items():
         out_str += f"  {key} | {value}\n"
     logger.info(out_str)
+
+
+def log_tuple(logger, t, desc=""):
+    out_str = f"{desc}\n"
+    # i = 0
+    # for item in t:
+    # if item:
+    #     i += 1
+    for i, val in enumerate(t):
+        if val:
+            sval = str(val)
+            out_str += f" {desc} [{i:<3}] : {sval:<20} -- {common_utils.DB_ROWS[i]}\n"
+    logger.info(f" {out_str}")
 
 
 def log_obj(logger, obj, desc=""):

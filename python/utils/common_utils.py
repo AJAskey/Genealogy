@@ -306,3 +306,17 @@ def get_bpl_prefixes(birth_place, desc=""):
             return prefixes
 
     return None
+
+
+DB_ROWS = [
+    "target_idx", "family_id", "clan_id", "match_year",  # 0-3
+    "h_first_gedcom", "h_first_db", "h_last_gedcom", "h_last_db",  # 4-7
+    "w_first_gedcom", "w_first_db", "w_last_gedcom", "w_last_db",  # 8-11
+    "h_byr_gedcom", "h_byr_db", "w_byr_gedcom", "w_byr_db",  # 12-15
+    "h_bpl_gedcom", "h_bpl_db", "w_bpl_gedcom", "w_bpl_db",  # 16-19
+    "h_fbpl_gedcom", "h_fbpl_db", "h_mbpl_gedcom", "h_mbpl_db",  # 20-23
+    "w_fbpl_gedcom", "w_fbpl_db", "w_mbpl_gedcom", "w_mbpl_db",  # 24-27
+    "num_kids_gedcom", "num_kids_db",  # 28-29
+    "kid_fp_gedcom", "kids_byr_sum_db",  # 30-31
+    "county_db", "state_db"  # 32-33
+]

@@ -7,6 +7,7 @@ Summary: This genealogy project is used to merge all the digital nameless census
             to add names to the family tree.
 
 These are the rules of work that we have agreed to over the past couple months.
+
 1. All census data is truth. All people and families entered into our
     linked tree begin at the census.
 
@@ -49,10 +50,25 @@ Design:
     The script LinkFamiliesByDemographics.py uses duck DB to link the appropriate DB fields from
     the census data and creates one large linked web of census data individuals and families.
 
-    The script GedcomNameOverlay.py matches data fields up with the database and a JSON file
+    The script GedcomNameOverlay_V2.py matches data fields up with the database and a JSON file
     created from a GEDCOM to overlay the names onto the nameless census data.
-    Script gedcom_analysis.py is used To provide names and facts to be compared to the database
-    for matching criteria
+    
+    Script gedcom_analysis.py is used to parse the GEDCOM and provide names, facts, and 
+    parent birthplaces to be compared to the database for matching criteria.
+
+    Census data is filtered through a DuckDB SQL query to extract only couples with known 
+    birth places, preventing low-resolution "ghost" matches.
+
+    All other display filtering, strict 1-to-1 Highlander enforcement, and scoring 
+    is done using Python in the source code.
+
+    The concept of a geographical area has been added. This is generally a set of
+     ounties with common borders. In the GEDCOM, the county itself might be off,
+     but they might actually mean one county over.
+     For example:  central Pennsylvania, you create an area of a number of counties for
+     central Pennsylvania counties. Matching based on central Pennsylvania [Clearfield, Centre,
+     Clinton and Lycoming] and not a pecific county. This design overcomes errors in sloppy
+     GEDCOM building.
 
 --------------------------------
 

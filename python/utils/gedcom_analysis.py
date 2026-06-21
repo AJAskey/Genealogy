@@ -20,6 +20,7 @@ import csv
 import os
 import re
 import sys, json
+from collections import Counter
 
 from networkx.generators.geometric import geographical_threshold_graph
 from openpyxl import Workbook
@@ -34,7 +35,7 @@ import gen_logging
 # CONFIGURATION — edit these paths before running
 # ==============================================================================
 OUTPUT_DIR = r"E:\Users\Andy\PycharmProjects\Genealogy\output"
-INPUT_GEDCOM = r"D:\Data\Genealogy_Data\Census_Ground_Truth.ged"
+INPUT_GEDCOM = r"E:\Users\Andy\PycharmProjects\Genealogy\design\AskeyWorking_2026.ged"
 
 
 # ==============================================================================
@@ -386,6 +387,45 @@ def build_families_rows(individuals, families):
     return rows
 
 
+def analyze_homeland_counties(individuals, families, logger, out_dir):
+    """Extracts and counts all counties in the GEDCOM to find the family's 'Homeland' regions."""
+    county_counter = Counter()
+
+    def add_county(plac_str):
+        if not plac_str: return
+        c = extract_county(plac_str)
+        if c:
+            c_clean = c.upper().replace(" COUNTY", "").replace(" CO.", "").strip()
+            # Quick safety filter to ensure we don't count empty strings
+            if c_clean and len(c_clean) > 2:
+                county_counter[c_clean] += 1
+
+    for i in individuals.values():
+        add_county(i.get('birth_place'))
+        add_county(i.get('death_place'))
+        add_county(i.get('burial_place'))
+        for ev in i.get('events', []):
+            add_county(ev.get('place'))
+
+    for f in families.values():
+        add_county(f.get('marr_place'))
+
+    top_counties = county_counter.most_common()
+
+    logger.info("\n==================================================")
+    logger.info("   GEDCOM 'HOMELAND' COUNTY STATISTICAL ANALYSIS")
+    logger.info("==================================================")
+    for county, count in top_counties[:25]:  # Show top 25 in the log
+        logger.info(f"  {county:<20} : {count:,} records")
+    logger.info("==================================================\n")
+
+    homeland_file = os.path.join(out_dir, "homeland_counties.json")
+    with open(homeland_file, "w", encoding="utf-8") as f:
+        json.dump(dict(top_counties), f, indent=4)
+
+    logger.info(f"Homeland analysis exported to: {homeland_file}")
+
+
 def extract_county(loc_str):
     """Strips city/state and returns only the county name."""
     if not loc_str: return ""
@@ -704,6 +744,9 @@ if __name__ == '__main__':
     print(f"Parsing: {gedcom_path}")
     individuals, families = parse_gedcom(gedcom_path)
     print(f"  Found {len(individuals):,} individuals, {len(families):,} families.")
+
+    print("Analyzing Homeland Counties...")
+    analyze_homeland_counties(individuals, families, logger, out_dir)
 
     print("Building rows...")
     indi_rows = build_individuals_rows(individuals, families)

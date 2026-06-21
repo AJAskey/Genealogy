@@ -40,6 +40,7 @@ TEST_VAULT_DIR = os.path.join(BASE_DATA_DIR, "TestVaults")
 COUPLES_JSON = os.path.join(project_root, "gedcom_sources", "gedcom_couples.json")
 COUNTY_JSON = os.path.join(project_root, "JSON", "county_names_to_codes.json")
 COUNTY_NAMES_JSON = os.path.join(project_root, "JSON", "county_codes_to_names.json")
+HOMELAND_JSON = os.path.join(project_root, "output", "homeland_counties.json")
 
 IPUMS_STATES = {
     1: "Alabama", 2: "Alaska", 4: "Arizona", 5: "Arkansas", 6: "California",
@@ -59,10 +60,25 @@ IPUMS_STATES = {
 # --- Test Mode Configuration ---
 TEST_MODE = False
 TEST_H_LAST = "ASKEY"  # Replace this with the last name of the 6th/7th gen family you want to test
-VALIDATION_MODE = True
+VALIDATION_MODE = False
 SAMPLE_DB_NAME = "CENSUS-SAMPLE.db"
 YEAR_WINDOW = 0  # 0 for Ground Truth Validation, 1 or 2 for broad search
-IGNORE_KIDS_FOR_VALIDATION = True  # Set to True if sample data lacks accurate kid fingerprints
+IGNORE_KIDS_FOR_VALIDATION = False  # Set to True if sample data lacks accurate kid fingerprints
+
+ASKEY_HOMLAND = [330, 350, 370, 270, 630, 210]
+
+DB_ROWS = [
+    "target_idx", "family_id", "clan_id", "match_year",  # 0-3
+    "h_first_gedcom", "h_first_db", "h_last_gedcom", "h_last_db",  # 4-7
+    "w_first_gedcom", "w_first_db", "w_last_gedcom", "w_last_db",  # 8-11
+    "h_byr_gedcom", "h_byr_db", "w_byr_gedcom", "w_byr_db",  # 12-15
+    "h_bpl_gedcom", "h_bpl_db", "w_bpl_gedcom", "w_bpl_db",  # 16-19
+    "h_fbpl_gedcom", "h_fbpl_db", "h_mbpl_gedcom", "h_mbpl_db",  # 20-23
+    "w_fbpl_gedcom", "w_fbpl_db", "w_mbpl_gedcom", "w_mbpl_db",  # 24-27
+    "num_kids_gedcom", "num_kids_db",  # 28-29
+    "kid_fp_gedcom", "kids_byr_sum_db",  # 30-31
+    "county_db", "state_db"  # 32-33
+]
 
 if VALIDATION_MODE:
     MATCH_DB = os.path.join(BASE_DATA_DIR, "DemographicMatches_SAMPLE.db")
@@ -133,6 +149,15 @@ def run_overlay_v2(logger):
     else:
         logger.warning(f"Reverse National County JSON not found at {COUNTY_NAMES_JSON}")
 
+    # Load the Dynamic Homeland Counties
+    family_counties = ["CLEARFIELD", "CENTRE", "CLINTON", "CAMBRIA", "BLAIR", "JEFFERSON"]  # Fallback
+    if os.path.exists(HOMELAND_JSON):
+        with open(HOMELAND_JSON, 'r', encoding='utf-8') as f:
+            homeland_data = json.load(f)
+            # Grab the top 5 most populated counties in this GEDCOM
+            family_counties = list(homeland_data.keys())[:5]
+            logger.info(f"Dynamic Homeland Counties loaded: {family_counties}")
+
     if TEST_MODE:
         gedcom_couples = [c for c in gedcom_couples if c.get('h_last', '').upper() == TEST_H_LAST.upper()]
         logger.info(
@@ -152,8 +177,11 @@ def run_overlay_v2(logger):
         w_fbpl = get_base_code(g_dict.get('w_fbpl')) or 0
         w_mbpl = get_base_code(g_dict.get('w_mbpl')) or 0
 
-        # Only process high-quality anchors (Husband MUST have a known personal birthplace)
-        if not g_dict.get('h_byr') or not g_dict.get('w_byr') or h_bpl == 0:
+        # DECISION: "Full Profile" Filter.
+        # We skip any couple missing a personal BPL or EITHER parent's BPL for EITHER spouse.
+        # This ensures high-resolution matching and skips low-quality "Pursuits".
+        if (not g_dict.get('h_byr') or h_bpl == 0 or h_fbpl == 0 or h_mbpl == 0 or
+                not g_dict.get('w_byr') or w_bpl == 0 or w_fbpl == 0 or w_mbpl == 0):
             skipped_ghosts += 1
             continue
 
@@ -172,13 +200,13 @@ def run_overlay_v2(logger):
         ))
 
     if not target_rows:
-        logger.warning("No target couples found to process! Check your JSON or TEST_MODE filters.")
+        logger.warning("No high-quality target couples found to process! Check your JSON.")
         return
 
     total_couples = len(target_rows) + skipped_ghosts
     if skipped_ghosts > 0:
         yield_pct = (len(target_rows) / total_couples) * 100
-        logger.info(f"Skipped {skipped_ghosts:,} 'ghost' targets. Searchable Yield: {yield_pct:.1f}%")
+        logger.info(f"Skipped {skipped_ghosts:,} low-resolution targets. Searchable Yield: {yield_pct:.1f}%")
 
     logger.info(f"Initialized {len(target_rows):,} elite, fully-documented target anchors.")
 
@@ -220,9 +248,6 @@ def run_overlay_v2(logger):
     con.execute(f"ATTACH '{MATCH_DB}' AS match_db (TYPE SQLITE, READ_ONLY);")
 
     vault_dir_to_use = NAMED_VAULT_DIR
-    if TEST_MODE:
-        logger.info(f"TEST MODE: Using full production vaults from {NAMED_VAULT_DIR}")
-
     for filename in os.listdir(vault_dir_to_use):
         if not filename.endswith(".db"): continue
 
@@ -265,9 +290,10 @@ def run_overlay_v2(logger):
         kid_match_condition_sql = ""
         if not IGNORE_KIDS_FOR_VALIDATION:
             kid_match_condition_sql = """
-                    AND (t.num_kids = 0 OR TRY_CAST(f.num_kids AS INTEGER) > 0) -- If GEDCOM has kids, DB must have kids
-                    AND (t.kid_fp = '' OR TRY_CAST(f.kids_byr_sum AS VARCHAR) = t.kid_fp) -- If GEDCOM has fingerprint, DB must match
+                    AND (t.num_kids = 0 OR TRY_CAST(f.num_kids AS INTEGER) > 0)
+                    AND (t.kid_fp = '' OR TRY_CAST(f.kids_byr_sum AS VARCHAR) = t.kid_fp)
             """
+
         query = f"""
             WITH matched_fams AS (
                 SELECT 
@@ -303,19 +329,19 @@ def run_overlay_v2(logger):
                     {kid_match_condition_sql}
                     AND TRY_CAST(h.birthyr AS INTEGER) BETWEEN t.h_byr - {YEAR_WINDOW} AND t.h_byr + {YEAR_WINDOW}
                     AND TRY_CAST(s.birthyr AS INTEGER) BETWEEN t.w_byr - {YEAR_WINDOW} AND t.w_byr + {YEAR_WINDOW}
+                    -- Strict birthplace matching (targets are guaranteed non-zero in Python gate)
                     AND (TRY_CAST(h.bpld AS INTEGER) = t.h_bpl OR TRY_CAST(h.bpld AS INTEGER) // 100 = t.h_bpl)
-                    AND (t.w_bpl = 0 OR TRY_CAST(s.bpld AS INTEGER) = t.w_bpl OR TRY_CAST(s.bpld AS INTEGER) // 100 = t.w_bpl)
+                    AND (TRY_CAST(s.bpld AS INTEGER) = t.w_bpl OR TRY_CAST(s.bpld AS INTEGER) // 100 = t.w_bpl)
                     AND (TRY_CAST(f.year AS INTEGER) IN (1850, 1860, 1870) OR 
                          (
-                            (t.h_fbpl = 0 OR h.fbpl IS NULL OR h.fbpl = '' OR h.fbpl = '0' OR TRY_CAST(h.fbpl AS INTEGER) = t.h_fbpl OR TRY_CAST(h.fbpl AS INTEGER) // 100 = t.h_fbpl)
-                            AND (t.h_mbpl = 0 OR h.mbpl IS NULL OR h.mbpl = '' OR h.mbpl = '0' OR TRY_CAST(h.mbpl AS INTEGER) = t.h_mbpl OR TRY_CAST(h.mbpl AS INTEGER) // 100 = t.h_mbpl)
-                            AND (t.w_fbpl = 0 OR s.fbpl IS NULL OR s.fbpl = '' OR s.fbpl = '0' OR TRY_CAST(s.fbpl AS INTEGER) = t.w_fbpl OR TRY_CAST(s.fbpl AS INTEGER) // 100 = t.w_fbpl)
-                            AND (t.w_mbpl = 0 OR s.mbpl IS NULL OR s.mbpl = '' OR s.mbpl = '0' OR TRY_CAST(s.mbpl AS INTEGER) = t.w_mbpl OR TRY_CAST(s.mbpl AS INTEGER) // 100 = t.w_mbpl)
+                            (h.fbpl IS NULL OR h.fbpl = '' OR h.fbpl = '0' OR TRY_CAST(h.fbpl AS INTEGER) = t.h_fbpl OR TRY_CAST(h.fbpl AS INTEGER) // 100 = t.h_fbpl)
+                            AND (h.mbpl IS NULL OR h.mbpl = '' OR h.mbpl = '0' OR TRY_CAST(h.mbpl AS INTEGER) = t.h_mbpl OR TRY_CAST(h.mbpl AS INTEGER) // 100 = t.h_mbpl)
+                            AND (s.fbpl IS NULL OR s.fbpl = '' OR s.fbpl = '0' OR TRY_CAST(s.fbpl AS INTEGER) = t.w_fbpl OR TRY_CAST(s.fbpl AS INTEGER) // 100 = t.w_fbpl)
+                            AND (s.mbpl IS NULL OR s.mbpl = '' OR s.mbpl = '0' OR TRY_CAST(s.mbpl AS INTEGER) = t.w_mbpl OR TRY_CAST(s.mbpl AS INTEGER) // 100 = t.w_mbpl)
                          )
                     )
             )
-            SELECT m.*
-            FROM matched_fams m;
+            SELECT m.* FROM matched_fams m;
         """
 
         matches = con.execute(query).fetchall()
@@ -323,6 +349,8 @@ def run_overlay_v2(logger):
 
         if matches:
             logger.info("  -> COLLISION REVIEW MODE:")
+            total_exact_hits = 0
+            total_targets_with_candidates = 0
 
             grouped_matches = {}
             for match in matches:
@@ -330,7 +358,9 @@ def run_overlay_v2(logger):
                 grouped_matches.setdefault(target_idx, []).append(match)
 
             for target_idx, candidates in grouped_matches.items():
+
                 if len(candidates) > 0:  # Allow viewing all matches, including collisions
+                    total_targets_with_candidates += 1
                     logger.info(f"\n=======================================================")
                     logger.info(
                         f"REVIEWING: GEDCOM Target {target_idx} has {len(candidates)} competing Census Families! (Birth Year Window: ±{YEAR_WINDOW})")
@@ -338,6 +368,10 @@ def run_overlay_v2(logger):
                     original_json_data = gedcom_couples[target_idx]
                     base = candidates[0]
                     match_year = base[3]  # Dynamically pull the exact year this census record belongs to!
+
+                    # ************Do not remove *******************
+                    gen_logging.log_dict(main_logger, original_json_data, "original_json_data")
+                    # ************Do not remove *******************
 
                     h_res = original_json_data.get(f'h_res_{match_year}', '')
                     w_res = original_json_data.get(f'w_res_{match_year}', '')
@@ -362,10 +396,15 @@ def run_overlay_v2(logger):
                     logger.info(f"Residences: {residences}")
                     logger.info(f"-------------------------------------------------------")
 
-                    # Print out competing Database families (capped at 10 to save log space)
-                    limit = 50
+                    # Print out competing Database families (capped at 150 to save log space)
+                    # ***************** Do not change. ****************************
+                    limit = 150
+                    # ***************** Do not change. ****************************
+
                     exact_hw_match = False
                     for i, cand in enumerate(candidates[:limit], 1):
+
+                        cand_year = int(cand[3])
                         h_match = (str(cand[4]).strip().upper() == str(cand[5]).strip().upper() and
                                    str(cand[6]).strip().upper() == str(cand[7]).strip().upper())
                         w_match = (str(cand[8]).strip().upper() == str(cand[9]).strip().upper() and
@@ -380,11 +419,17 @@ def run_overlay_v2(logger):
                         elif w_match:
                             match_tag = "  * (Exact Wife Name Match)"
 
+                        # Clean display for parent birthplaces in pre-1880 years
+                        h_fbpl_disp = cand[21] if cand_year >= 1880 else f"(N/A in {cand_year})"
+                        h_mbpl_disp = cand[23] if cand_year >= 1880 else f"(N/A in {cand_year})"
+                        w_fbpl_disp = cand[25] if cand_year >= 1880 else f"(N/A in {cand_year})"
+                        w_mbpl_disp = cand[27] if cand_year >= 1880 else f"(N/A in {cand_year})"
+
                         logger.info(f"  [Candidate {i}] Census Family ID: {cand[1]} | YEAR: {cand[3]}{match_tag}")
                         logger.info(
-                            f"    DB Husband : {cand[5]} {cand[7]} (Born: {cand[13]}, BPL: {cand[17]}, FBPL: {cand[21]}, MBPL: {cand[23]})")
+                            f"    DB Husband : {cand[5]} {cand[7]} (Born: {cand[13]}, BPL: {cand[17]}, FBPL: {h_fbpl_disp}, MBPL: {h_mbpl_disp})")
                         logger.info(
-                            f"    DB Wife    : {cand[9]} {cand[11]} (Born: {cand[15]}, BPL: {cand[19]}, FBPL: {cand[25]}, MBPL: {cand[27]})")
+                            f"    DB Wife    : {cand[9]} {cand[11]} (Born: {cand[15]}, BPL: {cand[19]}, FBPL: {w_fbpl_disp}, MBPL: {w_mbpl_disp})")
                         logger.info(f"    DB Kids    : Count={cand[29]} (Fingerprint: {cand[31]})")
 
                         if cand[32] is not None:
@@ -407,13 +452,45 @@ def run_overlay_v2(logger):
                             db_county_name = county_names_dict.get(db_state_name, {}).get(db_county_code,
                                                                                           "Unknown County")
 
-                        logger.info(f"    DB County  : {db_county_name}, {db_state_name} (Code: {db_county_code})")
+                        # --- GEOGRAPHIC TIE-BREAKER (SOFT SCORING) ---
+                        geo_score = 0
+                        if db_county_name != "Unknown County":
+                            db_c_clean = db_county_name.upper().replace(" COUNTY", "").strip()
+                            db_s_clean = db_state_name.upper().strip()
+                            g_res_clean = h_res.upper().replace(" COUNTY", "").replace(" CO.", "").strip()
+
+                            if db_c_clean and db_c_clean in g_res_clean:
+                                geo_score += 100  # Exact County Match to GEDCOM
+                            elif db_c_clean in family_counties:
+                                geo_score += 50  # Found in your family's known historical region!
+                            elif db_s_clean and db_s_clean in g_res_clean:
+                                geo_score += 10  # Same State as GEDCOM
+
+                        logger.info(
+                            f"    DB County  : {db_county_name}, {db_state_name} (Code: {db_county_code}) | Geo Score: +{geo_score}")
                         logger.info(f"  - - - - - - - - - - - - - - - - - - - - - - - - -")
+
+                        # ************Do not remove *******************
+                        gen_logging.log_tuple(main_logger, cand, f"candidates[{i}]")
+                        # ************Do not remove *******************
 
                     if len(candidates) > limit:
                         logger.info(
                             f"  ... and {len(candidates) - limit} more competing families hidden to save log space.")
+
                     logger.info(f"EXACT HUSBAND-WIFE MATCH : {exact_hw_match}  ")
+                    if exact_hw_match:
+                        total_exact_hits += 1
+
+            if total_targets_with_candidates > 0:
+                hit_rate = (total_exact_hits / total_targets_with_candidates) * 100
+                logger.info(f"\n=======================================================")
+                logger.info(f"FINAL GROUND TRUTH VALIDATION SUMMARY")
+                logger.info(f"  Targets Evaluated : {len(target_rows):,}")
+                logger.info(f"  Matches found     : {total_targets_with_candidates:,}")
+                logger.info(f"  Exact Name hits   : {total_exact_hits:,}")
+                logger.info(f"  Ground Truth Rate : {hit_rate:.1f}%")
+                logger.info(f"=======================================================\n")
 
         con.execute("DROP TABLE relevant_individuals")
         con.execute("DROP TABLE couple_members")
