@@ -58,7 +58,7 @@ from utils import gen_logging
 # ==============================================================================  
 # CONFIGURATION
 # ==============================================================================
-SAMPLE_MODE = True
+SAMPLE_MODE = False
 SAMPLE_DB_NAME = "CENSUS-SAMPLE.db"
 
 if os.name == 'nt':
@@ -71,7 +71,7 @@ VAULT_DIR = os.path.join(BASE_DATA_DIR, "YearlyVaults")
 if SAMPLE_MODE:
     MATCH_DB = os.path.join(BASE_DATA_DIR, "DemographicMatches_SAMPLE.db")
 else:
-    MATCH_DB = os.path.join(BASE_DATA_DIR, "DemographicMatches.db")
+    MATCH_DB = os.path.join(BASE_DATA_DIR, "DemographicMatches2.db")
 
 
 def link_households_across_decades(logger):
@@ -93,6 +93,12 @@ def link_households_across_decades(logger):
     # memory-intensive Cartesian joins across millions of rows in seconds.
     con = duckdb.connect()
     con.execute("PRAGMA memory_limit='32GB'")
+
+    # Route DuckDB temp files to the data drive to prevent E: drive thrashing
+    duckdb_tmp_dir = os.path.join(BASE_DATA_DIR, "duckdb_tmp")
+    os.makedirs(duckdb_tmp_dir, exist_ok=True)
+    con.execute(f"PRAGMA temp_directory='{duckdb_tmp_dir}'")
+
     con.execute("INSTALL sqlite; LOAD sqlite;")
     con.execute("SET sqlite_all_varchar=true;")
 
@@ -262,7 +268,7 @@ def link_households_across_decades(logger):
     for base_year in decades:
         for gap in gaps:
             target_year = base_year + gap
-            if target_year > 1950:
+            if target_year == 1890 or target_year > 1950:
                 continue
 
             # Check if we already did this chunk before the reboot
@@ -277,34 +283,62 @@ def link_households_across_decades(logger):
 
             # DECISION: Create the raw matches table first so we can extract debug statistics
             # before we filter and insert the 1-to-1 winners into the permanent database.
+            # OPTIMIZATION: We completely avoid the Cartesian death-spiral by grouping families into 
+            # "Demographic Profiles" FIRST. Instead of crossing 10M rows against 10M rows, we cross 
+            # small profile buckets and multiply their counts. This turns 11-hour joins into seconds.
             con.execute(f"""
                 CREATE TEMP TABLE raw_matches AS 
-                WITH y1 AS (SELECT * FROM hh_features WHERE year = {base_year}),
-                     y2 AS (SELECT * FROM hh_features WHERE year = {target_year}),
-                     raw_matches AS (
-                         SELECT 
-                             y1.family_id AS family_id_1, y2.family_id AS family_id_2,
-                             y1.year AS year_1, y2.year AS year_2,
-                             y1.head_histid AS head_histid_1, y2.head_histid AS head_histid_2,
-                             y1.spouse_histid AS spouse_histid_1, y2.spouse_histid AS spouse_histid_2
-                         FROM y1
-                         JOIN y2
-                           ON y1.head_sex = y2.head_sex
-                          AND y1.spouse_sex = y2.spouse_sex
-                          AND y1.head_bpld = y2.head_bpld
-                          AND y1.spouse_bpld = y2.spouse_bpld
-                          AND y1.head_birthyr = y2.head_birthyr
-                          AND y1.spouse_birthyr = y2.spouse_birthyr
-                         WHERE (y1.head_fbpl = y2.head_fbpl OR y1.head_fbpl IS NULL OR y2.head_fbpl IS NULL OR y1.head_fbpl = '' OR y2.head_fbpl = '')
-                           AND (y1.head_mbpl = y2.head_mbpl OR y1.head_mbpl IS NULL OR y2.head_mbpl IS NULL OR y1.head_mbpl = '' OR y2.head_mbpl = '')
-                           AND (y1.spouse_fbpl = y2.spouse_fbpl OR y1.spouse_fbpl IS NULL OR y2.spouse_fbpl IS NULL OR y1.spouse_fbpl = '' OR y2.spouse_fbpl = '')
-                           AND (y1.spouse_mbpl = y2.spouse_mbpl OR y1.spouse_mbpl IS NULL OR y2.spouse_mbpl IS NULL OR y1.spouse_mbpl = '' OR y2.spouse_mbpl = '')
-                     )
-                SELECT * FROM raw_matches;
+                WITH y1_profiles AS (
+                    SELECT head_sex, spouse_sex, head_bpld, spouse_bpld, head_birthyr, spouse_birthyr, 
+                           head_fbpl, head_mbpl, spouse_fbpl, spouse_mbpl, 
+                           COUNT(*) as c1, 
+                           MIN(family_id) as family_id_1,
+                           MIN(head_histid) as head_histid_1,
+                           MIN(spouse_histid) as spouse_histid_1
+                    FROM hh_features 
+                    WHERE year = {base_year}
+                    GROUP BY head_sex, spouse_sex, head_bpld, spouse_bpld, head_birthyr, spouse_birthyr, 
+                             head_fbpl, head_mbpl, spouse_fbpl, spouse_mbpl
+                ),
+                y2_profiles AS (
+                    SELECT head_sex, spouse_sex, head_bpld, spouse_bpld, head_birthyr, spouse_birthyr, 
+                           head_fbpl, head_mbpl, spouse_fbpl, spouse_mbpl, 
+                           COUNT(*) as c2, 
+                           MIN(family_id) as family_id_2,
+                           MIN(head_histid) as head_histid_2,
+                           MIN(spouse_histid) as spouse_histid_2
+                    FROM hh_features 
+                    WHERE year = {target_year}
+                    GROUP BY head_sex, spouse_sex, head_bpld, spouse_bpld, head_birthyr, spouse_birthyr, 
+                             head_fbpl, head_mbpl, spouse_fbpl, spouse_mbpl
+                ),
+                profile_matches AS (
+                    SELECT 
+                        p1.family_id_1, p2.family_id_2,
+                        {base_year} AS year_1, {target_year} AS year_2,
+                        p1.head_histid_1, p2.head_histid_2,
+                        p1.spouse_histid_1, p2.spouse_histid_2,
+                        p1.c1, p2.c2
+                    FROM y1_profiles p1
+                    JOIN y2_profiles p2
+                      ON p1.head_sex = p2.head_sex
+                     AND p1.spouse_sex = p2.spouse_sex
+                     AND p1.head_bpld = p2.head_bpld
+                     AND p1.spouse_bpld = p2.spouse_bpld
+                     AND p1.head_birthyr = p2.head_birthyr
+                     AND p1.spouse_birthyr = p2.spouse_birthyr
+                         WHERE (p1.head_fbpl = p2.head_fbpl OR p1.head_fbpl IS NULL OR p2.head_fbpl IS NULL OR p1.head_fbpl = '' OR p2.head_fbpl = '')
+                           AND (p1.head_mbpl = p2.head_mbpl OR p1.head_mbpl IS NULL OR p2.head_mbpl IS NULL OR p1.head_mbpl = '' OR p2.head_mbpl = '')
+                           AND (p1.spouse_fbpl = p2.spouse_fbpl OR p1.spouse_fbpl IS NULL OR p2.spouse_fbpl IS NULL OR p1.spouse_fbpl = '' OR p2.spouse_fbpl = '')
+                           AND (p1.spouse_mbpl = p2.spouse_mbpl OR p1.spouse_mbpl IS NULL OR p2.spouse_mbpl IS NULL OR p1.spouse_mbpl = '' OR p2.spouse_mbpl = '')
+                )
+                SELECT * FROM profile_matches;
             """)
 
             # TELEMETRY: Calculate how many matches were rejected due to ambiguity
-            raw_count = con.execute("SELECT COUNT(*) FROM raw_matches").fetchone()[0]
+            raw_count = \
+            con.execute("SELECT COALESCE(SUM(CAST(c1 AS BIGINT) * CAST(c2 AS BIGINT)), 0) FROM raw_matches").fetchone()[
+                0]
 
             con.execute(f"""
                 INSERT INTO match_db.household_links
@@ -314,10 +348,10 @@ def link_households_across_decades(logger):
                        spouse_histid_1, spouse_histid_2
                 FROM raw_matches r1
                 WHERE family_id_1 IN (
-                    SELECT family_id_1 FROM raw_matches GROUP BY family_id_1 HAVING COUNT(*) = 1
+                    SELECT family_id_1 FROM raw_matches GROUP BY family_id_1 HAVING SUM(c2) = 1
                 )
                 AND family_id_2 IN (
-                    SELECT family_id_2 FROM raw_matches GROUP BY family_id_2 HAVING COUNT(*) = 1
+                    SELECT family_id_2 FROM raw_matches GROUP BY family_id_2 HAVING SUM(c1) = 1
                 );
             """)
 
@@ -332,7 +366,7 @@ def link_households_across_decades(logger):
             samples = con.execute(
                 f"SELECT family_id_1, family_id_2 FROM match_db.household_links WHERE year_1={base_year} AND year_2={target_year} LIMIT 3").fetchall()
             for s1, s2 in samples:
-                logger.info(f"       [SAMPLE] {s1} <---> {s2}")
+                logger.info(f"       [EXAMPLE] {s1} <---> {s2}")
 
             con.execute("DROP TABLE raw_matches")
 

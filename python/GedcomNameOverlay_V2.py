@@ -348,6 +348,7 @@ def run_overlay_v2(logger):
         logger.info(f"  -> SUCCESS: Found {len(matches)} mathematically proven candidates!")
 
         if matches:
+            scr_dir = 0
             logger.info("  -> COLLISION REVIEW MODE:")
             total_exact_hits = 0
             total_targets_with_candidates = 0
@@ -396,6 +397,11 @@ def run_overlay_v2(logger):
                     logger.info(f"Residences: {residences}")
                     logger.info(f"-------------------------------------------------------")
 
+                    if base[13] == original_json_data['h_byr']: scr_dir = +1
+                    if base[15] == original_json_data['w_byr']: scr_dir = +1
+                    if base[17] == original_json_data['h_bpl']: scr_dir = +1
+                    if base[19] == original_json_data['w_bpl']: scr_dir = +1
+
                     # Print out competing Database families (capped at 150 to save log space)
                     # ***************** Do not change. ****************************
                     limit = 150
@@ -413,11 +419,14 @@ def run_overlay_v2(logger):
                         match_tag = ""
                         if h_match and w_match:
                             match_tag = "  *** EXACT HUSBAND & WIFE NAME MATCH ***"
+                            scr_dir = +2
                             exact_hw_match = True
                         elif h_match:
                             match_tag = "  * (Exact Husband Name Match)"
+                            scr_dir = +1
                         elif w_match:
                             match_tag = "  * (Exact Wife Name Match)"
+                            scr_dir = +1
 
                         # Clean display for parent birthplaces in pre-1880 years
                         h_fbpl_disp = cand[21] if cand_year >= 1880 else f"(N/A in {cand_year})"

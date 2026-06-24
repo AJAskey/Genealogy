@@ -27,7 +27,7 @@ from functools import wraps
 from rich import inspect
 from rich.console import Console
 
-import common_utils
+from utils import common_utils
 
 # Force immediate console output at the OS level
 os.environ["PYTHONUNBUFFERED"] = "1"

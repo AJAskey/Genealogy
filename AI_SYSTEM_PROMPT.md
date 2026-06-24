@@ -7,7 +7,7 @@ Before suggesting code modifications, writing new queries, or debugging errors, 
 This project mathematically links manual genealogy (Family Tree Maker reports) to 100 years of raw historical census data (1850-1950 IPUMS). 
 It uses a "Census-First Architecture":
 1. Raw IPUMS CSV data is ingested into strictly normalized SQLite Decade Vaults (approx. 800 million rows). Unnamed individuals are assigned a placeholder name.
-2. DuckDB is used as an in-memory OLAP "Time Machine" engine to perform lightning-fast cross-decade Cartesian joins, linking households over time.
+2. DuckDB is used as an in-memory OLAP "Time Machine" engine. It groups families into "Demographic Profiles" to completely bypass Cartesian explosions, mathematically linking millions of households in seconds.
 3. Connected Components (Graph algorithms) group these households into continuous 100-year "Clans".
 4. Family Tree Maker (FTM) descendant reports are processed into detailed JSON documents containing names, facts, and relationships.
 5. Python executes a mathematically strict demographic handshake against the database to overwrite placeholder names with real historical names from the JSON data.
@@ -33,10 +33,10 @@ To process raw census data into a fully cited, expanded historical tree:
    Ingests the raw IPUMS census CSV. Chunks data into 100,000-household memory buffers and dynamically writes to the `YearlyVaults` using WAL mode for speed and safety.
 
 4. `python python/LinkFamiliesByDemographics.py`
-   "The Time Machine". Uses DuckDB to perform a 10-variable demographic hash across overlapping decades (10, 20, 30 year gaps). Builds the `clan_mapping` table.
+   "The Time Machine". Uses DuckDB to perform a 10-variable demographic hash across overlapping decades (10, 20, 30 year gaps) by grouping mathematical profiles. Builds the `clan_mapping` table.
 
-5. `python python/GedcomNameOverlay.py`
-   Searches the Named Vault using the JSON data. Uses the "Anchor Strategy" to find perfect 1880+ matches (where parent birthplaces exist) and ripples the names backward through the Time Machine Clans to 1850.
+5. `python python/GedcomNameOverlay_V2.py`
+   The V2 Label-Maker. Acts as an overlay validation stage. Enforces a strict "Dead Weight" filter to drop irrelevant/unmarried census records from RAM, and applies a Geographic Tie-Breaker (Soft Scoring) to validate targets before names are rippled through the Clan graph.
 
 6. `python python/ExportCensusToGedcom.py`
    Ripples the father's last name down to nameless children in the database, extracts target households, decodes IPUMS numbers to text, and generates the final `.ged` file.
@@ -65,4 +65,7 @@ If you modify the SQL or pipeline code, you MUST adhere to the following hard-wo
 
 5. DECISION DOCUMENTATION
    When writing or altering code that makes an architectural or data-level choice (e.g., "why are we using a +/- 2 year birth tolerance?"), you MUST precede the code block with a `# DECISION: [Explanation]` comment.
+
+6. AVOID CARTESIAN DEATH SPIRALS
+   When joining census data in DuckDB across decades, early censuses (1850-1870) lack parent birthplaces (NULL). Direct row-by-row cross-joins of demographics containing NULL wildcards will generate 10+ billion row Cartesian explosions and crash. You MUST abstract the data into mathematically aggregated "Demographic Profiles" (with `COUNT(*)`) and multiply the counts (`c1 * c2`) rather than directly joining raw individuals. Also, always explicitly set DuckDB's `temp_directory` to a large data drive (e.g., `D:\`) to prevent C/E drive thrashing.
 </CRITICAL_AI_DIRECTIVES>

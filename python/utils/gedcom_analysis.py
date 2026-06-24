@@ -35,7 +35,10 @@ import gen_logging
 # CONFIGURATION — edit these paths before running
 # ==============================================================================
 OUTPUT_DIR = r"E:\Users\Andy\PycharmProjects\Genealogy\output"
-INPUT_GEDCOM = r"E:\Users\Andy\PycharmProjects\Genealogy\design\AskeyWorking_2026.ged"
+INPUT_GEDCOM = r"E:\Users\Andy\PycharmProjects\Genealogy\gedcom_sources\AskeyWorking_2026.ged"
+
+
+# r"E:\Users\Andy\PycharmProjects\Genealogy\design\AskeyWorking_2026.ged"
 
 
 # ==============================================================================
@@ -161,15 +164,19 @@ def parse_gedcom(filepath):
                 if level == '3':
                     if tag in ('PAGE', 'TEXT', 'DATA'):
                         if "census" in line.lower():
-                            year_pattern = re.compile(r"(\d{4})\s*U\s*S\s*Census")
+                            # Support both '1940 U S Census' and 'Year: 1940;' formats
+                            year_pattern = re.compile(r"(\d{4})\s*U\s*S\s*Census|Year:\s*(\d{4})", re.IGNORECASE)
                             place_pattern = re.compile(r"Census\s+Place:\s*([^;]+)")
 
                             year_match = year_pattern.search(line)
                             place_match = place_pattern.search(line)
 
-                            year = year_match.group(1) if year_match else "Not Found"
+                            year = "Not Found"
+                            if year_match:
+                                year = year_match.group(1) if year_match.group(1) else year_match.group(2)
+
                             place = place_match.group(1).strip() if place_match else "Not Found"
-                            if year is not None and place is not None:
+                            if year != "Not Found" and place != "Not Found":
                                 indi['events'].append({'date': year, 'place': place})
                                 add_place(common_utils.extract_state(place))
                             else:
@@ -545,7 +552,7 @@ def build_couples_rows(individuals, families):
                     gtg = True
         if not gtg: continue
 
-        couple_key = f"{h_first}_{h_last}_{w_first}_{w_last}"
+        couple_key = fam_id
         if couple_key not in seen_couples:
             # Filter out fake names.
             if h_first and h_last and w_first and w_last:
@@ -758,8 +765,8 @@ if __name__ == '__main__':
     write_csv(fam_rows, os.path.join(out_dir, f"{base_name}_families.csv"))
     write_csv(couple_rows, os.path.join(out_dir, f"{base_name}_couples.csv"))
 
-    # print("Writing Excel workbook...")
-    # write_xlsx(indi_rows, fam_rows, couple_rows, os.path.join(out_dir, f"{base_name}.xlsx"))
+    print("Writing Excel workbook...")
+    write_xlsx(indi_rows, fam_rows, couple_rows, os.path.join(out_dir, f"{base_name}.xlsx"))
 
     places.sort()
     uplaces = set(places)
@@ -775,4 +782,3 @@ if __name__ == '__main__':
     logger.info(str)
 
     print("\nDone!")
-    print(f"Output folder: {out_dir}")
