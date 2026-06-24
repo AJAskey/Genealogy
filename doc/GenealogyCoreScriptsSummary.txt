@@ -1,0 +1,133 @@
+Genealogy Core Scripts Summary
+===============================
+
+This document summarizes the three main working scripts in your current genealogy pipeline:
+
+1. python/DatabaseVault.py
+2. python/LinkFamiliesByDemographics.py
+3. python/GedcomNameOverlay_V2.py
+
+The summaries describe what each script does, how they fit together, and what the current phase of the workflow appears to be.
+
+---
+
+1. python/DatabaseVault.py
+--------------------------
+Purpose:
+- Ingest raw IPUMS census CSVs into SQLite databases.
+- Create one or more decade-specific "YearVault" databases containing two tables: `families` and `individuals`.
+- Preserve the original row data by storing the entire CSV row as JSON in `individuals.raw_data`.
+
+What it does:
+- Reads CSV data sequentially, buffering rows by `SERIAL` to keep each household together.
+- Uses `HISTID` as the primary identity key for individuals and builds a `family_id` key for household family units.
+- Resolves parent pointers using `POPLOC` and `MOMLOC` to link children to exact parent `HISTID` values when possible.
+- Filters or normalizes rows based on `HHTYPE`, `RELATE`, and `RELATED` values to focus on family households.
+- Builds a `families` record only when the buffered household has multiple members; single-person households are kept as individuals with `family_id = NULL`.
+- Writes data into `YearVault_YYYY.db` files using SQLite with WAL mode and commits in batches for performance.
+
+Current state and intent:
+- This is a working ingestion utility, not a polished production loader.
+- Some paths and fallbacks are hard-coded for testing and sample datasets.
+- The script is intentionally designed to preserve data and make it possible to revisit source values later.
+- The main output is normalized decade vaults used as the foundational census truth for matching.
+
+Key project role:
+- This is the source-of-truth ingestion stage. It creates the normalized census database that later linking and overlay steps rely on.
+
+Notes:
+- The script currently treats missing year values by providing a fallback, which is a temporary testing behavior.
+- It also currently has sample-mode behaviors that skip records missing names for sample datasets.
+
+---
+
+2. python/LinkFamiliesByDemographics.py
+----------------------------------------
+Purpose:
+- Link census families across decades using demographic characteristics.
+- Build the "Time Machine" of multi-decade family timelines called clans.
+- Create a persistent match database (`DemographicMatches.db`) containing 1-to-1 household links and clan IDs.
+
+What it does:
+- Uses DuckDB to attach the decade vault SQLite files and work with a temporary analytic engine.
+- Extracts a compact demographic fingerprint from each family, focusing on husband and wife characteristics.
+  - Includes fields like sex, birth year, birthplace, father's birthplace, and mother's birthplace.
+- Creates an in-memory temp table `hh_features` containing only the key fields needed for matching.
+- Compares families across multiple decade gaps: 10, 20, and 30 years.
+- Uses a "Highlander" 1-to-1 filter: only accept matches where each family appears exactly once in the match set.
+- Stores confirmed links in `match_db.household_links` and records completed chunks in `match_db.completed_chunks`.
+- After matching, builds connected components from the confirmed links to form clans.
+- Applies a final Highlander rule during clan assembly: discard any connected component that contains more than one family from the same census year.
+- Stores the final results in `match_db.clan_mapping`.
+
+Current state and intent:
+- This is the core demographic linking engine for phase one.
+- It is designed for very conservative, high-confidence matches.
+- The script is not building names; it is building the census family timeline structure.
+
+Key project role:
+- This is the census-to-census linkage stage.
+- It generates the persistent, multi-year family graph that allows GEDCOM overlay to later be applied consistently.
+
+Notes:
+- The script is intentionally strict, trading recall for precision.
+- It includes resume logic so long-running matching work can continue after interruptions.
+
+---
+
+3. python/GedcomNameOverlay_V2.py
+----------------------------------
+Purpose:
+- Find high-confidence GEDCOM couples that can be overlaid onto the census-derived family structure.
+- Serve as a conservative candidate-matching engine for name overlay validation.
+- Help verify which census families are the right ones before actual name assignment is applied.
+
+What it does:
+- Loads a preprocessed JSON file of GEDCOM couples (`gedcom_couples.json`).
+- Converts GEDCOM birthplace strings into IPUMS birth-place codes for husband, wife, and their parents.
+- Filters out GEDCOM couples missing the required demographic fingerprint information.
+- Builds a DuckDB `targets` table of high-quality GEDCOM couple anchors.
+- Attaches the appropriate census vault databases and uses a dead-weight filter to restrict the candidate set.
+- Selects census families where the head and spouse match the GEDCOM anchor according to strict birth year and birthplace rules.
+- Optionally validates kid counts and kid birth-year fingerprint data if those fields exist.
+- Joins census `families` to the `match_db.clan_mapping` table so matched family candidates can be seen in the clan context.
+- Logs candidate matches and competing families for manual review.
+
+Current state and intent:
+- This script is currently an analysis / candidate review step, not the final name-write step.
+- It is meant to validate and confirm overlay matches before names are applied.
+- The current V2 behavior focuses on correctness first, leaving name application for a later step.
+
+Key project role:
+- This is the GEDCOM overlay validation stage.
+- It is the bridge between the census clan graph and the genealogical name/fact data.
+
+Notes:
+- The script currently uses `sys.path` manipulation to load `utils`, which is a temporary project convenience.
+- It is intentionally conservative and designed to avoid false positive name assignments.
+- Kid fingerprint logic may be disabled while using a special IPUMS sample without reliable kid data.
+
+---
+
+How these files fit together
+-----------------------------
+
+1. `DatabaseVault.py` builds the raw census database vaults. It is the foundation.
+2. `LinkFamiliesByDemographics.py` links census families across decades and builds clans. It creates the timeline structure.
+3. `GedcomNameOverlay_V2.py` uses GEDCOM couple anchors to verify which census families are safe to label. It is the overlay validation step.
+
+In other words:
+- Stage 1: Ingest the census truth.
+- Stage 2: Link census families across time.
+- Stage 3: Validate name overlay matches using GEDCOM anchors.
+
+Current phase insight
+---------------------
+The current pipeline is clearly in a verification-first stage:
+- the census side is being stabilized and preserved as the authoritative truth,
+- the demographic linking engine is being tuned for precision,
+- the GEDCOM overlay step is being used as a conservative review tool rather than an automatic labeling tool.
+
+That matches your stated approach: "find the right matches first, then lay the names over them."
+
+If this summary contains anything that is no longer true, you can update the rules or let me know so I can keep the next review aligned with the current workflow.
