@@ -111,7 +111,8 @@ def run_overlay_v3(logger):
     con.execute(f"PRAGMA temp_directory='{duckdb_tmp_dir}'")
     con.execute("PRAGMA memory_limit='32GB'")
 
-    con.execute("INSTALL sqlite; LOAD sqlite;")
+    con.execute("INSTALL sqlite;")
+    con.execute("LOAD sqlite;")
     con.execute("SET sqlite_all_varchar=true;")
 
     county_names_dict = {}
@@ -177,8 +178,6 @@ def run_overlay_v3(logger):
     con.executemany("INSERT INTO targets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", target_rows)
 
     kid_match_condition_sql = ""
-    if not IGNORE_KIDS_FOR_VALIDATION:
-        kid_match_condition_sql = "" # Kid fingerprints are not natively in the read-only vaults.
 
     all_matches = []
     
@@ -247,8 +246,8 @@ def run_overlay_v3(logger):
                 t.h_mbpl  AS h_mbpl_gedcom,  h.mbpl       AS h_mbpl_db,
                 t.w_fbpl  AS w_fbpl_gedcom,  s.fbpl       AS w_fbpl_db,
                 t.w_mbpl  AS w_mbpl_gedcom,  s.mbpl       AS w_mbpl_db,
-                t.kid_fingerprint, 0 AS db_kid_fingerprint,
-                f.countyicp, f.stateicp
+                t.kid_fingerprint, 0 AS db_kid_fingerprint, f.countyicp, f.stateicp,
+                f.head_histid, f.spouse_histid
             FROM vault.families f
             JOIN relevant_individuals h ON f.head_histid = h.histid
             JOIN relevant_individuals s ON f.spouse_histid = s.histid
@@ -290,6 +289,7 @@ def run_overlay_v3(logger):
 
         trajectory_hits = 0
         exact_hits = 0
+        names_to_write = set()
 
         for target_idx, clans in grouped_matches.items():
             g_data = gedcom_couples[target_idx]
@@ -349,6 +349,11 @@ def run_overlay_v3(logger):
                 
                 if exact_hw_match: exact_hits += 1
                 if is_trajectory_match: trajectory_hits += 1
+
+                if is_trajectory_match:
+                    for cand in clan_matches:
+                        names_to_write.add((cand[32], h_first, h_last))
+                        names_to_write.add((cand[33], w_first, w_last))
                 
                 # LOG EVERYTHING so we can see the data!
                 logger.info(f" > CLAN: {clan_id} | Decades Found: {len(clan_matches)} | Trajectory Score: {trajectory_score}")
@@ -367,6 +372,16 @@ def run_overlay_v3(logger):
         logger.info(f"  Exact Name Matches   : {exact_hits:,}")
         logger.info(f"  Trajectory Matches   : {trajectory_hits:,} (100% Certainty)")
         logger.info(f"=======================================================\n")
+
+        if names_to_write:
+            logger.info(f"=======================================================")
+            logger.info("PHASE 3: SAVING RESOLVED NAMES TO TIME MACHINE")
+            logger.info(f"=======================================================")
+            con.execute("DROP TABLE IF EXISTS match_db.resolved_names")
+            con.execute("CREATE TABLE match_db.resolved_names (histid VARCHAR, first_name VARCHAR, last_name VARCHAR)")
+            con.executemany("INSERT INTO match_db.resolved_names VALUES (?, ?, ?)", list(names_to_write))
+            logger.info(f"  -> Successfully painted {len(names_to_write):,} real ancestor records into DemographicMatches2.db!")
+            logger.info(f"=======================================================\n")
 
 if __name__ == '__main__':
     main_logger = gen_logging.setup_logging("NAME_OVERLAY_V3")

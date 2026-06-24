@@ -43,6 +43,7 @@ OUTPUT_GEDCOM = os.path.join(project_root, "gedcom_sources", "Census_Export_Aske
 COUNTY_NAMES_JSON = os.path.join(project_root, "JSON", "county_codes_to_names.json")
 MATCH_DB = os.path.join(BASE_DATA_DIR, "DemographicMatches.db")
 TARGET_LAST_NAME = 'Bosselstink'
+CLAN_EXPORT_LIMIT = 20000  # Adjust this to safely control the size of your Ancestry upload
 
 REVERSE_BPL = {
     1: "Alabama", 2: "Alaska", 4: "Arizona", 5: "Arkansas", 6: "California",
@@ -102,26 +103,100 @@ def export_gedcom(logger):
     individuals_data = []
     families_data = []
 
-    # Step 1: Find the "Longest Lines" (Top 100 deepest clans)
-    target_families = []
+    # Step 1: Secure VIP Passes for Real Families, then find Longest Lines
+    target_clans = set()
     family_to_clan = {}
+    target_families = []
+    resolved_names_dict = {}
+    
     if os.path.exists(MATCH_DB):
         with sqlite3.connect(MATCH_DB) as m_conn:
             m_cur = m_conn.cursor()
-            # Grab the 100 clans with the most connected decades
-            m_cur.execute("SELECT clan_id FROM clan_mapping GROUP BY clan_id ORDER BY COUNT(*) DESC LIMIT 100")
-            top_clans = [r[0] for r in m_cur.fetchall()]
 
-            if top_clans:
-                placeholders = ','.join(['?'] * len(top_clans))
-                m_cur.execute(f"SELECT family_id, clan_id FROM clan_mapping WHERE clan_id IN ({placeholders})",
-                              top_clans)
-                clan_rows = m_cur.fetchall()
-                family_to_clan = {r[0]: r[1] for r in clan_rows}
+            try:
+                m_cur.execute("SELECT histid, first_name, last_name FROM resolved_names")
+                for r in m_cur.fetchall():
+                    resolved_names_dict[r[0]] = (r[1], r[2])
+                logger.info(f"  -> Loaded {len(resolved_names_dict):,} resolved real names from the Time Machine.")
+            except sqlite3.OperationalError:
+                logger.info("  -> No resolved_names table found yet. Will use synthetic names.")
+
+        # --- VIP PASS: Ensure real families are ALWAYS exported ---
+        if resolved_names_dict:
+            logger.info("  -> Securing VIP passes for all resolved real families...")
+            resolved_histids = list(resolved_names_dict.keys())
+            vip_family_ids = set()
+
+            for filename in os.listdir(YEARLY_VAULT_DIR):
+                if filename.startswith("YearVault_") and filename.endswith(".db"):
+                    db_path = os.path.join(YEARLY_VAULT_DIR, filename)
+                    with sqlite3.connect(db_path) as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("CREATE TEMP TABLE IF NOT EXISTS temp_res (histid TEXT)")
+                        cursor.execute("DELETE FROM temp_res")
+                        cursor.executemany("INSERT INTO temp_res VALUES (?)", [(h,) for h in resolved_histids])
+
+                        cursor.execute("""
+                            SELECT f.family_id FROM families f
+                            INNER JOIN temp_res t ON f.head_histid = t.histid OR f.spouse_histid = t.histid
+                        """)
+                        for r in cursor.fetchall():
+                            vip_family_ids.add(r[0])
+
+            if vip_family_ids:
+                with sqlite3.connect(MATCH_DB) as m_conn:
+                    m_cur = m_conn.cursor()
+                    m_cur.execute("CREATE TEMP TABLE IF NOT EXISTS temp_vip_fids (family_id TEXT)")
+                    m_cur.execute("DELETE FROM temp_vip_fids")
+                    m_cur.executemany("INSERT INTO temp_vip_fids VALUES (?)", [(f,) for f in vip_family_ids])
+                    
+                    m_cur.execute("""
+                        SELECT clan_id FROM clan_mapping
+                        WHERE family_id IN (SELECT family_id FROM temp_vip_fids)
+                    """)
+                    for r in m_cur.fetchall():
+                        target_clans.add(r[0])
+
+            logger.info(f"  -> VIP Pass granted to {len(target_clans)} distinct real Clans.")
+
+        # --- FILL THE REST OF THE LIMIT WITH THE DEEPEST PLACEHOLDER CLANS ---
+        remaining_limit = max(0, CLAN_EXPORT_LIMIT - len(target_clans))
+        with sqlite3.connect(MATCH_DB) as m_conn:
+            m_cur = m_conn.cursor()
+            if remaining_limit > 0:
+                if target_clans:
+                    m_cur.execute("CREATE TEMP TABLE IF NOT EXISTS temp_target_clans (clan_id TEXT)")
+                    m_cur.execute("DELETE FROM temp_target_clans")
+                    m_cur.executemany("INSERT INTO temp_target_clans VALUES (?)", [(c,) for c in target_clans])
+                    
+                    m_cur.execute(f"""
+                        SELECT clan_id FROM clan_mapping 
+                        WHERE clan_id NOT IN (SELECT clan_id FROM temp_target_clans) 
+                        GROUP BY clan_id 
+                        ORDER BY COUNT(*) DESC 
+                        LIMIT {remaining_limit}
+                    """)
+                else:
+                    m_cur.execute(f"SELECT clan_id FROM clan_mapping GROUP BY clan_id ORDER BY COUNT(*) DESC LIMIT {remaining_limit}")
+
+                for r in m_cur.fetchall():
+                    target_clans.add(r[0])
+
+            if target_clans:
+                m_cur.execute("CREATE TEMP TABLE IF NOT EXISTS final_clans (clan_id TEXT)")
+                m_cur.execute("DELETE FROM final_clans")
+                m_cur.executemany("INSERT INTO final_clans VALUES (?)", [(c,) for c in target_clans])
+                
+                m_cur.execute("""
+                    SELECT family_id, clan_id FROM clan_mapping 
+                    WHERE clan_id IN (SELECT clan_id FROM final_clans)
+                """)
+                for r in m_cur.fetchall():
+                    family_to_clan[r[0]] = r[1]
+                    
                 target_families = list(family_to_clan.keys())
 
-        logger.info(
-            f"  -> Selected top {len(top_clans)} deepest Clans, containing {len(target_families)} total families.")
+        logger.info(f"  -> Total selected Clans: {len(target_clans):,}, containing {len(target_families):,} total families.")
     else:
         logger.error(f"Could not find Match DB at {MATCH_DB}")
         return
@@ -205,6 +280,14 @@ def export_gedcom(logger):
         histid, fname, lname, sex, byr, bpld, fam_id, f_id, m_id = ind
         clan_id = family_to_clan.get(fam_id)
         if not clan_id: continue
+        
+        # --- REAL NAME INJECTION ---
+        is_real = False
+        if histid in resolved_names_dict:
+            res_f, res_l = resolved_names_dict[histid]
+            if res_f: fname = res_f
+            if res_l: lname = res_l
+            is_real = True
 
         ent_id = histid_to_entity.get(histid)
         if not ent_id:
@@ -238,16 +321,22 @@ def export_gedcom(logger):
         if ent_id not in entities:
             entities[ent_id] = {
                 'fname': fname, 'lname': lname, 'sex': sex,
-                'byr': byr, 'bpld': bpld, 'census': set()
+                'byr': byr, 'bpld': bpld, 'census': set(),
+                'is_real_name': is_real
             }
         else:
-            # Update names if we find better ones in a later decade
-            curr_fname = str(entities[ent_id]['fname']).lower()
-            if curr_fname in ['none', 'unknown', 'future', '']:
+            if is_real:
                 entities[ent_id]['fname'] = fname
-            curr_lname = str(entities[ent_id]['lname']).lower()
-            if curr_lname in ['none', 'unknown', 'bosselstink', '']:
                 entities[ent_id]['lname'] = lname
+                entities[ent_id]['is_real_name'] = True
+            elif not entities[ent_id].get('is_real_name'):
+                # Update names if we find better ones in a later decade
+                curr_fname = str(entities[ent_id]['fname']).lower()
+                if curr_fname in ['none', 'unknown', 'future', '']:
+                    entities[ent_id]['fname'] = fname
+                curr_lname = str(entities[ent_id]['lname']).lower()
+                if curr_lname in ['none', 'unknown', 'bosselstink', '']:
+                    entities[ent_id]['lname'] = lname
 
         # Add census event to this entity's timeline set
         if fam_id in fam_locs:
@@ -297,22 +386,26 @@ def export_gedcom(logger):
             fname_clean = str(props['fname']).strip() if props['fname'] else ""
             lname_clean = str(props['lname']).strip() if props['lname'] else ""
 
-            if str(props['sex']).strip() == '1':
-                fname_clean = NameList.getNextMale()
-            else:
-                fname_clean = NameList.getNextFemale()
-            if not fname_clean or fname_clean.lower() in ['none', 'unknown']:
-                cnt += 1
-                fname_clean = f"Future {cnt}"
+            if not props.get('is_real_name'):
+                if str(props['sex']).strip() == '1':
+                    fname_clean = NameList.getNextMale()
+                else:
+                    fname_clean = NameList.getNextFemale()
+                if not fname_clean or fname_clean.lower() in ['none', 'unknown']:
+                    cnt += 1
+                    fname_clean = f"Future {cnt}"
 
-            # Wives keep BosselStink; Husbands and Children get the Clan's assigned surname
-            if ent_id.endswith("_W"):
-                target_lname = "BosselStink"
-            else:
-                target_lname = clan_surnames[clan_id]
+                # Wives keep BosselStink; Husbands and Children get the Clan's assigned surname
+                if ent_id.endswith("_W"):
+                    target_lname = "BosselStink"
+                else:
+                    target_lname = clan_surnames[clan_id]
 
-            if not lname_clean or lname_clean.lower() in ['none', 'unknown', 'bosselstink']:
-                lname_clean = target_lname
+                if not lname_clean or lname_clean.lower() in ['none', 'unknown', 'bosselstink']:
+                    lname_clean = target_lname
+            else:
+                if not fname_clean: fname_clean = "Unknown"
+                if not lname_clean: lname_clean = "Unknown"
 
             f.write(f"1 NAME {fname_clean} /{lname_clean}/\n")
 

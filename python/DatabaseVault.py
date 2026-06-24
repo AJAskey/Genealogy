@@ -41,7 +41,7 @@ from utils import gen_logging
 # ==============================================================================
 # TUNING KNOBS
 # ==============================================================================
-SAMPLE_MODE = True
+SAMPLE_MODE = False
 SAMPLE_CSV_PATH = r"C:\tempc\ShortTermCSVfiles\sample.csv"
 SAMPLE_DB_NAME = "CENSUS-SAMPLE.db"
 
