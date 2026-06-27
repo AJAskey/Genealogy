@@ -207,7 +207,7 @@ if __name__ == '__main__':
     print(f"\nStates loaded: {len(lookup.list_states())}")
 
     # Try a round-trip: name → code → name
-    test_state = 'New York'
+    test_state = 'pennsylvania'
     test_county = lookup.list_counties(test_state)[0]  # first county alphabetically
     code = lookup.find_code(test_state, test_county)
     name = lookup.find_name(test_state, code)

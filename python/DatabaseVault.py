@@ -48,7 +48,7 @@ SAMPLE_DB_NAME = "CENSUS-SAMPLE.db"
 BATCH_SIZE = 100_000  # Number of *Households* to buffer before committing to DB
 
 if os.name == 'nt':
-    BASE_DATA_DIR = r"D:\Data\Genealogy_Data"
+    BASE_DATA_DIR = r"c:\Data\Genealogy_Data"
 else:
     BASE_DATA_DIR = os.path.expanduser("~/Genealogy_Data")
 
@@ -306,7 +306,7 @@ def process_household(rows):
             import uuid
             # Generate a synthetic ID so the Primary Key doesn't collide
             histid = f"SYNTH_{serial}_{pernum}_{uuid.uuid4().hex[:8]}"
-        if not year:
+        if not 185:
             year = "1920"  # Fallback so the database doesn't reject the chunk
 
         # Safely default to '1' if the CSV provides a completely blank string instead of None
@@ -522,6 +522,12 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
         for raw_row in reader:
             # Normalize keys to uppercase to prevent case-sensitivity or spacing issues
             row = {k.upper().strip(): v for k, v in raw_row.items() if k}
+
+            # DECISION: Skip years before 1900 so we don't overwrite or touch old databases!
+            row_year = str(row.get('YEAR', '')).strip()
+            if row_year.isdigit() and int(row_year) < 1900:
+                continue
+
             raw_serial = str(row.get('SERIAL', '')).strip()
 
             # Initialize on the very first row
@@ -663,7 +669,7 @@ if __name__ == '__main__':
                 except OSError as e:
                     main_logger.error(f"CRITICAL: Could not delete {filename}! Is it open in another program? {e}")
                     sys.exit(1)
-            elif not SAMPLE_MODE and filename.startswith("YearVault_"):
+            elif not SAMPLE_MODE and filename.startswith("YearVault_") and not filename.startswith("YearVault_18"):
                 try:
                     os.remove(os.path.join(VAULT_DIR, filename))
                 except OSError as e:

@@ -38,9 +38,6 @@ OUTPUT_DIR = r"E:\Users\Andy\PycharmProjects\Genealogy\output"
 INPUT_GEDCOM = r"E:\Users\Andy\PycharmProjects\Genealogy\gedcom_sources\AskeyWorking_2026.ged"
 
 
-# r"E:\Users\Andy\PycharmProjects\Genealogy\design\AskeyWorking_2026.ged"
-
-
 # ==============================================================================
 
 def add_place(p):
@@ -82,7 +79,6 @@ def parse_gedcom(filepath):
             line = raw_line.rstrip('\r\n')
 
             linecnt += 1
-            # print(f"{linecnt}  {line}")
 
             if not line.strip():
                 continue
@@ -164,7 +160,6 @@ def parse_gedcom(filepath):
                 if level == '3':
                     if tag in ('PAGE', 'TEXT', 'DATA'):
                         if "census" in line.lower():
-                            # Support both '1940 U S Census' and 'Year: 1940;' formats
                             year_pattern = re.compile(r"(\d{4})\s*U\s*S\s*Census|Year:\s*(\d{4})", re.IGNORECASE)
                             place_pattern = re.compile(r"Census\s+Place:\s*([^;]+)")
 
@@ -235,7 +230,6 @@ def build_individuals_rows(individuals, families):
         return extract_county(individuals[indi_id].get('birth_place', ''))
 
     for indi_id, i in individuals.items():
-        # Skip individuals with placeholder names in the first name field.
         if not i.get('first_name') or '-' in i.get('first_name') or '-' in i.get('last_name') or 'Living' in i.get(
                 'first_name'):
             continue
@@ -303,7 +297,10 @@ def build_individuals_rows(individuals, families):
                 if yr in ev['date']:
                     residences[yr] = ev['place']
 
-        residences_county = {f"{yr} County": extract_county(residences[str(yr)]) for yr in range(1850, 1960, 10)}
+        residences_extracted = {}
+        for yr in range(1850, 1960, 10):
+            residences_extracted[f"{yr} County"] = extract_county(residences[str(yr)])
+            residences_extracted[f"{yr} State"] = extract_state(residences[str(yr)])
 
         rows.append({
             'ID': indi_id,
@@ -328,7 +325,7 @@ def build_individuals_rows(individuals, families):
             '1930 Place': residences['1930'],
             '1940 Place': residences['1940'],
             '1950 Place': residences['1950'],
-            **residences_county,
+            **residences_extracted,
             'Father ID': father_id,
             'Father': father_name,
             'Father Birth Year': father_birth_year,
@@ -403,7 +400,6 @@ def analyze_homeland_counties(individuals, families, logger, out_dir):
         c = extract_county(plac_str)
         if c:
             c_clean = c.upper().replace(" COUNTY", "").replace(" CO.", "").strip()
-            # Quick safety filter to ensure we don't count empty strings
             if c_clean and len(c_clean) > 2:
                 county_counter[c_clean] += 1
 
@@ -422,7 +418,7 @@ def analyze_homeland_counties(individuals, families, logger, out_dir):
     logger.info("\n==================================================")
     logger.info("   GEDCOM 'HOMELAND' COUNTY STATISTICAL ANALYSIS")
     logger.info("==================================================")
-    for county, count in top_counties[:25]:  # Show top 25 in the log
+    for county, count in top_counties[:25]:
         logger.info(f"  {county:<20} : {count:,} records")
     logger.info("==================================================\n")
 
@@ -437,9 +433,31 @@ def extract_county(loc_str):
     """Strips city/state and returns only the county name."""
     if not loc_str: return ""
     parts = [p.strip() for p in loc_str.split(',')]
-    if len(parts) >= 3:
-        # Assume standard format: City, County, State, Country
-        return parts[-3]
+    if len(parts) >= 2:
+        # If the last part is a country like USA, the logic shifts
+        if parts[-1].upper() == 'USA':
+            if len(parts) >= 3:  # e.g., "Clearfield, Pennsylvania, USA" or "City, County, State, USA"
+                return parts[-3]
+            else:
+                return ""  # Not enough parts for a county (e.g., "Pennsylvania, USA")
+        else:  # No "USA" at the end, e.g., "Pike, Clearfield, Pennsylvania"
+            return parts[-2]
+    return ""
+
+
+def extract_state(loc_str):
+    """Strips city/county and returns only the state name."""
+    if not loc_str: return ""
+    parts = [p.strip() for p in loc_str.split(',')]
+    if len(parts) >= 1:
+        # If the last part is a country like USA, the state is the one before it
+        if parts[-1].upper() == 'USA':
+            if len(parts) >= 2:  # e.g., "Pennsylvania, USA"
+                return parts[-2]
+            else:
+                return ""  # Just "USA", no state
+        else:  # No "USA" at the end, e.g., "Pennsylvania" or "Clearfield, Pennsylvania"
+            return parts[-1]
     return ""
 
 
@@ -471,21 +489,94 @@ def get_parent_bpl(indi_id, parent_type, individuals, families):
     return individuals[p_id].get('birth_place', '')
 
 
+def writeSQL(first, last, byr, bpl, mbpl, fbpl):
+    tmp = common_utils.get_bpl_prefixes(bpl)
+    bplcode = int(tmp[0]) if tmp else 0
+    tmp = common_utils.get_bpl_prefixes(mbpl)
+    mbplcode = int(tmp[0]) if tmp else 0
+    tmp = common_utils.get_bpl_prefixes(fbpl)
+    fbplcode = int(tmp[0]) if tmp else 0
+
+    byr_int = int(byr) if byr and str(byr).isnumeric() else 0
+
+    sql_query = f"""SELECT 
+    histid, 
+    first_name, 
+    last_name, 
+    sex, 
+    birthyr, 
+    bpld, 
+    fbpl, 
+    mbpl 
+FROM 
+    individuals 
+WHERE 
+    CAST(birthyr AS INTEGER) BETWEEN {byr_int - 5} AND {byr_int + 5} 
+    AND (CASE WHEN CAST(bpld AS INTEGER) >= 1000 THEN CAST(bpld AS INTEGER) / 100 ELSE CAST(bpld AS INTEGER) END) = {bplcode} 
+    AND (CASE WHEN CAST(fbpl AS INTEGER) >= 1000 THEN CAST(fbpl AS INTEGER) / 100 ELSE CAST(fbpl AS INTEGER) END) = {fbplcode} 
+    AND (CASE WHEN CAST(mbpl AS INTEGER) >= 1000 THEN CAST(mbpl AS INTEGER) / 100 ELSE CAST(mbpl AS INTEGER) END) = {mbplcode};"""
+
+    fname = f"../../sql/{first}_{last}_{byr}.sql"
+    with open(fname, 'w', encoding='utf-8') as f:
+        f.write(sql_query)
+
+
 def build_couples_rows(individuals, families):
     """Generates the Expanded Nuclear Family Fingerprint."""
     records = []
     seen_couples = set()
 
-    def get_res(indi_id, year_str):
+    def extract_county(loc_str):
+        """Strips city/state and returns only the county name."""
+        if not loc_str: return ""
+        parts = [p.strip() for p in loc_str.split(',')]
+        if len(parts) >= 2:
+            # If the last part is a country like USA, the logic shifts
+            if parts[-1].upper() == 'USA':
+                if len(parts) >= 3:  # e.g., "Clearfield, Pennsylvania, USA" or "City, County, State, USA"
+                    return parts[-3]
+                else:
+                    return ""  # Not enough parts for a county (e.g., "Pennsylvania, USA")
+            else:  # No "USA" at the end, e.g., "Pike, Clearfield, Pennsylvania"
+                return parts[-2]
+        return ""
+
+    def extract_state(loc_str):
+        """Strips city/county and returns only the state name."""
+        if not loc_str: return ""
+        parts = [p.strip() for p in loc_str.split(',')]
+        if len(parts) >= 1:
+            # If the last part is a country like USA, the state is the one before it
+            if parts[-1].upper() == 'USA':
+                if len(parts) >= 2:  # e.g., "Pennsylvania, USA"
+                    return parts[-2]
+                else:
+                    return ""  # Just "USA", no state
+            else:  # No "USA" at the end, e.g., "Pennsylvania" or "Clearfield, Pennsylvania"
+                return parts[-1]
+        return ""
+
+    def get_res_c(indi_id, year_str):
         if not indi_id or indi_id not in individuals: return ""
         for ev in individuals[indi_id].get('events', []):
             if year_str in ev['date']:
-                return ev['place']
+                cty = extract_county(ev['place'])
+                return cty
+        return ""
+
+    def get_res_s(indi_id, year_str):
+        if not indi_id or indi_id not in individuals: return ""
+        for ev in individuals[indi_id].get('events', []):
+            if year_str in ev['date']:
+                st = extract_state(ev['place'])
+                return st
         return ""
 
     def get_fingerprint(indi_id):
         if not indi_id or indi_id not in individuals:
-            return "", "", "", "", "", "", "", {str(yr): "" for yr in range(1850, 1960, 10)}, "", ""
+            return "", "", "", "", "", "", "", {str(yr): "" for yr in range(1850, 1960, 10)}, {str(yr): "" for yr in
+                                                                                               range(1850, 1960,
+                                                                                                     10)}, "", ""
         i = individuals[indi_id]
         first, last = i.get('first_name', ''), i.get('last_name', '')
         byr, bmo = parse_date(i.get('birth_date', ''))
@@ -497,20 +588,17 @@ def build_couples_rows(individuals, families):
         fbpl = common_utils.extract_state(get_parent_bpl(indi_id, 'father', individuals, families))
         mbpl = common_utils.extract_state(get_parent_bpl(indi_id, 'mother', individuals, families))
 
-        # if not fbpl: fbpl = bpl
-        # if not mbpl: mbpl = bpl
+        residences_st = {str(yr): get_res_s(indi_id, str(yr)) for yr in range(1850, 1960, 10)}
+        residences_cty = {str(yr): get_res_c(indi_id, str(yr)) for yr in range(1850, 1960, 10)}
 
-        residences = {str(yr): get_res(indi_id, str(yr)) for yr in range(1850, 1960, 10)}
-
-        return first, last, byr, bmo, bpl, fbpl, mbpl, residences, dyr, dpl
+        return first, last, byr, bmo, bpl, fbpl, mbpl, residences_st, residences_cty, dyr, dpl
 
     # Process Nuclear Families
     for fam_id, fam in families.items():
         h_id, w_id = fam.get('husb'), fam.get('wife')
-        h_first, h_last, h_byr, h_bmo, h_bpl, h_fbpl, h_mbpl, h_res, h_dyr, h_dpl = get_fingerprint(h_id)
-        w_first, w_last, w_byr, w_bmo, w_bpl, w_fbpl, w_mbpl, w_res, w_dyr, w_dpl = get_fingerprint(w_id)
+        h_first, h_last, h_byr, h_bmo, h_bpl, h_fbpl, h_mbpl, h_st, h_cty, h_dyr, h_dpl = get_fingerprint(h_id)
+        w_first, w_last, w_byr, w_bmo, w_bpl, w_fbpl, w_mbpl, w_st, w_cty, w_dyr, w_dpl = get_fingerprint(w_id)
 
-        # Filter out couples if either spouse died before 1850 (won't be in the census!)
         if h_dyr and h_dyr.isnumeric() and int(h_dyr) < 1850:
             continue
         if w_dyr and w_dyr.isnumeric() and int(w_dyr) < 1850:
@@ -520,7 +608,6 @@ def build_couples_rows(individuals, families):
         marr_pl = common_utils.extract_state(fam.get('marr_place', ''))
         num_children = len(fam.get('children', []))
 
-        # Build the 'kid fingerprint' - a sorted string of birth years
         child_byrs = []
         kid_fingerprint = 0
         for c_id in fam.get('children', []):
@@ -533,51 +620,42 @@ def build_couples_rows(individuals, families):
         for k in child_byrs:
             kid_fingerprint += int(k)
 
-        # Filter out fake names.
-        if h_first and h_last and w_first and w_last:
-            if len(h_first.strip()) < 1 or len(h_last.strip()) < 1 or \
-                    len(w_first.strip()) < 1 or len(w_last.strip()) < 1:
-                continue
-            if ('--' in h_first or ' --' in h_last or 'Living' in h_last or '[' in h_last) or \
-                    ('--' in w_last or 'Living' in w_last or '[' in w_last):
-                continue
-        else:
+        # Filter out fake names but ALLOW families without a wife's first name
+        if not h_first or not h_last:
+            print(f"Skipping {fam_id}: Missing Husband Name ({h_first} {h_last})")
             continue
 
-        # We have no data before 1950, so there's no sense processing this couple.
+        if len(h_first.strip()) < 1 or len(h_last.strip()) < 1:
+            continue
+
+        if ('--' in h_first or ' --' in h_last or 'Living' in h_last or '[' in h_last) or \
+                ('--' in w_last or 'Living' in w_last or '[' in w_last):
+            print(f"Skipping {fam_id}: Fake/Living Name Detected")
+            continue
+
         gtg = False
-        if h_byr and w_byr:
-            if h_byr.isnumeric() and w_byr.isnumeric():
-                if int(h_byr) < 1950 and int(w_byr) < 1950:
-                    gtg = True
+        if h_byr and h_byr.isnumeric() and int(h_byr) < 1950:
+            gtg = True
         if not gtg: continue
 
         couple_key = fam_id
         if couple_key not in seen_couples:
-            # Filter out fake names.
-            if h_first and h_last and w_first and w_last:
-                if len(h_first.strip()) < 1 or len(h_last.strip()) < 1 or \
-                        len(w_first.strip()) < 1 or len(w_last.strip()) < 1:
-                    continue
-                if ('--' in h_first or ' --' in h_last or 'Living' in h_last or '[' in h_last) or \
-                        ('--' in w_last or 'Living' in w_last or '[' in w_last):
-                    continue
-            else:
-                continue
 
             row = {
                 'h_first': h_first, 'h_last': h_last, 'h_byr': h_byr, 'h_bmo': h_bmo,
                 'h_bpl': h_bpl, 'h_fbpl': h_fbpl, 'h_mbpl': h_mbpl,
             }
             for yr in range(1850, 1960, 10):
-                row[f'h_res_{yr}'] = h_res[str(yr)]
+                row[f'h_rsst_{yr}'] = h_st[str(yr)]
+                row[f'h_rscty_{yr}'] = h_cty[str(yr)]
             row.update({
                 'h_dyr': h_dyr, 'h_dpl': h_dpl,
                 'w_first': w_first, 'w_last': w_last, 'w_byr': w_byr, 'w_bmo': w_bmo,
                 'w_bpl': w_bpl, 'w_fbpl': w_fbpl, 'w_mbpl': w_mbpl,
             })
             for yr in range(1850, 1960, 10):
-                row[f'w_res_{yr}'] = w_res[str(yr)]
+                row[f'w_rsst_{yr}'] = w_st[str(yr)]
+                row[f'w_rscty_{yr}'] = w_cty[str(yr)]
             row.update({
                 'w_dyr': w_dyr, 'w_dpl': w_dpl,
                 'marr_yr': marr_yr, 'marr_pl': marr_pl, 'num_children': num_children,
@@ -586,50 +664,71 @@ def build_couples_rows(individuals, families):
             records.append(row)
             seen_couples.add(couple_key)
 
-    # Process Lone Wolves
-    # for indi_id, i in individuals.items():
-    #     if not i.get('fams'):
-    #         first, last, byr, bmo, bpl, fbpl, mbpl, res, dyr, dpl = get_fingerprint(indi_id)
-    #         if not last or '--' in last or 'Hidden' in last or '[' in last:
-    #             continue
-    #         if not first or '--' in first or 'Living' in first or '[' in first:
-    #             continue
-    #
-    #         row = {}
-    #         if i.get('sex', '').upper() == 'M':
-    #             row.update({
-    #                 'h_first': first, 'h_last': last, 'h_byr': byr, 'h_bmo': bmo,
-    #                 'h_bpl': bpl, 'h_fbpl': fbpl, 'h_mbpl': mbpl
-    #             })
-    #             for yr in range(1850, 1960, 10): row[f'h_res_{yr}'] = res[str(yr)]
-    #             row.update({
-    #                 'h_dyr': dyr, 'h_dpl': dpl,
-    #                 'w_first': '', 'w_last': '', 'w_byr': '', 'w_bmo': '',
-    #                 'w_bpl': '', 'w_fbpl': '', 'w_mbpl': ''
-    #             })
-    #             for yr in range(1850, 1960, 10): row[f'w_res_{yr}'] = ''
-    #             row.update({
-    #                 'w_dyr': '', 'w_dpl': '',
-    #                 'marr_yr': '', 'marr_pl': '', 'num_children': 0
-    #             })
-    #         else:
-    #             row.update({
-    #                 'h_first': '', 'h_last': '', 'h_byr': '', 'h_bmo': '',
-    #                 'h_bpl': '', 'h_fbpl': '', 'h_mbpl': ''
-    #             })
-    #             for yr in range(1850, 1960, 10): row[f'h_res_{yr}'] = ''
-    #             row.update({
-    #                 'h_dyr': '', 'h_dpl': '',
-    #                 'w_first': first, 'w_last': last, 'w_byr': byr, 'w_bmo': bmo,
-    #                 'w_bpl': bpl, 'w_fbpl': fbpl, 'w_mbpl': mbpl
-    #             })
-    #             for yr in range(1850, 1960, 10): row[f'w_res_{yr}'] = res[str(yr)]
-    #             row.update({
-    #                 'w_dyr': dyr, 'w_dpl': dpl,
-    #                 'marr_yr': '', 'marr_pl': '', 'num_children': 0
-    #             })
-    #
-    #         records.append(row)
+    # Process Lone Wolves (Unmarried individuals)
+    for indi_id, i in individuals.items():
+        if not i.get('fams'):
+            first, last, byr, bmo, bpl, fbpl, mbpl, res, res_cty, dyr, dpl = get_fingerprint(indi_id)
+            if not last or '--' in last or 'Hidden' in last or '[' in last:
+                continue
+            if not first or '--' in first or 'Living' in first or '[' in first:
+                continue
+            # Don't care about the young'uns.
+            if not byr.isnumeric() or not dyr.isnumeric():
+                continue
+            lspan = int(dyr) - int(byr)
+            if not byr or (int(byr) >= 1935) or (lspan < 21):
+                continue
+            if not bpl or not mbpl or not fbpl:
+                logger.warning(
+                    f"need birth place(s) for {last} {first}, bpl:[{bpl}] fbpl:[{fbpl}] mbpl[{mbpl}]   {byr} - {dyr} : {lspan}")
+                continue
+
+            row = {}
+            if i.get('sex', '').upper() == 'M':
+                row.update({
+                    'h_first': first, 'h_last': last, 'h_byr': byr, 'h_bmo': bmo,
+                    'h_bpl': bpl, 'h_fbpl': fbpl, 'h_mbpl': mbpl
+                })
+                for yr in range(1850, 1960, 10):
+                    row[f'h_rsst_{yr}'] = res[str(yr)]
+                    row[f'h_rscty_{yr}'] = res_cty[str(yr)]
+                row.update({
+                    'h_dyr': dyr, 'h_dpl': dpl,
+                    'w_first': '', 'w_last': '', 'w_byr': '', 'w_bmo': '',
+                    'w_bpl': '', 'w_fbpl': '', 'w_mbpl': ''
+                })
+                for yr in range(1850, 1960, 10):
+                    row[f'w_rsst_{yr}'] = ''
+                    row[f'w_rscty_{yr}'] = ''
+                row.update({
+                    'w_dyr': '', 'w_dpl': '',
+                    'marr_yr': '', 'marr_pl': '', 'num_children': 0, 'kid_fingerprint': 0
+                })
+
+                writeSQL(first, last, byr, bpl, mbpl, fbpl)
+
+            else:
+                row.update({
+                    'h_first': '', 'h_last': '', 'h_byr': '', 'h_bmo': '',
+                    'h_bpl': '', 'h_fbpl': '', 'h_mbpl': ''
+                })
+                for yr in range(1850, 1960, 10):
+                    row[f'h_rsst_{yr}'] = ''
+                    row[f'h_rscty_{yr}'] = ''
+                row.update({
+                    'h_dyr': '', 'h_dpl': '',
+                    'w_first': first, 'w_last': last, 'w_byr': byr, 'w_bmo': bmo,
+                    'w_bpl': bpl, 'w_fbpl': fbpl, 'w_mbpl': mbpl
+                })
+                for yr in range(1850, 1960, 10):
+                    row[f'w_rsst_{yr}'] = res[str(yr)]
+                    row[f'w_rscty_{yr}'] = res_cty[str(yr)]
+                row.update({
+                    'w_dyr': dyr, 'w_dpl': dpl,
+                    'marr_yr': '', 'marr_pl': '', 'num_children': 0, 'kid_fingerprint': 0
+                })
+
+            records.append(row)
 
     with open(r'../../JSON/gedcom_couples.json', 'w', encoding='utf-8') as f:
         json.dump(records, f, indent=4, ensure_ascii=False)

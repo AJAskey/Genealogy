@@ -1,49 +1,38 @@
 """
------------------------------------
 File: ExportCensusToGedcom.py
-
-Summary: Generates a standard .ged family tree file directly from the
-         relational census data in the Named Vaults.
-         It automatically propagates the father's last name to his children
-         before exporting, then generates "Census-level" GEDCOM structures.
-
-Architect & Designer: Andy Askey
-Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
-
-License: Apache License 2.0: http://www.apache.org/licenses/LICENSE-2.0
-
-GitHub Open Source Project: https://github.com/AJAskey/Genealogy
-
------------------------------------
+Summary: Extracts historical census data into a fully compliant GEDCOM file.
+         Bypasses broken Clan logic to treat every household independently.
+         Dynamically cross-references GEDCOM JSON targets against the Time Machine
+         to find exact Geo-Demographic matches, assigns real names to VIPs,
+         fills the remaining tree with placeholder families, and uses NameList
+         for realistic synthetic names.
 """
-
 import os
-import sqlite3
+import duckdb
 import json
 import sys
+
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+python_dir = os.path.join(project_root, 'python')
+if python_dir not in sys.path:
+    sys.path.insert(0, python_dir)
+
+import gen_logging
 from utils import NameList
-
-# Add the 'python' directory and project root to sys.path so we can import properly
-script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(script_dir, '..'))
-for p in [script_dir, project_root]:
-    if p not in sys.path:
-        sys.path.append(p)
-
-from utils import gen_logging
 
 if os.name == 'nt':
     BASE_DATA_DIR = r"D:\Data\Genealogy_Data"
 else:
     BASE_DATA_DIR = os.path.expanduser("~/Genealogy_Data")
 
-YEARLY_VAULT_DIR = os.path.join(BASE_DATA_DIR, "YearlyVaults")
-TEST_VAULT_DIR = os.path.join(BASE_DATA_DIR, "TestVaults")
 OUTPUT_GEDCOM = os.path.join(project_root, "gedcom_sources", "Census_Export_Askey.ged")
 COUNTY_NAMES_JSON = os.path.join(project_root, "JSON", "county_codes_to_names.json")
-MATCH_DB = os.path.join(BASE_DATA_DIR, "DemographicMatches.db")
-TARGET_LAST_NAME = 'Bosselstink'
-CLAN_EXPORT_LIMIT = 20000  # Adjust this to safely control the size of your Ancestry upload
+JSON_PATH = os.path.join(project_root, "JSON", "gedcom_couples.json")
+MATCH_DB = os.path.join(BASE_DATA_DIR, "DemographicMatches2.db")
+FAMILY_EXPORT_LIMIT = 20000
+YEAR_WINDOW = 1
 
 REVERSE_BPL = {
     1: "Alabama", 2: "Alaska", 4: "Arizona", 5: "Arkansas", 6: "California",
@@ -54,17 +43,14 @@ REVERSE_BPL = {
     27: "Minnesota", 28: "Mississippi", 29: "Missouri", 30: "Montana",
     31: "Nebraska", 32: "Nevada", 33: "New Hampshire", 34: "New Jersey",
     35: "New Mexico", 36: "New York", 37: "North Carolina", 38: "North Dakota",
-    39: "Ohio", 40: "Oklahoma", 41: "Oregon", 42: "Pennsylvania", 44: "Rhode Island",
-    45: "South Carolina", 46: "South Dakota", 47: "Tennessee", 48: "Texas",
-    49: "Utah", 50: "Vermont", 51: "Virginia", 53: "Washington", 54: "West Virginia",
-    55: "Wisconsin", 56: "Wyoming", 410: "England", 411: "Scotland", 412: "Wales",
-    414: "Ireland", 413: "Northern Ireland", 453: "Germany", 404: "Sweden", 401: "Norway",
-    400: "Denmark", 425: "Netherlands", 421: "France", 426: "Switzerland", 150: "Canada",
-    200: "Mexico", 501: "Japan", 502: "South Korea",
-    # Catch anomalous IPUMS STATEICP codes (e.g. 67 = Utah) that sneaked into the dataset
-    14: "Pennsylvania", 61: "Arizona", 62: "Colorado", 63: "Idaho", 64: "Montana",
-    65: "Nevada", 66: "New Mexico", 67: "Utah", 68: "Wyoming",
-    71: "California", 72: "Oregon", 73: "Washington"
+    39: "Ohio", 40: "Oklahoma", 41: "Oregon", 42: "Pennsylvania",
+    44: "Rhode Island", 45: "South Carolina", 46: "South Dakota", 47: "Tennessee",
+    48: "Texas", 49: "Utah", 50: "Vermont", 51: "Virginia", 53: "Washington",
+    54: "West Virginia", 55: "Wisconsin", 56: "Wyoming",
+    150: "Canada", 200: "Mexico", 400: "Denmark", 401: "Norway", 404: "Sweden",
+    410: "England", 411: "Wales", 412: "Scotland", 413: "Northern Ireland", 414: "Ireland",
+    421: "France", 425: "Netherlands", 426: "Switzerland", 453: "Germany",
+    501: "Japan", 502: "South Korea"
 }
 
 STATEICP_MAP = {
@@ -81,6 +67,8 @@ STATEICP_MAP = {
     81: "Washington", 82: "Oregon", 83: "California", 84: "Alaska", 85: "Hawaii"
 }
 
+NAME_TO_BPL = {k.upper(): v for v, k in REVERSE_BPL.items()}
+
 
 def decode_bpld(bpld_str):
     if not bpld_str or str(bpld_str).strip() == '': return "Unknown"
@@ -92,195 +80,209 @@ def decode_bpld(bpld_str):
         return "Unknown"
 
 
+def get_base_code(code_str):
+    if not code_str: return 0
+    try:
+        val = int(float(code_str))
+        return val // 100 if val >= 1000 else val
+    except (ValueError, TypeError):
+        clean_str = str(code_str).strip().upper()
+        return NAME_TO_BPL.get(clean_str, 0)
+
+
 def export_gedcom(logger):
-    logger.info("Extracting the deepest, longest Clan lines from the Time Machine...")
+    logger.info("Initializing All-In-One Exporter...")
+
+    if not os.path.exists(MATCH_DB):
+        logger.error(f"Could not find Match DB at {MATCH_DB}")
+        return
+
+    con = duckdb.connect(MATCH_DB, read_only=True)
 
     county_names_dict = {}
     if os.path.exists(COUNTY_NAMES_JSON):
         with open(COUNTY_NAMES_JSON, 'r', encoding='utf-8') as f:
             county_names_dict = json.load(f)
 
+    if not os.path.exists(JSON_PATH):
+        logger.error(f"Cannot find JSON file at: {JSON_PATH}")
+        return
+
+    with open(JSON_PATH, 'r', encoding='utf-8') as f:
+        gedcom_couples = json.load(f)
+
+    logger.info(f"Loaded {len(gedcom_couples)} target couples from JSON.")
+
+    target_rows = []
+    global_bpl_codes = set()
+
+    for idx, g_dict in enumerate(gedcom_couples):
+        h_bpl = get_base_code(g_dict.get('h_bpl')) or 0
+        w_bpl = get_base_code(g_dict.get('w_bpl')) or 0
+        h_fbpl = get_base_code(g_dict.get('h_fbpl')) or 0
+        h_mbpl = get_base_code(g_dict.get('h_mbpl')) or 0
+        w_fbpl = get_base_code(g_dict.get('w_fbpl')) or 0
+        w_mbpl = get_base_code(g_dict.get('w_mbpl')) or 0
+
+        if not g_dict.get('h_byr') or h_bpl == 0 or not g_dict.get('w_byr') or w_bpl == 0:
+            continue
+
+        target_rows.append((
+            idx,
+            int(g_dict.get('h_byr', 0)), h_bpl, h_fbpl, h_mbpl,
+            int(g_dict.get('w_byr', 0)), w_bpl, w_fbpl, w_mbpl
+        ))
+        global_bpl_codes.add(h_bpl)
+        global_bpl_codes.add(w_bpl)
+
+    if not target_rows:
+        logger.info("No high-quality target couples found to process! Check your JSON.")
+        return
+
+    logger.info(f"Dynamically matching {len(target_rows)} elite targets against the Time Machine...")
+
+    con.execute(
+        "CREATE TEMP TABLE targets (idx INTEGER, h_byr INTEGER, h_bpl INTEGER, h_fbpl INTEGER, h_mbpl INTEGER, w_byr INTEGER, w_bpl INTEGER, w_fbpl INTEGER, w_mbpl INTEGER)")
+    con.executemany("INSERT INTO targets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", target_rows)
+
+    bpl_filter_str = ", ".join(map(str, global_bpl_codes))
+
+    con.execute(
+        "CREATE TEMP TABLE couple_members AS SELECT head_histid AS histid FROM tm_families UNION SELECT spouse_histid AS histid FROM tm_families WHERE spouse_histid IS NOT NULL")
+
+    con.execute(f"""
+        CREATE TEMP TABLE relevant_individuals AS
+        WITH parsed_inds AS (
+            SELECT i.*,
+                   TRY_CAST(i.birthyr AS INTEGER) AS birthyr_int,
+                   CASE WHEN TRY_CAST(i.bpld AS INTEGER) >= 1000 THEN TRY_CAST(i.bpld AS INTEGER) // 100 ELSE TRY_CAST(i.bpld AS INTEGER) END AS base_bpl,
+                   CASE WHEN TRY_CAST(i.fbpl AS INTEGER) >= 1000 THEN TRY_CAST(i.fbpl AS INTEGER) // 100 ELSE TRY_CAST(i.fbpl AS INTEGER) END AS base_fbpl,
+                   CASE WHEN TRY_CAST(i.mbpl AS INTEGER) >= 1000 THEN TRY_CAST(i.mbpl AS INTEGER) // 100 ELSE TRY_CAST(i.mbpl AS INTEGER) END AS base_mbpl
+            FROM tm_individuals i
+            JOIN couple_members cm ON i.histid = cm.histid
+            WHERE i.bpld IS NOT NULL AND i.bpld != ''
+        )
+        SELECT * FROM parsed_inds
+        WHERE base_bpl IN ({bpl_filter_str})
+          AND (TRY_CAST(year AS INTEGER) IN (1850, 1860, 1870) OR 
+               (
+                 (fbpl IS NULL OR fbpl = '' OR fbpl = '0' OR base_fbpl IN ({bpl_filter_str}))
+                 AND (mbpl IS NULL OR mbpl = '' OR mbpl = '0' OR base_mbpl IN ({bpl_filter_str}))
+               )
+          );
+    """)
+
+    all_matches = con.execute(f"""
+        SELECT 
+            t.idx, f.family_id, f.year, f.countyicp, f.stateicp, f.head_histid, f.spouse_histid
+        FROM tm_families f
+        JOIN relevant_individuals h ON f.head_histid = h.histid
+        JOIN relevant_individuals s ON f.spouse_histid = s.histid
+        JOIN targets t
+            ON h.base_bpl = t.h_bpl 
+            AND s.base_bpl = t.w_bpl
+            AND h.sex = '1' AND s.sex = '2'
+            AND h.birthyr_int BETWEEN t.h_byr - {YEAR_WINDOW} AND t.h_byr + {YEAR_WINDOW}
+            AND s.birthyr_int BETWEEN t.w_byr - {YEAR_WINDOW} AND t.w_byr + {YEAR_WINDOW}
+            AND (TRY_CAST(f.year AS INTEGER) IN (1850, 1860, 1870) OR 
+                 (
+                    (t.h_fbpl = 0 OR h.fbpl IS NULL OR h.fbpl = '' OR h.fbpl = '0' OR h.base_fbpl = t.h_fbpl)
+                    AND (t.h_mbpl = 0 OR h.mbpl IS NULL OR h.mbpl = '' OR h.mbpl = '0' OR h.base_mbpl = t.h_mbpl)
+                    AND (t.w_fbpl = 0 OR s.fbpl IS NULL OR s.fbpl = '' OR s.fbpl = '0' OR s.base_fbpl = t.w_fbpl)
+                    AND (t.w_mbpl = 0 OR s.mbpl IS NULL OR s.mbpl = '' OR s.mbpl = '0' OR s.base_mbpl = t.w_mbpl)
+                 )
+            )
+    """).fetchall()
+
+    vip_fids = set()
+    resolved_names_dict = {}
+
+    for match in all_matches:
+        t_idx, fid, yr, cty, st, h_histid, s_histid = match
+        g_data = gedcom_couples[t_idx]
+        h_res = g_data.get(f'h_res_{yr}', '')
+
+        db_state_name = STATEICP_MAP.get(int(float(st)), "Unknown State") if st is not None else "Unknown State"
+        try:
+            db_county_code = str(int(float(cty)))
+        except (ValueError, TypeError):
+            db_county_code = str(cty).strip()
+        db_county_name = county_names_dict.get(db_state_name, {}).get(db_county_code, "Unknown County")
+
+        geo_hit = False
+        if db_county_name != "Unknown County":
+            db_c_clean = db_county_name.upper().replace(" COUNTY", "").strip()
+            g_res_clean = h_res.upper().replace(" COUNTY", "").replace(" CO.", "").strip()
+            if db_c_clean and db_c_clean in g_res_clean:
+                geo_hit = True
+
+        # Geo Check: If the household exactly matches the demographics AND lived in the correct county, it's a VIP!
+        if geo_hit:
+            vip_fids.add(fid)
+            resolved_names_dict[h_histid] = (g_data.get('h_first', ''), g_data.get('h_last', ''))
+            resolved_names_dict[s_histid] = (g_data.get('w_first', ''), g_data.get('w_last', ''))
+
+    logger.info(f"  -> Found {len(vip_fids)} perfectly verified Ancestry households.")
+
+    # --- FILL THE REST OF THE LIMIT WITH PLACEHOLDER FAMILIES ---
+    remaining_limit = max(0, FAMILY_EXPORT_LIMIT - len(vip_fids))
+    if remaining_limit > 0:
+        if vip_fids:
+            con.execute("CREATE TEMP TABLE vip_tmp AS SELECT unnest(?) AS fid", [list(vip_fids)])
+            extra_fids = con.execute(
+                f"SELECT family_id FROM tm_families WHERE family_id NOT IN (SELECT fid FROM vip_tmp) LIMIT {remaining_limit}").fetchall()
+        else:
+            extra_fids = con.execute(f"SELECT family_id FROM tm_families LIMIT {remaining_limit}").fetchall()
+
+        for r in extra_fids:
+            vip_fids.add(r[0])
+
+    target_families = list(vip_fids)
+    logger.info(f"  -> Extracting {len(target_families):,} total families for GEDCOM export...")
+
     individuals_data = []
     families_data = []
 
-    # Step 1: Secure VIP Passes for Real Families, then find Longest Lines
-    target_clans = set()
-    family_to_clan = {}
-    target_families = []
-    resolved_names_dict = {}
-    
-    if os.path.exists(MATCH_DB):
-        with sqlite3.connect(MATCH_DB) as m_conn:
-            m_cur = m_conn.cursor()
+    if target_families:
+        con.execute("CREATE TEMP TABLE target_fids_tmp AS SELECT unnest(?) AS fid", [target_families])
 
-            try:
-                m_cur.execute("SELECT histid, first_name, last_name FROM resolved_names")
-                for r in m_cur.fetchall():
-                    resolved_names_dict[r[0]] = (r[1], r[2])
-                logger.info(f"  -> Loaded {len(resolved_names_dict):,} resolved real names from the Time Machine.")
-            except sqlite3.OperationalError:
-                logger.info("  -> No resolved_names table found yet. Will use synthetic names.")
+        individuals_data = con.execute("""
+                                       SELECT i.histid, i.first_name, i.last_name, i.sex, i.birthyr, i.bpld, i.family_id
+                                       FROM tm_individuals i
+                                                JOIN target_fids_tmp t ON i.family_id = t.fid
+                                       """).fetchall()
 
-        # --- VIP PASS: Ensure real families are ALWAYS exported ---
-        if resolved_names_dict:
-            logger.info("  -> Securing VIP passes for all resolved real families...")
-            resolved_histids = list(resolved_names_dict.keys())
-            vip_family_ids = set()
+        families_data = con.execute("""
+                                    SELECT f.family_id, f.head_histid, f.spouse_histid, f.year, f.countyicp, f.stateicp
+                                    FROM tm_families f
+                                             JOIN target_fids_tmp t ON f.family_id = t.fid
+                                    """).fetchall()
 
-            for filename in os.listdir(YEARLY_VAULT_DIR):
-                if filename.startswith("YearVault_") and filename.endswith(".db"):
-                    db_path = os.path.join(YEARLY_VAULT_DIR, filename)
-                    with sqlite3.connect(db_path) as conn:
-                        cursor = conn.cursor()
-                        cursor.execute("CREATE TEMP TABLE IF NOT EXISTS temp_res (histid TEXT)")
-                        cursor.execute("DELETE FROM temp_res")
-                        cursor.executemany("INSERT INTO temp_res VALUES (?)", [(h,) for h in resolved_histids])
-
-                        cursor.execute("""
-                            SELECT f.family_id FROM families f
-                            INNER JOIN temp_res t ON f.head_histid = t.histid OR f.spouse_histid = t.histid
-                        """)
-                        for r in cursor.fetchall():
-                            vip_family_ids.add(r[0])
-
-            if vip_family_ids:
-                with sqlite3.connect(MATCH_DB) as m_conn:
-                    m_cur = m_conn.cursor()
-                    m_cur.execute("CREATE TEMP TABLE IF NOT EXISTS temp_vip_fids (family_id TEXT)")
-                    m_cur.execute("DELETE FROM temp_vip_fids")
-                    m_cur.executemany("INSERT INTO temp_vip_fids VALUES (?)", [(f,) for f in vip_family_ids])
-                    
-                    m_cur.execute("""
-                        SELECT clan_id FROM clan_mapping
-                        WHERE family_id IN (SELECT family_id FROM temp_vip_fids)
-                    """)
-                    for r in m_cur.fetchall():
-                        target_clans.add(r[0])
-
-            logger.info(f"  -> VIP Pass granted to {len(target_clans)} distinct real Clans.")
-
-        # --- FILL THE REST OF THE LIMIT WITH THE DEEPEST PLACEHOLDER CLANS ---
-        remaining_limit = max(0, CLAN_EXPORT_LIMIT - len(target_clans))
-        with sqlite3.connect(MATCH_DB) as m_conn:
-            m_cur = m_conn.cursor()
-            if remaining_limit > 0:
-                if target_clans:
-                    m_cur.execute("CREATE TEMP TABLE IF NOT EXISTS temp_target_clans (clan_id TEXT)")
-                    m_cur.execute("DELETE FROM temp_target_clans")
-                    m_cur.executemany("INSERT INTO temp_target_clans VALUES (?)", [(c,) for c in target_clans])
-                    
-                    m_cur.execute(f"""
-                        SELECT clan_id FROM clan_mapping 
-                        WHERE clan_id NOT IN (SELECT clan_id FROM temp_target_clans) 
-                        GROUP BY clan_id 
-                        ORDER BY COUNT(*) DESC 
-                        LIMIT {remaining_limit}
-                    """)
-                else:
-                    m_cur.execute(f"SELECT clan_id FROM clan_mapping GROUP BY clan_id ORDER BY COUNT(*) DESC LIMIT {remaining_limit}")
-
-                for r in m_cur.fetchall():
-                    target_clans.add(r[0])
-
-            if target_clans:
-                m_cur.execute("CREATE TEMP TABLE IF NOT EXISTS final_clans (clan_id TEXT)")
-                m_cur.execute("DELETE FROM final_clans")
-                m_cur.executemany("INSERT INTO final_clans VALUES (?)", [(c,) for c in target_clans])
-                
-                m_cur.execute("""
-                    SELECT family_id, clan_id FROM clan_mapping 
-                    WHERE clan_id IN (SELECT clan_id FROM final_clans)
-                """)
-                for r in m_cur.fetchall():
-                    family_to_clan[r[0]] = r[1]
-                    
-                target_families = list(family_to_clan.keys())
-
-        logger.info(f"  -> Total selected Clans: {len(target_clans):,}, containing {len(target_families):,} total families.")
-    else:
-        logger.error(f"Could not find Match DB at {MATCH_DB}")
-        return
-
-    for filename in os.listdir(YEARLY_VAULT_DIR):
-        if filename.startswith("YearVault_") and filename.endswith(".db"):
-            db_path = os.path.join(YEARLY_VAULT_DIR, filename)
-            logger.info(f"  -> Processing {filename}...")
-            with sqlite3.connect(db_path) as conn:
-                cursor = conn.cursor()
-
-                if target_families:
-                    # Bypass SQLite variable limits and force EXACTLY ONE table scan by using a TEMP TABLE
-                    cursor.execute("CREATE TEMP TABLE IF NOT EXISTS temp_targets (family_id TEXT)")
-                    cursor.execute("DELETE FROM temp_targets")
-                    cursor.executemany("INSERT INTO temp_targets (family_id) VALUES (?)",
-                                       [(str(f),) for f in target_families])
-
-                    cursor.execute("""
-                                   SELECT i.histid,
-                                          i.first_name,
-                                          i.last_name,
-                                          i.sex,
-                                          i.birthyr,
-                                          i.bpld,
-                                          i.family_id,
-                                          i.father_histid,
-                                          i.mother_histid
-                                   FROM individuals i
-                                            INNER JOIN temp_targets t ON i.family_id = t.family_id
-                                   """)
-                    individuals_data.extend(cursor.fetchall())
-
-                    cursor.execute("""
-                                   SELECT f.family_id, f.head_histid, f.spouse_histid, f.year, f.countyicp, f.stateicp
-                                   FROM families f
-                                            INNER JOIN temp_targets t ON f.family_id = t.family_id
-                                   """)
-                    families_data.extend(cursor.fetchall())
+    con.close()
 
     if not individuals_data:
-        logger.warning("No families found to export!")
+        logger.error(f"No individuals found for the target families in the Time Machine.")
         return
 
-    logger.info(f"Found {len(individuals_data):,} individuals across all decades. Building GEDCOM...")
+    logger.info(f"Found {len(individuals_data):,} individuals. Building GEDCOM...")
 
-    # Execute Name Ripple in Python (respecting read-only ground truth)
-    mutable_inds = [list(ind) for ind in individuals_data]
-    ind_dict = {ind[0]: ind for ind in mutable_inds}
-    for ind in mutable_inds:
-        histid, fname, lname, sex, byr, bpld, fam_id, f_id, m_id = ind
-        if lname and str(lname).strip().lower() == 'bosselstink' and f_id and f_id in ind_dict:
-            father_lname = ind_dict[f_id][2]
-            if father_lname and str(father_lname).strip().lower() != 'bosselstink':
-                ind[2] = father_lname
-
-    individuals_data = mutable_inds
-
-    # Step 3: Consolidate Decade Snapshots into Unified Clan Entities
     fam_locs = {}
     histid_to_entity = {}
     clans = {}
 
     for fam in families_data:
         fid, hid, sid, yr, cty, st = fam
-        clan_id = family_to_clan.get(fid)
-        if not clan_id: continue
-
         fam_locs[fid] = (yr, cty, st)
+        clans[fid] = {'husb': f"{fid}_H", 'wife': f"{fid}_W", 'children': set()}
 
-        if clan_id not in clans:
-            clans[clan_id] = {'husb': f"{clan_id}_H", 'wife': f"{clan_id}_W", 'children': set()}
-
-        if hid: histid_to_entity[hid] = f"{clan_id}_H"
-        if sid: histid_to_entity[sid] = f"{clan_id}_W"
+        if hid: histid_to_entity[hid] = f"{fid}_H"
+        if sid: histid_to_entity[sid] = f"{fid}_W"
 
     entities = {}
-    child_entities = {}
 
     for ind in individuals_data:
-        histid, fname, lname, sex, byr, bpld, fam_id, f_id, m_id = ind
-        clan_id = family_to_clan.get(fam_id)
-        if not clan_id: continue
-        
+        histid, fname, lname, sex, byr, bpld, fam_id = ind
+
         # --- REAL NAME INJECTION ---
         is_real = False
         if histid in resolved_names_dict:
@@ -291,58 +293,30 @@ def export_gedcom(logger):
 
         ent_id = histid_to_entity.get(histid)
         if not ent_id:
-            # Group Children across decades using a First Name + Birth Year heuristic
-            clean_fname = str(fname).upper().strip().replace(' ', '_')
-            try:
-                byr_int = int(str(byr).strip())
-            except ValueError:
-                byr_int = 0
-
-            if clan_id not in child_entities:
-                child_entities[clan_id] = []
-
-            matched_ent_id = None
-            for existing in child_entities[clan_id]:
-                if existing['fname'] == clean_fname:
-                    # Allow a 3 year variance for census age drifting
-                    if existing['byr'] == 0 or byr_int == 0 or abs(existing['byr'] - byr_int) <= 3:
-                        matched_ent_id = existing['ent_id']
-                        break
-
-            if matched_ent_id:
-                ent_id = matched_ent_id
-            else:
-                ent_id = f"{clan_id}_C_{clean_fname}_{byr_int}"
-                child_entities[clan_id].append({'ent_id': ent_id, 'fname': clean_fname, 'byr': byr_int})
-
+            # Child logic: Every child gets a unique ID linked strictly to this household.
+            ent_id = f"{fam_id}_C_{histid}"
             histid_to_entity[histid] = ent_id
-            clans[clan_id]['children'].add(ent_id)
+            clans[fam_id]['children'].add(ent_id)
 
-        if ent_id not in entities:
-            entities[ent_id] = {
-                'fname': fname, 'lname': lname, 'sex': sex,
-                'byr': byr, 'bpld': bpld, 'census': set(),
-                'is_real_name': is_real
-            }
-        else:
-            if is_real:
-                entities[ent_id]['fname'] = fname
-                entities[ent_id]['lname'] = lname
-                entities[ent_id]['is_real_name'] = True
-            elif not entities[ent_id].get('is_real_name'):
-                # Update names if we find better ones in a later decade
-                curr_fname = str(entities[ent_id]['fname']).lower()
-                if curr_fname in ['none', 'unknown', 'future', '']:
-                    entities[ent_id]['fname'] = fname
-                curr_lname = str(entities[ent_id]['lname']).lower()
-                if curr_lname in ['none', 'unknown', 'bosselstink', '']:
-                    entities[ent_id]['lname'] = lname
+        entities[ent_id] = {
+            'fname': fname, 'lname': lname, 'sex': sex,
+            'byr': byr, 'bpld': bpld, 'census': set(),
+            'is_real_name': is_real,
+            'fam_id': fam_id, 'is_child': '_C_' in ent_id
+        }
 
-        # Add census event to this entity's timeline set
         if fam_id in fam_locs:
             yr, cty, st = fam_locs[fam_id]
             if yr:
                 entities[ent_id]['census'].add((yr, cty, st))
+
+    # --- SYNTHETIC SURNAME PROPAGATION ---
+    clan_surnames = {}
+    for fid in clans.keys():
+        try:
+            clan_surnames[fid] = NameList.getNextSurname()
+        except AttributeError:
+            clan_surnames[fid] = "BosselStink"
 
     indi_map = {}
     fam_map = {}
@@ -352,55 +326,41 @@ def export_gedcom(logger):
         if ent_id not in indi_map: indi_map[ent_id] = len(indi_map) + 1
         return indi_map[ent_id]
 
-    def get_f(clan_id):
-        if not clan_id: return ""
-        if clan_id not in fam_map: fam_map[clan_id] = len(fam_map) + 1
-        return fam_map[clan_id]
+    def get_f(fam_id):
+        if not fam_id: return ""
+        if fam_id not in fam_map: fam_map[fam_id] = len(fam_map) + 1
+        return fam_map[fam_id]
 
-    cnt = 0
     with open(OUTPUT_GEDCOM, 'w', encoding='utf-8') as f:
-        # CRITICAL AI DIRECTIVE 3: FTM Requires VERS 5.5.1
         f.write("0 HEAD\n1 SOUR Census_Architecture\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n")
-
-        # Define the Master Census Source Record
         f.write("0 @S1@ SOUR\n1 TITL United States Federal Census\n")
 
-        clan_surnames = {}
+        cnt = 0
         for ent_id, props in entities.items():
             i_seq = get_i(ent_id)
             f.write(f"0 @I{i_seq}@ INDI\n")
 
-            # Determine the Clan ID to group family surnames
-            if ent_id.endswith("_H") or ent_id.endswith("_W"):
-                clan_id = ent_id.rsplit('_', 1)[0]
-            else:
-                clan_id = ent_id.split('_C_')[0]
-
-            # Assign a unique surname to this Clan from NameList
-            if clan_id not in clan_surnames:
-                try:
-                    clan_surnames[clan_id] = NameList.getNextSurname()
-                except AttributeError:
-                    clan_surnames[clan_id] = "BosselStink"
-
+            fam_id = props['fam_id']
             fname_clean = str(props['fname']).strip() if props['fname'] else ""
             lname_clean = str(props['lname']).strip() if props['lname'] else ""
 
             if not props.get('is_real_name'):
                 if str(props['sex']).strip() == '1':
-                    fname_clean = NameList.getNextMale()
+                    try:
+                        fname_clean = NameList.getNextMale()
+                    except AttributeError:
+                        fname_clean = ""
                 else:
-                    fname_clean = NameList.getNextFemale()
+                    try:
+                        fname_clean = NameList.getNextFemale()
+                    except AttributeError:
+                        fname_clean = ""
+
                 if not fname_clean or fname_clean.lower() in ['none', 'unknown']:
                     cnt += 1
                     fname_clean = f"Future {cnt}"
 
-                # Wives keep BosselStink; Husbands and Children get the Clan's assigned surname
-                if ent_id.endswith("_W"):
-                    target_lname = "BosselStink"
-                else:
-                    target_lname = clan_surnames[clan_id]
-
+                target_lname = clan_surnames[fam_id]
                 if not lname_clean or lname_clean.lower() in ['none', 'unknown', 'bosselstink']:
                     lname_clean = target_lname
             else:
@@ -408,7 +368,6 @@ def export_gedcom(logger):
                 if not lname_clean: lname_clean = "Unknown"
 
             f.write(f"1 NAME {fname_clean} /{lname_clean}/\n")
-
             sex_val = str(props['sex'])
             f.write(f"1 SEX {'M' if sex_val == '1' else 'F' if sex_val == '2' else 'U'}\n")
 
@@ -417,7 +376,6 @@ def export_gedcom(logger):
                 state_name = decode_bpld(props['bpld'])
                 if state_name != "Unknown": f.write(f"2 PLAC {state_name}, USA\n")
 
-            # Write Census Events (Sorted Chronologically)
             for (yr, cty, st) in sorted(list(props['census']), key=lambda x: x[0]):
                 f.write(f"1 RESI\n2 DATE {yr}\n")
 
@@ -434,23 +392,19 @@ def export_gedcom(logger):
                         cty_code = str(cty).strip()
 
                     county_name = county_names_dict.get(st_name, {}).get(cty_code, "")
-                    if county_name:
-                        plac_str = f"{county_name}, {st_name}"
-                    else:
-                        plac_str = f"{st_name}"
+                    plac_str = f"{county_name}, {st_name}" if county_name else f"{st_name}"
 
                     f.write(f"2 PLAC {plac_str}, USA\n")
                     f.write(f"2 SOUR @S1@\n")
                     f.write(f"3 PAGE Year: {yr}; Census Place: {plac_str};\n")
 
-            # Is it a parent or a child?
-            if ent_id.endswith("_H") or ent_id.endswith("_W"):
-                f.write(f"1 FAMS @F{get_f(clan_id)}@\n")
+            if props['is_child']:
+                f.write(f"1 FAMC @F{get_f(fam_id)}@\n")
             else:
-                f.write(f"1 FAMC @F{get_f(clan_id)}@\n")
+                f.write(f"1 FAMS @F{get_f(fam_id)}@\n")
 
-        for clan_id, c_props in clans.items():
-            f_seq = get_f(clan_id)
+        for fam_id, c_props in clans.items():
+            f_seq = get_f(fam_id)
             f.write(f"0 @F{f_seq}@ FAM\n")
             if c_props['husb'] in entities:
                 f.write(f"1 HUSB @I{get_i(c_props['husb'])}@\n")
@@ -463,10 +417,9 @@ def export_gedcom(logger):
 
         f.write("0 TRLR\n")
 
-    logger.info(f"\nSUCCESS! Your Census-Level GEDCOM is ready: {OUTPUT_GEDCOM}")
+    logger.info(f"SUCCESS! Your Census-Level GEDCOM is ready: {OUTPUT_GEDCOM}")
 
 
 if __name__ == "__main__":
     main_logger = gen_logging.setup_logging(logger_name="EXPORT_GEDCOM")
-
     export_gedcom(main_logger)

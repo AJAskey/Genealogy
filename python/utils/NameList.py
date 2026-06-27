@@ -16,12 +16,12 @@ female_names = [
     "Kelly",  # K
     "Leah",  # L
     "Megan",  # M
-    "Nova",  # N
+    "Natalie",  # N
     "Olivia",  # O
     "Piper",  # P
     "Quinn",  # Q
     "Rachel",  # R
-    "Sarah",  # S
+    "Samantha",  # S
     "Tonie",  # T
     "Ursula",  # U
     "Valerie",  # V
@@ -46,16 +46,16 @@ male_names = [
     "Harrison",  # H
     "Isaac",  # I
     "Jerome",  # J
-    "Ken",  # K
+    "Krzysztof ",  # K
     "Liam",  # L
-    "Mason",  # M
+    "Mateo ",  # M
     "Noah",  # N
     "Owen",  # O
-    "Patrick",  # P
+    "Paul",  # P
     "Quentin",  # Q
     "Rodney",  # R
     "Samuel",  # S
-    "Theodore",  # T
+    "Tommaso",  # T
     "Uriah",  # U
     "Vincent",  # V
     "Wyatt",  # W
@@ -65,48 +65,35 @@ male_names = [
 ]
 
 surnames = [
-    'Johnson', 'McDonald', 'Stewart', 'Miller', 'Lucas', 'Taylor', 'Nichols', 'Askin', 'Barr', 'Garcia'
+    'Johnson', 'McDonald', 'Stewart', 'Miller', 'Lucas', 'Taylor', 'Nichols', 'Askin', 'Barr',
+    'Garcia'
 ]
 
-malePtr = 0
-femalePtr = 0
-surnamePtr = 0
+import random
 
 
 def getNextMale():
-    global malePtr
-    s = male_names[malePtr]
-    malePtr += 1
-    l = len(male_names)
-    if malePtr >= l:
-        malePtr = 0
+    ln = len(male_names) - 1
+    ptr = random.randint(0, ln)
+    s = male_names[ptr]
     return s
 
 
 def getNextFemale():
-    global femalePtr
-    s = female_names[femalePtr]
-    femalePtr += 1
-    l = len(female_names)
-    if femalePtr >= l:
-        femalePtr = 0
+    ln = len(female_names) - 1
+    ptr = random.randint(0, ln)
+    s = female_names[ptr]
     return s
 
 
 def getNextSurname():
-    global surnamePtr
-    s = surnames[surnamePtr]
-    surnamePtr += 1
-    l = len(surnames)
-    if surnamePtr >= l:
-        surnamePtr = 0
+    ln = len(surnames) - 1
+    ptr = random.randint(0, ln)
+    s = surnames[ptr]
     return s
 
 
 if __name__ == '__main__':
-    surnamePtr = 0
-    femalePtr = 0
-    malePtr = 0
 
     for i in range(0, 36):
         print(f"{getNextMale()} {getNextFemale()} {getNextSurname()}")

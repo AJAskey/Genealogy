@@ -201,88 +201,79 @@ def run_overlay_v3(logger):
                )
           )"""
 
-    match_db_path = os.path.join(BASE_DATA_DIR, "DemographicMatches.db")
+    match_db_path = os.path.join(BASE_DATA_DIR, "DemographicMatches2.db")
     con.execute(f"ATTACH '{match_db_path}' AS match_db")
 
-    for decade in range(1850, 1960, 10):
-        db_path = os.path.join(YEARLY_VAULT_DIR, f"YearVault_{decade}.db")
-        if not os.path.exists(db_path):
-            continue
+    logger.info(f"\n=======================================================")
+    logger.info(f"PHASE 1: ONE-SHOT DEMOGRAPHIC CROSS-REFERENCE (ALL DECADES)")
+    logger.info(f"=======================================================")
 
-        logger.info(f"\n=======================================================")
-        logger.info(f"Processing {decade} Census Vault")
-        logger.info(f"=======================================================")
+    con.execute(
+        "CREATE TEMP TABLE couple_members AS SELECT head_histid AS histid FROM match_db.tm_families UNION SELECT spouse_histid AS histid FROM match_db.tm_families WHERE spouse_histid IS NOT NULL")
 
-        con.execute(f"ATTACH '{db_path}' AS vault")
+    con.execute(f"""
+        CREATE TEMP TABLE relevant_individuals AS
+        WITH parsed_inds AS (
+            SELECT i.*,
+                   TRY_CAST(i.birthyr AS INTEGER) AS birthyr_int,
+                   CASE WHEN TRY_CAST(i.bpld AS INTEGER) >= 1000 THEN TRY_CAST(i.bpld AS INTEGER) // 100 ELSE TRY_CAST(i.bpld AS INTEGER) END AS base_bpl,
+                   CASE WHEN TRY_CAST(i.fbpl AS INTEGER) >= 1000 THEN TRY_CAST(i.fbpl AS INTEGER) // 100 ELSE TRY_CAST(i.fbpl AS INTEGER) END AS base_fbpl,
+                   CASE WHEN TRY_CAST(i.mbpl AS INTEGER) >= 1000 THEN TRY_CAST(i.mbpl AS INTEGER) // 100 ELSE TRY_CAST(i.mbpl AS INTEGER) END AS base_mbpl
+            FROM match_db.tm_individuals i
+            JOIN couple_members cm ON i.histid = cm.histid
+            WHERE i.bpld IS NOT NULL AND i.bpld != ''
+        )
+        SELECT * FROM parsed_inds
+        WHERE 1=1 
+          {bpl_filter_sql}
+          {parent_filter_sql};
+    """)
 
-        con.execute(
-            "CREATE TEMP TABLE couple_members AS SELECT head_histid AS histid FROM vault.families UNION SELECT spouse_histid AS histid FROM vault.families WHERE spouse_histid IS NOT NULL")
+    live_count = con.execute("SELECT COUNT(*) FROM relevant_individuals").fetchone()[0]
+    logger.info(f"  -> Extracted {live_count:,} relevant individuals from the Time Machine DB.")
 
-        con.execute(f"""
-            CREATE TEMP TABLE relevant_individuals AS
-            WITH parsed_inds AS (
-                SELECT i.*,
-                       TRY_CAST(i.birthyr AS INTEGER) AS birthyr_int,
-                       CASE WHEN TRY_CAST(i.bpld AS INTEGER) >= 1000 THEN TRY_CAST(i.bpld AS INTEGER) // 100 ELSE TRY_CAST(i.bpld AS INTEGER) END AS base_bpl,
-                       CASE WHEN TRY_CAST(i.fbpl AS INTEGER) >= 1000 THEN TRY_CAST(i.fbpl AS INTEGER) // 100 ELSE TRY_CAST(i.fbpl AS INTEGER) END AS base_fbpl,
-                       CASE WHEN TRY_CAST(i.mbpl AS INTEGER) >= 1000 THEN TRY_CAST(i.mbpl AS INTEGER) // 100 ELSE TRY_CAST(i.mbpl AS INTEGER) END AS base_mbpl
-                FROM vault.individuals i
-                JOIN couple_members cm ON i.histid = cm.histid
-                WHERE i.bpld IS NOT NULL AND i.bpld != ''
+    all_matches = con.execute(f"""
+        SELECT 
+            t.idx, f.family_id, c.clan_id, f.year,
+            t.h_first AS h_first_gedcom, h.first_name AS h_first_db,
+            t.h_last  AS h_last_gedcom,  h.last_name  AS h_last_db,
+            t.w_first AS w_first_gedcom, s.first_name AS w_first_db,
+            t.w_last  AS w_last_gedcom,  s.last_name  AS w_last_db,
+            t.h_byr   AS h_byr_gedcom,   h.birthyr_int AS h_byr_db,
+            t.w_byr   AS w_byr_gedcom,   s.birthyr_int AS w_byr_db,
+            t.h_bpl   AS h_bpl_gedcom,   h.bpld       AS h_bpl_db,
+            t.w_bpl   AS w_bpl_gedcom,   s.bpld       AS w_bpl_db,
+            t.h_fbpl  AS h_fbpl_gedcom,  h.fbpl       AS h_fbpl_db,
+            t.h_mbpl  AS h_mbpl_gedcom,  h.mbpl       AS h_mbpl_db,
+            t.w_fbpl  AS w_fbpl_gedcom,  s.fbpl       AS w_fbpl_db,
+            t.w_mbpl  AS w_mbpl_gedcom,  s.mbpl       AS w_mbpl_db,
+            t.kid_fingerprint, 0 AS db_kid_fingerprint,
+            f.countyicp, f.stateicp
+        FROM match_db.tm_families f
+        JOIN relevant_individuals h ON f.head_histid = h.histid
+        JOIN relevant_individuals s ON f.spouse_histid = s.histid
+        LEFT JOIN match_db.clan_mapping c ON f.family_id = c.family_id
+        JOIN targets t
+            ON h.base_bpl = t.h_bpl 
+            AND s.base_bpl = t.w_bpl
+            AND h.sex = '1' AND s.sex = '2'
+            {kid_match_condition_sql}
+            AND h.birthyr_int BETWEEN t.h_byr - {YEAR_WINDOW} AND t.h_byr + {YEAR_WINDOW}
+            AND s.birthyr_int BETWEEN t.w_byr - {YEAR_WINDOW} AND t.w_byr + {YEAR_WINDOW}
+            AND (TRY_CAST(f.year AS INTEGER) IN (1850, 1860, 1870) OR 
+                 (
+                    (t.h_fbpl = 0 OR h.fbpl IS NULL OR h.fbpl = '' OR h.fbpl = '0' OR h.base_fbpl = t.h_fbpl)
+                    AND (t.h_mbpl = 0 OR h.mbpl IS NULL OR h.mbpl = '' OR h.mbpl = '0' OR h.base_mbpl = t.h_mbpl)
+                    AND (t.w_fbpl = 0 OR s.fbpl IS NULL OR s.fbpl = '' OR s.fbpl = '0' OR s.base_fbpl = t.w_fbpl)
+                    AND (t.w_mbpl = 0 OR s.mbpl IS NULL OR s.mbpl = '' OR s.mbpl = '0' OR s.base_mbpl = t.w_mbpl)
+                 )
             )
-            SELECT * FROM parsed_inds
-            WHERE 1=1 
-              {bpl_filter_sql}
-              {parent_filter_sql};
-        """)
+    """).fetchall()
 
-        live_count = con.execute("SELECT COUNT(*) FROM relevant_individuals").fetchone()[0]
-        logger.info(f"  -> Dead Weight dropped! Only {live_count:,} relevant individuals remain in RAM.")
+    logger.info(f"  -> SUCCESS: Found {len(all_matches)} mathematically proven candidates across all decades!")
 
-        matches = con.execute(f"""
-            SELECT 
-                t.idx, f.family_id, c.clan_id, f.year,
-                t.h_first AS h_first_gedcom, h.first_name AS h_first_db,
-                t.h_last  AS h_last_gedcom,  h.last_name  AS h_last_db,
-                t.w_first AS w_first_gedcom, s.first_name AS w_first_db,
-                t.w_last  AS w_last_gedcom,  s.last_name  AS w_last_db,
-                t.h_byr   AS h_byr_gedcom,   h.birthyr_int AS h_byr_db,
-                t.w_byr   AS w_byr_gedcom,   s.birthyr_int AS w_byr_db,
-                t.h_bpl   AS h_bpl_gedcom,   h.bpld       AS h_bpl_db,
-                t.w_bpl   AS w_bpl_gedcom,   s.bpld       AS w_bpl_db,
-                t.h_fbpl  AS h_fbpl_gedcom,  h.fbpl       AS h_fbpl_db,
-                t.h_mbpl  AS h_mbpl_gedcom,  h.mbpl       AS h_mbpl_db,
-                t.w_fbpl  AS w_fbpl_gedcom,  s.fbpl       AS w_fbpl_db,
-                t.w_mbpl  AS w_mbpl_gedcom,  s.mbpl       AS w_mbpl_db,
-                t.kid_fingerprint, 0 AS db_kid_fingerprint,
-                f.countyicp, f.stateicp
-            FROM vault.families f
-            JOIN relevant_individuals h ON f.head_histid = h.histid
-            JOIN relevant_individuals s ON f.spouse_histid = s.histid
-            LEFT JOIN match_db.clan_mapping c ON f.family_id = c.family_id
-            JOIN targets t
-                ON h.base_bpl = t.h_bpl 
-                AND s.base_bpl = t.w_bpl
-                AND h.sex = '1' AND s.sex = '2'
-                {kid_match_condition_sql}
-                AND h.birthyr_int BETWEEN t.h_byr - {YEAR_WINDOW} AND t.h_byr + {YEAR_WINDOW}
-                AND s.birthyr_int BETWEEN t.w_byr - {YEAR_WINDOW} AND t.w_byr + {YEAR_WINDOW}
-                AND (TRY_CAST(f.year AS INTEGER) IN (1850, 1860, 1870) OR 
-                     (
-                        (t.h_fbpl = 0 OR h.fbpl IS NULL OR h.fbpl = '' OR h.fbpl = '0' OR h.base_fbpl = t.h_fbpl)
-                        AND (t.h_mbpl = 0 OR h.mbpl IS NULL OR h.mbpl = '' OR h.mbpl = '0' OR h.base_mbpl = t.h_mbpl)
-                        AND (t.w_fbpl = 0 OR s.fbpl IS NULL OR s.fbpl = '' OR s.fbpl = '0' OR s.base_fbpl = t.w_fbpl)
-                        AND (t.w_mbpl = 0 OR s.mbpl IS NULL OR s.mbpl = '' OR s.mbpl = '0' OR s.base_mbpl = t.w_mbpl)
-                     )
-                )
-        """).fetchall()
-
-        logger.info(f"  -> SUCCESS: Found {len(matches)} mathematically proven candidates!")
-        all_matches.extend(matches)
-
-        con.execute("DROP TABLE relevant_individuals")
-        con.execute("DROP TABLE couple_members")
-        con.execute("DETACH vault")
+    con.execute("DROP TABLE relevant_individuals")
+    con.execute("DROP TABLE couple_members")
 
     if all_matches:
         logger.info(f"\n=======================================================")

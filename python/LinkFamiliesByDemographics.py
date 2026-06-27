@@ -1,481 +1,521 @@
 """
 -----------------------------------
 File: LinkFamiliesByDemographics.py
-
-Summary: "THE TIME MACHINE" - Blind Demographic Linking Engine
-
-         THE GOAL: 
-         To mathematically prove that a nameless family living in 1880 is the 
-         exact same family living in 1900, 1910, or 1920, without ever looking at 
-         their names. Names change, get misspelled, or are transcribed poorly. 
-         Core biological demographics do not.
-
-         WHAT IT IS DOING:
-         1. Extracts a 10-variable "Demographic Fingerprint" (Sex, Birth Year, 
-            Birthplace, Father's BPL, Mother's BPL for both Husband and Wife) 
-            for every family across a century of census data.
-         2. Uses DuckDB to perform massive, cross-decade Cartesian joins, finding 
-            identical demographic fingerprints across time.
-         3. Enforces the "Highlander Rule" to discard any ambiguous matches 
-            (e.g., if one 1870 fingerprint matches two 1880 fingerprints, both 
-            are discarded). Only mathematically certain, 1-to-1 links survive.
-         4. Employs Graph Theory (Depth First Search) to stitch these individual 
-            decade-to-decade links into continuous, multi-generational timelines 
-            called "Clans".
-
-         EXPECTED OUTPUT:
-         A definitive `DemographicMatches.db` database containing a `clan_mapping` 
-         table. This master key assigns a single, persistent `CLAN_ID` to multiple 
-         `family_id`s across different decades, permanently linking them together 
-         in time, ready for names to be overlaid onto their timelines.
+Summary: The V3 Time Machine Builder.
+         Connects to all yearly census vaults, uses GEDCOM JSON targets
+         to extract only relevant candidate families (Target-Driven),
+         groups them into Clans, stitches child/adult records together,
+         and consolidates all relevant data into a single Time Machine DB.
 
 Architect & Designer: Andy Askey
-Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+Coders (AI Assistants): Google Gemini, Anthropic Claude
 
-License: Apache License 2.0: http://www.apache.org/licenses/LICENSE-2.0
-
-GitHub Open Source Project: https://github.com/AJAskey/Genealogy
-
+License: Apache License 2.0
 -----------------------------------
 """
-
-import os
-import sqlite3
-import sys
-import time
-
 import duckdb
+import os
+import sys
+import json
+import csv
+from collections import defaultdict, deque
 
-# Add the 'python' directory and project root to sys.path so we can import properly
-script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(script_dir, '..'))
-for p in [script_dir, project_root]:
-    if p not in sys.path:
-        sys.path.append(p)
+# Add the 'python' directory and project root to sys.path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+python_dir = os.path.join(project_root, 'python')
+if python_dir not in sys.path:
+    sys.path.insert(0, python_dir)
 
 from utils import gen_logging
 
-# ==============================================================================  
+# ==============================================================================
 # CONFIGURATION
 # ==============================================================================
-SAMPLE_MODE = False
-SAMPLE_DB_NAME = "CENSUS-SAMPLE.db"
-
 if os.name == 'nt':
     BASE_DATA_DIR = r"D:\Data\Genealogy_Data"
 else:
     BASE_DATA_DIR = os.path.expanduser("~/Genealogy_Data")
 
-VAULT_DIR = os.path.join(BASE_DATA_DIR, "YearlyVaults")
+YEARLY_VAULT_DIR = os.path.join(BASE_DATA_DIR, "YearlyVaults")
+MATCH_DB_PATH = os.path.join(BASE_DATA_DIR, "DemographicMatches.db")
+JSON_PATH = os.path.join(project_root, "JSON", "gedcom_couples.json")
+DEBUG_SURNAME = None  # "BOSSELSTINK"  # Set to your anonymized surname for the debug dump!
 
-if SAMPLE_MODE:
-    MATCH_DB = os.path.join(BASE_DATA_DIR, "DemographicMatches_SAMPLE.db")
-else:
-    MATCH_DB = os.path.join(BASE_DATA_DIR, "DemographicMatches2.db")
+NAME_TO_BPL = {
+    "ALABAMA": 1, "ALASKA": 2, "ARIZONA": 4, "ARKANSAS": 5, "CALIFORNIA": 6,
+    "COLORADO": 8, "CONNECTICUT": 9, "DELAWARE": 10, "DISTRICT OF COLUMBIA": 11,
+    "FLORIDA": 12, "GEORGIA": 13, "HAWAII": 15, "IDAHO": 16, "ILLINOIS": 17,
+    "INDIANA": 18, "IOWA": 19, "KANSAS": 20, "KENTUCKY": 21, "LOUISIANA": 22,
+    "MAINE": 23, "MARYLAND": 24, "MASSACHUSETTS": 25, "MICHIGAN": 26,
+    "MINNESOTA": 27, "MISSISSIPPI": 28, "MISSOURI": 29, "MONTANA": 30,
+    "NEBRASKA": 31, "NEVADA": 32, "NEW HAMPSHIRE": 33, "NEW JERSEY": 34,
+    "NEW MEXICO": 35, "NEW YORK": 36, "NORTH CAROLINA": 37, "NORTH DAKOTA": 38,
+    "OHIO": 39, "OKLAHOMA": 40, "OREGON": 41, "PENNSYLVANIA": 42,
+    "RHODE ISLAND": 44, "SOUTH CAROLINA": 45, "SOUTH DAKOTA": 46, "TENNESSEE": 47,
+    "TEXAS": 48, "UTAH": 49, "VERMONT": 50, "VIRGINIA": 51, "WASHINGTON": 53,
+    "WEST VIRGINIA": 54, "WISCONSIN": 55, "WYOMING": 56,
+    "CANADA": 150, "MEXICO": 200, "DENMARK": 400, "NORWAY": 401, "SWEDEN": 404,
+    "ENGLAND": 410, "WALES": 411, "SCOTLAND": 412, "NORTHERN IRELAND": 413, "IRELAND": 414,
+    "FRANCE": 421, "NETHERLANDS": 425, "SWITZERLAND": 426, "GERMANY": 453,
+    "JAPAN": 501, "SOUTH Korea": 502
+}
 
 
-def link_households_across_decades(logger):
-    logger.info("Initializing DuckDB... Finding demographic household matches across ALL consecutive decades.")
-
-    # DECISION: Remove the automatic deletion of MATCH_DB so we can RESUME if the computer reboots.
-    # We will now create tables IF THEY DON'T EXIST and track our progress.
+def get_base_code(code_str):
+    if not code_str: return 0
     try:
-        if os.path.exists(MATCH_DB):
-            with open(MATCH_DB, 'a'):
-                pass
-    except PermissionError:
-        logger.warning(f"CRITICAL: {MATCH_DB} is locked by another program (likely a DB Viewer).")
-        logger.warning("Please close any applications using this database and try again.")
-        return
+        val = int(float(code_str))
+        return val // 100 if val >= 1000 else val
+    except (ValueError, TypeError):
+        clean_str = str(code_str).strip().upper()
+        if clean_str in NAME_TO_BPL:
+            return NAME_TO_BPL[clean_str]
+        return 0
 
-    # DECISION: We use DuckDB here instead of standard SQLite because DuckDB is an OLAP 
-    # (Online Analytical Processing) engine. It is specifically designed to perform massive, 
-    # memory-intensive Cartesian joins across millions of rows in seconds.
-    con = duckdb.connect()
-    con.execute("PRAGMA memory_limit='32GB'")
 
-    # Route DuckDB temp files to the data drive to prevent E: drive thrashing
-    duckdb_tmp_dir = os.path.join(BASE_DATA_DIR, "duckdb_tmp")
-    os.makedirs(duckdb_tmp_dir, exist_ok=True)
-    con.execute(f"PRAGMA temp_directory='{duckdb_tmp_dir}'")
+# ==============================================================================
 
-    con.execute("INSTALL sqlite; LOAD sqlite;")
-    con.execute("SET sqlite_all_varchar=true;")
+def step_1_attach_databases(con, logger):
+    """Attaches all yearly SQLite vaults to the in-memory DuckDB instance."""
+    logger.info("STEP 1: ATTACHING ALL YEARLY VAULTS...")
+    con.execute("INSTALL sqlite; LOAD sqlite; SET sqlite_all_varchar=true;")
 
-    logger.info("Attaching Vaults...")
-    con.execute(f"ATTACH '{MATCH_DB}' AS match_db (TYPE SQLITE);")
+    attached_dbs = 0
+    for year in range(1850, 1960, 10):
+        db_path = os.path.join(YEARLY_VAULT_DIR, f"YearVault_{year}.db")
+        if os.path.exists(db_path):
+            con.execute(f"ATTACH '{db_path}' AS vault_{year} (TYPE SQLITE, READ_ONLY);")
+            logger.info(f"  -> Attached YearVault_{year}.db")
+            attached_dbs += 1
 
-    if SAMPLE_MODE:
-        logger.info("SAMPLE MODE: Clearing previous match data so we start fresh...")
-        con.execute("DROP TABLE IF EXISTS match_db.completed_chunks;")
-        con.execute("DROP TABLE IF EXISTS match_db.household_links;")
-        con.execute("DROP TABLE IF EXISTS match_db.clan_mapping;")
+    if attached_dbs == 0:
+        logger.error("CRITICAL: No YearlyVault databases were found. Aborting.")
+        sys.exit(1)
+    logger.info("  -> Step 1 complete. All available vaults are connected.")
 
-    logger.info("Step 1/3: Extracting Head and Spouse Demographics...")
-    # ==================================================================================================
-    #  STEP 1: THE DEMOGRAPHIC FINGERPRINT EXTRACTION
-    # --------------------------------------------------------------------------------------------------
-    #  PLAN: To link families across decades, we first need to define what makes a family unique.
-    #        We are using a "demographic fingerprint" composed of 10 key variables for the
-    #        husband and wife: Sex, Birth Year, Birth Place, Father's Birth Place, and Mother's
-    #        Birth Place. The statistical probability of two different couples in the same
-    #        region sharing this exact 10-variable signature is practically zero.
-    #
-    #  PROCESS: Instead of joining the massive, multi-gigabyte YearVault databases directly,
-    #           we first create a temporary, in-memory table called `hh_features`. We then iterate
-    #           through each YearVault and extract ONLY these 10 key variables (plus HISTIDs and
-    #           family IDs) into this lean, optimized table. This dramatically speeds up the
-    #           main linking query in Step 2 by allowing DuckDB to work with a much smaller,
-    #           more focused dataset in memory. We also filter for families that have children,
-    #           as childless couples are too demographically ambiguous to link with high confidence.
-    # ==================================================================================================
-    step1_start = time.time()
+
+def step_2_target_driven_extraction(con, logger):
+    """
+    Uses the JSON targets as a strict filter to extract ONLY relevant families
+    from the 590 million census rows, preventing RAM Out-Of-Memory crashes!
+    """
+    logger.info("\n=====================================================================")
+    logger.info("STEP 2: TARGET-DRIVEN EXTRACTION (PULLING RELEVANT DATA INTO RAM)...")
+    logger.info("=====================================================================")
+
+    if not os.path.exists(JSON_PATH):
+        logger.error(f"CRITICAL: Cannot find JSON file at {JSON_PATH}. Aborting.")
+        sys.exit(1)
+
+    with open(JSON_PATH, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    con.execute(
+        "CREATE TEMP TABLE mem_targets (h_byr_min INTEGER, h_byr_max INTEGER, h_bpl INTEGER, w_byr_min INTEGER, w_byr_max INTEGER, w_bpl INTEGER)")
+
+    targets_inserted = 0
+    for couple in data:
+        h_byr = couple.get('h_byr')
+        w_byr = couple.get('w_byr')
+        if not h_byr or not w_byr or not str(h_byr).isnumeric() or not str(w_byr).isnumeric():
+            continue
+
+        h_bpl = get_base_code(couple.get('h_bpl'))
+        w_bpl = get_base_code(couple.get('w_bpl'))
+        h_fbpl = get_base_code(couple.get('h_fbpl'))
+        h_mbpl = get_base_code(couple.get('h_mbpl'))
+        w_fbpl = get_base_code(couple.get('w_fbpl'))
+        w_mbpl = get_base_code(couple.get('w_mbpl'))
+
+        # Skip couples missing required parent BPLs to enforce strict rules
+        if 0 in (h_bpl, w_bpl, h_fbpl, h_mbpl, w_fbpl, w_mbpl):
+            continue
+
+        h_byr_int = int(h_byr)
+        w_byr_int = int(w_byr)
+
+        # Insert target with a +/- 5 year age drift window
+        con.execute("INSERT INTO mem_targets VALUES (?, ?, ?, ?, ?, ?)",
+                    (h_byr_int - 5, h_byr_int + 5, h_bpl, w_byr_int - 5, w_byr_int + 5, w_bpl))
+        targets_inserted += 1
+
+    logger.info(f"  -> Loaded {targets_inserted:,} fully-documented target couples into RAM filter.")
+
+    con.execute("""
+        CREATE TEMP TABLE all_individuals AS 
+        SELECT histid, family_id, first_name, last_name, sex, birthyr, bpld, fbpl, mbpl 
+        FROM vault_1850.individuals WHERE 1=0;
+    """)
+    con.execute("""
+        CREATE TEMP TABLE all_families AS 
+        SELECT family_id, head_histid, spouse_histid 
+        FROM vault_1850.families WHERE 1=0;
+    """)
+
+    for year in range(1850, 1960, 10):
+        if not con.execute(f"SELECT 1 FROM duckdb_databases() WHERE database_name = 'vault_{year}'").fetchone():
+            continue
+
+        # Force a sequential bulk-read into DuckDB RAM to completely bypass slow SQLite index lookups
+        con.execute(f"""
+            CREATE TEMP TABLE local_fams AS SELECT family_id, head_histid, spouse_histid FROM vault_{year}.families;
+            CREATE TEMP TABLE local_inds AS SELECT histid, family_id, first_name, last_name, sex, birthyr, bpld, fbpl, mbpl FROM vault_{year}.individuals;
+        """)
+
+        # Extract only the families that mathematically match our target filters
+        con.execute(f"""
+            INSERT INTO all_families
+            SELECT DISTINCT f.family_id, f.head_histid, f.spouse_histid
+            FROM local_fams f
+            JOIN local_inds h ON f.head_histid = h.histid
+            JOIN local_inds s ON f.spouse_histid = s.histid
+            JOIN mem_targets t ON 
+                TRY_CAST(h.birthyr AS INTEGER) BETWEEN t.h_byr_min AND t.h_byr_max
+                AND TRY_CAST(s.birthyr AS INTEGER) BETWEEN t.w_byr_min AND t.w_byr_max
+                AND h.sex = '1' AND s.sex = '2'
+                AND (CASE WHEN TRY_CAST(h.bpld AS INTEGER) >= 1000 THEN TRY_CAST(h.bpld AS INTEGER)//100 ELSE TRY_CAST(h.bpld AS INTEGER) END) = t.h_bpl
+                AND (CASE WHEN TRY_CAST(s.bpld AS INTEGER) >= 1000 THEN TRY_CAST(s.bpld AS INTEGER)//100 ELSE TRY_CAST(s.bpld AS INTEGER) END) = t.w_bpl;
+        """)
+
+        # Pull the individuals for those matched families
+        con.execute(f"""
+            INSERT INTO all_individuals
+            SELECT i.* FROM local_inds i
+            JOIN all_families af ON i.family_id = af.family_id
+            WHERE i.family_id LIKE '{year}_%';
+        """)
+
+        # Drop the local tables to free memory for the next decade
+        con.execute("DROP TABLE local_fams;")
+        con.execute("DROP TABLE local_inds;")
+
+        count = con.execute(f"SELECT COUNT(*) FROM all_individuals WHERE family_id LIKE '{year}_%'").fetchone()[0]
+        logger.info(f"  -> Extracted {count:,} highly relevant individuals from {year}.")
+
+    total = con.execute("SELECT COUNT(*) FROM all_individuals").fetchone()[0]
+    logger.info(f"  -> Step 2 complete. Reduced processing pool down to {total:,} total individuals.")
+
+
+def step_3_identify_multi_decade_individuals(con, logger):
+    """
+    Identifies individuals who appear in more than one census decade
+    by creating a unique demographic hash for each person.
+    """
+    logger.info("\n=====================================================================")
+    logger.info("STEP 3: IDENTIFYING INDIVIDUALS ACROSS MULTIPLE DECADES...")
+    logger.info("=====================================================================")
+
+    # DECISION: We DO NOT use names in the dem_hash because they are blank/scrambled.
+    # We rely purely on Birth Year, Sex, Base BPL, and Parent BPLs to track people across decades.
     con.execute("""
                 CREATE
-                TEMP TABLE hh_features (
-            family_id VARCHAR,
-            year INTEGER,
-            head_histid VARCHAR,
-            head_sex VARCHAR,
-            head_birthyr INTEGER,
-            head_bpld VARCHAR,
-            head_fbpl VARCHAR,
-            head_mbpl VARCHAR,
-            spouse_histid VARCHAR,
-            spouse_sex VARCHAR,
-            spouse_birthyr INTEGER,
-            spouse_bpld VARCHAR,
-            spouse_fbpl VARCHAR,
-            spouse_mbpl VARCHAR
-        )
+                TEMP TABLE dem_hashes AS
+                SELECT trim(cast(birthyr as varchar)) || '|' || trim(cast(sex as varchar)) || '|' ||
+                       cast(CASE
+                                WHEN TRY_CAST(bpld AS INTEGER) >= 1000 THEN TRY_CAST(bpld AS INTEGER) // 100
+                                ELSE TRY_CAST(bpld AS INTEGER) END as varchar) || '|' ||
+                       COALESCE(cast(CASE
+                                         WHEN TRY_CAST(fbpl AS INTEGER) >= 1000 THEN TRY_CAST(fbpl AS INTEGER) // 100
+                                         ELSE TRY_CAST(fbpl AS INTEGER) END as varchar), '0') || '|' ||
+                       COALESCE(cast(CASE
+                                         WHEN TRY_CAST(mbpl AS INTEGER) >= 1000 THEN TRY_CAST(mbpl AS INTEGER) // 100
+                                         ELSE TRY_CAST(mbpl AS INTEGER) END as varchar), '0') as dem_hash,
+                       histid,
+                       family_id
+                FROM temp.all_individuals;
                 """)
 
-    decades = [1850, 1860, 1870, 1880, 1900, 1910, 1920, 1930, 1940, 1950]
-
-    if SAMPLE_MODE:
-        db_path = os.path.join(VAULT_DIR, SAMPLE_DB_NAME)
-        if os.path.exists(db_path):
-            con.execute(f"ATTACH '{db_path}' AS vault_sample (TYPE SQLITE, READ_ONLY);")
-            for year in decades:
-                logger.info(f"  -> Extracting features from {year} (SAMPLE MODE)...")
-                con.execute(f"""
-                    INSERT INTO hh_features
-                    SELECT 
-                        f.family_id, TRY_CAST(f.year AS INTEGER),
-                        h.histid, h.sex, TRY_CAST(h.birthyr AS INTEGER), h.bpld, h.fbpl, h.mbpl,
-                        s.histid, s.sex, TRY_CAST(s.birthyr AS INTEGER), s.bpld, s.fbpl, s.mbpl
-                    FROM vault_sample.families f
-                    JOIN vault_sample.individuals h ON f.head_histid = h.histid
-                    JOIN vault_sample.individuals s ON f.spouse_histid = s.histid
-                    WHERE TRY_CAST(f.year AS INTEGER) = {year}
-                      AND TRY_CAST(h.birthyr AS INTEGER) IS NOT NULL AND TRY_CAST(s.birthyr AS INTEGER) IS NOT NULL
-                      ;
-                """)
-    else:
-        for year in decades:
-            db_path = os.path.join(VAULT_DIR, f"YearVault_{year}.db")
-            if os.path.exists(db_path):
-                logger.info(f"  -> Extracting features from {year}...")
-                con.execute(f"ATTACH '{db_path}' AS vault_{year} (TYPE SQLITE, READ_ONLY);")
-                con.execute(f"""
-                    INSERT INTO hh_features
-                    SELECT 
-                        f.family_id, TRY_CAST(f.year AS INTEGER),
-                        h.histid, h.sex, TRY_CAST(h.birthyr AS INTEGER), h.bpld, h.fbpl, h.mbpl,
-                        s.histid, s.sex, TRY_CAST(s.birthyr AS INTEGER), s.bpld, s.fbpl, s.mbpl
-                    FROM vault_{year}.families f
-                    JOIN vault_{year}.individuals h ON f.head_histid = h.histid
-                    JOIN vault_{year}.individuals s ON f.spouse_histid = s.histid
-                    WHERE TRY_CAST(h.birthyr AS INTEGER) IS NOT NULL AND TRY_CAST(s.birthyr AS INTEGER) IS NOT NULL
-                      AND TRY_CAST(f.num_kids AS INTEGER) > -1;
-                """)
-
-    step1_end = time.time()
-    feature_cnt = con.execute("SELECT COUNT(*) FROM hh_features").fetchone()[0]
-    logger.info(f"  -> Extracted {feature_cnt:,} target couples in {step1_end - step1_start:.2f} seconds.")
-
-    logger.info("Step 2/3: Executing 10-Variable Nationwide Demographic Hash...")
-    # ==================================================================================================
-    #  STEP 2 & 3: THE TIME MACHINE - LINKING DECADES & ENFORCING UNIQUENESS
-    # --------------------------------------------------------------------------------------------------
-    #  PLAN: This is the core of the Time Machine. We will join the `hh_features` table against
-    #        itself to find identical demographic fingerprints across different decades. To manage
-    #        the immense scale, we use a "Divide and Conquer" strategy, comparing only two
-    #        decades at a time (e.g., 1870 vs. 1880, 1870 vs. 1900, etc.). The key is to
-    #        only accept "1-to-1" matches. If a family from 1870 matches two families in 1880,
-    #        it's an ambiguous "clone" and we discard it. Likewise, if two families from 1870
-    #        match the same family in 1880, we also discard it. Only perfect, unambiguous
-    #        links are saved.
-    #
-    #  PROCESS:
-    #    1. LOOP STRATEGY: We loop through each possible pair of decades, separated by gaps of
-    #       10, 20, and 30 years. This allows us to bridge the 1890 census gap.
-    #    2. THE 10-VARIABLE HASH JOIN: For each pair of years (e.g., y1 and y2), we perform a
-    #       JOIN where the 10 fingerprint variables are identical. We use a `TEMP TABLE`
-    #       called `raw_matches` to hold all potential links for that specific year-pair.
-    #    3. THE HIGHLANDER RULE (UNIQUENESS FILTER): "There can be only one!" We query the
-    #       `raw_matches` table to find `family_id_1` and `family_id_2` values that appear
-    #       EXACTLY ONCE. This is done with a `GROUP BY ... HAVING COUNT(*) = 1`. This
-    #       brilliantly and efficiently filters out all ambiguous "one-to-many" or
-    #       "many-to-one" matches, leaving only the mathematically certain 1-to-1 links.
-    #    4. PERSISTENCE: These unique, validated links are then inserted into a permanent
-    #       `household_links` table in the main `DemographicMatches.db` SQLite database.
-    #       A `completed_chunks` table tracks which year-pairs have been processed, allowing
-    #       the script to be stopped and resumed without losing progress.
-    # ==================================================================================================
-    step2_start = time.time()
-
-    # DECISION: We make raw_links a PERMANENT table inside our SQLite match_db so we don't lose data on reboot.
-    # We also create a progress tracker table to checkpoint our chunks.
-    # UPDATE: We filter the links IN-MEMORY per chunk, and only save the final unique winners to avoid TBs of data.
     con.execute("""
-                CREATE TABLE IF NOT EXISTS match_db.household_links
-                (
-                    family_id_1
-                    TEXT,
-                    family_id_2
-                    TEXT,
-                    year_1
-                    INTEGER,
-                    year_2
-                    INTEGER,
-                    head_histid_1
-                    TEXT,
-                    head_histid_2
-                    TEXT,
-                    spouse_histid_1
-                    TEXT,
-                    spouse_histid_2
-                    TEXT
-                );
-                CREATE TABLE IF NOT EXISTS match_db.completed_chunks
-                (
-                    base_year
-                    INTEGER,
-                    target_year
-                    INTEGER
-                );
+                CREATE
+                TEMP TABLE multi_decade_individuals AS
+                SELECT dem_hash,
+                       list(histid)    as histid_list,
+                       list(family_id) as family_id_list,
+                       count(*)        as num_appearances
+                FROM temp.dem_hashes
+                GROUP BY dem_hash
+                HAVING count(*) > 1;
+                """)
+    count = con.execute("SELECT COUNT(*) FROM multi_decade_individuals").fetchone()[0]
+    logger.info(f"  -> Found {count:,} unique demographic clusters appearing in multiple decades.")
+    logger.info("  -> Step 3 complete.")
+
+
+def step_4_build_clan_database(con, logger):
+    """
+    Builds a graph of family connections for the multi-decade individuals
+    and saves the resulting 'clans' (connected components) to the final DB.
+    """
+    logger.info("\n=====================================================================")
+    logger.info("STEP 4: BUILDING FAMILY GRAPH AND IDENTIFYING CLANS...")
+    logger.info("=====================================================================")
+
+    con.execute("""
+                CREATE
+                TEMP TABLE family_links AS
+                SELECT unnest(family_id_list) as family_id, dem_hash
+                FROM temp.multi_decade_individuals;
                 """)
 
-    # DECISION: Divide and Conquer. Instead of joining 50M rows against 50M rows dynamically,
-    # we explicitly loop through the decades. This forces the database to only compare ~5 million 
-    # records at a time, bypassing the query optimizer's "Nested Loop" death spiral.
-    # DECISION: Using gaps of 10, 20, and 30 creates overlapping, multi-hop link types. This is intentional 
-    # so we can securely bridge the massive missing data gap from the 1890 Census fire.
-    decades = [1850, 1860, 1870, 1880, 1900, 1910, 1920, 1930, 1940]
-    gaps = [10, 20, 30]
+    logger.info("  -> Extracting family links to build Python graph...")
+    links = con.execute("SELECT family_id, dem_hash FROM temp.family_links").fetchall()
 
-    for base_year in decades:
-        for gap in gaps:
-            target_year = base_year + gap
-            if target_year == 1890 or target_year > 1950:
-                continue
+    adj = defaultdict(list)
+    for fid, dhash in links:
+        adj[fid].append(dhash)
+        adj[dhash].append(fid)
 
-            # Check if we already did this chunk before the reboot
-            is_done = con.execute(
-                f"SELECT COUNT(*) FROM match_db.completed_chunks WHERE base_year = {base_year} AND target_year = {target_year}").fetchone()[
-                0]
-            if is_done > 0:
-                logger.info(f"  -> Skipping {base_year} to {target_year} (Already completed in a previous run)")
-                continue
+    visited = set()
+    clan_records = []
+    clan_id = 1
 
-            logger.info(f"  -> Comparing {base_year} to {target_year}...")
+    for node in adj.keys():
+        if node not in visited:
+            comp_nodes = []
+            queue = deque([node])
+            visited.add(node)
+            while queue:
+                curr = queue.popleft()
+                comp_nodes.append(curr)
+                for neighbor in adj[curr]:
+                    if neighbor not in visited:
+                        visited.add(neighbor)
+                        queue.append(neighbor)
 
-            # DECISION: Create the raw matches table first so we can extract debug statistics
-            # before we filter and insert the 1-to-1 winners into the permanent database.
-            # OPTIMIZATION: We completely avoid the Cartesian death-spiral by grouping families into 
-            # "Demographic Profiles" FIRST. Instead of crossing 10M rows against 10M rows, we cross 
-            # small profile buckets and multiply their counts. This turns 11-hour joins into seconds.
+            # Extract only family_ids from this component
+            for n in comp_nodes:
+                if "_" in str(n) and "|" not in str(n):
+                    clan_records.append((clan_id, n))
+            clan_id += 1
+
+    con.execute("DROP TABLE IF EXISTS main.clan_mapping;")
+    con.execute("CREATE TABLE main.clan_mapping (clan_id INTEGER, family_id TEXT);")
+
+    logger.info("  -> Writing clans back to database...")
+
+    # DuckDB's executemany is extremely slow for millions of rows.
+    # The fastest native way to bulk-insert is writing a quick temporary CSV!
+    temp_csv = os.path.join(BASE_DATA_DIR, "duckdb_temp", "temp_clans.csv").replace('\\', '/')
+    with open(temp_csv, 'w', newline='', encoding='utf-8') as f:
+        csv.writer(f).writerows(clan_records)
+
+    con.execute(f"COPY main.clan_mapping FROM '{temp_csv}' (FORMAT CSV);")
+    os.path.exists(temp_csv) and os.remove(temp_csv)
+
+    clan_count = con.execute("SELECT COUNT(DISTINCT clan_id) FROM main.clan_mapping").fetchone()[0]
+    family_count = con.execute("SELECT COUNT(*) FROM main.clan_mapping").fetchone()[0]
+    logger.info(f"  -> Identified {clan_count:,} distinct Clans containing {family_count:,} total families.")
+    logger.info(f"  -> Clan data saved to: {MATCH_DB_PATH}")
+    logger.info("  -> Step 4 complete.")
+
+
+def step_5_create_lineage_links(con, logger):
+    """
+    Finds connections between a person appearing as a child in one family
+    and as an adult (head/spouse) in another, creating lineage links.
+    """
+    logger.info("\n=====================================================================")
+    logger.info("STEP 5: STITCHING GENERATIONS (CHILD-TO-ADULT LINEAGE LINKS)...")
+    logger.info("=====================================================================")
+
+    con.execute("""
+                CREATE
+                TEMP TABLE child_profiles AS
+                SELECT c.clan_id,
+                       i.family_id,
+                       i.histid,
+                       dh.dem_hash
+                FROM temp.all_individuals i
+                         JOIN main.clan_mapping c ON i.family_id = c.family_id
+                         JOIN temp.all_families f ON i.family_id = f.family_id
+                         JOIN temp.dem_hashes dh ON i.histid = dh.histid
+                WHERE i.histid != f.head_histid AND (f.spouse_histid IS NULL OR i.histid != f.spouse_histid);
+                """)
+
+    con.execute("""
+        CREATE TEMP TABLE adult_profiles AS
+        SELECT
+            c.clan_id,
+            i.family_id,
+            i.histid,
+            dh.dem_hash
+        FROM temp.all_individuals i
+        JOIN main.clan_mapping c ON i.family_id = c.family_id
+        JOIN temp.all_families f ON i.family_id = f.family_id
+        JOIN temp.dem_hashes dh ON i.histid = dh.histid
+        WHERE i.histid = f.head_histid OR i.histid = f.spouse_histid;
+    """)
+
+    con.execute("DROP TABLE IF EXISTS main.lineage_links;")
+    con.execute("""
+        CREATE TABLE main.lineage_links AS
+        SELECT
+            c.clan_id as child_clan_id,
+            a.clan_id as adult_clan_id
+        FROM temp.child_profiles c
+        JOIN temp.adult_profiles a ON c.dem_hash = a.dem_hash
+        WHERE c.clan_id != a.clan_id
+        GROUP BY child_clan_id, adult_clan_id;
+    """)
+
+    link_count = con.execute("SELECT COUNT(*) FROM main.lineage_links").fetchone()[0]
+    logger.info(f"  -> Found and saved {link_count:,} potential inter-generational links.")
+    logger.info("  -> Step 5 complete. Inter-generational links have been stitched and saved.")
+
+
+def step_6_consolidate_data(con, logger):
+    """
+    Final Step: Copy all data for matched clans from the yearly vaults
+    into the Time Machine DB, making it a self-contained, portable database.
+    """
+    logger.info("\n=====================================================================")
+    logger.info("STEP 6: CONSOLIDATING ALL LINKED DATA INTO THE TIME MACHINE")
+    logger.info("=====================================================================")
+
+    family_ids_query = con.execute("SELECT family_id FROM main.clan_mapping")
+    if not family_ids_query:
+        logger.warning("No families found in clan_mapping. Skipping consolidation.")
+        return
+
+    family_ids = [f[0] for f in family_ids_query.fetchall()]
+    if not family_ids:
+        logger.warning("No families found in clan_mapping. Skipping consolidation.")
+        return
+
+    # Create the final tables in the Time Machine DB
+    con.execute("DROP TABLE IF EXISTS main.tm_individuals;")
+    con.execute("DROP TABLE IF EXISTS main.tm_families;")
+
+    # Need a reference schema. Check which vault is attached.
+    db_list = con.execute("SELECT database_name FROM duckdb_databases() WHERE database_name LIKE 'vault_%'").fetchall()
+    if not db_list:
+        logger.error("No yearly vaults are attached. Cannot determine schema for consolidation. Aborting Step 6.")
+        return
+
+    reference_vault = db_list[0][0]  # Use the first available vault for schema
+
+    # Fixed syntax to safely copy schema without using LIKE on attached databases
+    con.execute(f"CREATE TABLE main.tm_families AS SELECT * FROM {reference_vault}.families WHERE 1=0;")
+    con.execute(f"CREATE TABLE main.tm_individuals AS SELECT * FROM {reference_vault}.individuals WHERE 1=0;")
+
+    # Create a temporary table of all target family IDs for hyper-efficient joining
+    con.execute("CREATE TEMP TABLE temp_fids AS SELECT unnest(?) AS column0", [family_ids])
+
+    for year in range(1850, 1960, 10):
+        # Check if the vault for this year is actually attached
+        if not con.execute(f"SELECT 1 FROM duckdb_databases() WHERE database_name = 'vault_{year}'").fetchone():
+            continue
+
+        logger.info(f"  -> Extracting consolidated data from {year}...")
+
+        # Use the temp table for efficient joins
+        con.execute(f"""
+            INSERT INTO main.tm_families 
+            SELECT f.* FROM vault_{year}.families f JOIN temp_fids tf ON f.family_id = tf.column0;
+        """)
+        con.execute(f"""
+            INSERT INTO main.tm_individuals
+            SELECT i.* FROM vault_{year}.individuals i JOIN temp_fids tf ON i.family_id = tf.column0;
+        """)
+
+    logger.info("\nSUCCESS! Time Machine is now a self-contained data warehouse.")
+
+
+def step_7_debug_dump(con, logger):
+    """
+    Dumps the GEDCOM targets and all raw census data for a specific surname
+    into the Time Machine DB so you can manually inspect and debug rejections.
+    """
+    if not DEBUG_SURNAME:
+        return
+
+    logger.info("\n=====================================================================")
+    logger.info(f"STEP 7: DEBUG DUMP - SAVING GEDCOM TARGETS & '{DEBUG_SURNAME}' CENSUS DATA")
+    logger.info("=====================================================================")
+
+    con.execute("DROP TABLE IF EXISTS main.debug_individuals;")
+    con.execute("DROP TABLE IF EXISTS main.debug_families;")
+    con.execute("DROP TABLE IF EXISTS main.gedcom_targets;")
+
+    # 1. Save the JSON targets into the database
+    if os.path.exists(JSON_PATH):
+        logger.info("  -> Loading GEDCOM JSON targets into main.gedcom_targets...")
+        # Normalize path for DuckDB
+        json_path_fwd = JSON_PATH.replace('\\', '/')
+        con.execute(f"CREATE TABLE main.gedcom_targets AS SELECT * FROM read_json_auto('{json_path_fwd}');")
+        count = con.execute("SELECT COUNT(*) FROM main.gedcom_targets").fetchone()[0]
+        logger.info(f"  -> Saved {count} GEDCOM targets.")
+    else:
+        logger.warning(f"  -> JSON file not found at {JSON_PATH}. Skipping gedcom_targets.")
+
+    # 2. Extract all Census data for the target surname
+    logger.info(f"  -> Gathering all individuals with last name like '{DEBUG_SURNAME}%' from raw vaults...")
+
+    # Safely copy schema into memory temp table
+    con.execute("CREATE TEMP TABLE debug_inds_temp AS SELECT * FROM main.tm_individuals WHERE 1=0;")
+    for year in range(1850, 1960, 10):
+        if con.execute(f"SELECT 1 FROM duckdb_databases() WHERE database_name = 'vault_{year}'").fetchone():
+            con.execute(
+                f"INSERT INTO debug_inds_temp SELECT * FROM vault_{year}.individuals WHERE upper(last_name) LIKE upper('{DEBUG_SURNAME}%');")
+
+    con.execute("CREATE TABLE main.debug_individuals AS SELECT * FROM debug_inds_temp;")
+
+    logger.info("  -> Gathering their full households...")
+    con.execute("CREATE TEMP TABLE debug_fams_temp AS SELECT * FROM main.tm_families WHERE 1=0;")
+    for year in range(1850, 1960, 10):
+        if con.execute(f"SELECT 1 FROM duckdb_databases() WHERE database_name = 'vault_{year}'").fetchone():
+            con.execute(
+                f"INSERT INTO debug_fams_temp SELECT * FROM vault_{year}.families WHERE family_id IN (SELECT family_id FROM main.debug_individuals);")
+
+    con.execute("CREATE TABLE main.debug_families AS SELECT * FROM debug_fams_temp;")
+
+    # Now pull the rest of the household members who might have different last names
+    for year in range(1850, 1960, 10):
+        if con.execute(f"SELECT 1 FROM duckdb_databases() WHERE database_name = 'vault_{year}'").fetchone():
             con.execute(f"""
-                CREATE TEMP TABLE raw_matches AS 
-                WITH y1_profiles AS (
-                    SELECT head_sex, spouse_sex, head_bpld, spouse_bpld, head_birthyr, spouse_birthyr, 
-                           head_fbpl, head_mbpl, spouse_fbpl, spouse_mbpl, 
-                           COUNT(*) as c1, 
-                           MIN(family_id) as family_id_1,
-                           MIN(head_histid) as head_histid_1,
-                           MIN(spouse_histid) as spouse_histid_1
-                    FROM hh_features 
-                    WHERE year = {base_year}
-                    GROUP BY head_sex, spouse_sex, head_bpld, spouse_bpld, head_birthyr, spouse_birthyr, 
-                             head_fbpl, head_mbpl, spouse_fbpl, spouse_mbpl
-                ),
-                y2_profiles AS (
-                    SELECT head_sex, spouse_sex, head_bpld, spouse_bpld, head_birthyr, spouse_birthyr, 
-                           head_fbpl, head_mbpl, spouse_fbpl, spouse_mbpl, 
-                           COUNT(*) as c2, 
-                           MIN(family_id) as family_id_2,
-                           MIN(head_histid) as head_histid_2,
-                           MIN(spouse_histid) as spouse_histid_2
-                    FROM hh_features 
-                    WHERE year = {target_year}
-                    GROUP BY head_sex, spouse_sex, head_bpld, spouse_bpld, head_birthyr, spouse_birthyr, 
-                             head_fbpl, head_mbpl, spouse_fbpl, spouse_mbpl
-                ),
-                profile_matches AS (
-                    SELECT 
-                        p1.family_id_1, p2.family_id_2,
-                        {base_year} AS year_1, {target_year} AS year_2,
-                        p1.head_histid_1, p2.head_histid_2,
-                        p1.spouse_histid_1, p2.spouse_histid_2,
-                        p1.c1, p2.c2
-                    FROM y1_profiles p1
-                    JOIN y2_profiles p2
-                      ON p1.head_sex = p2.head_sex
-                     AND p1.spouse_sex = p2.spouse_sex
-                     AND p1.head_bpld = p2.head_bpld
-                     AND p1.spouse_bpld = p2.spouse_bpld
-                     AND p1.head_birthyr = p2.head_birthyr
-                     AND p1.spouse_birthyr = p2.spouse_birthyr
-                         WHERE (p1.head_fbpl = p2.head_fbpl OR p1.head_fbpl IS NULL OR p2.head_fbpl IS NULL OR p1.head_fbpl = '' OR p2.head_fbpl = '')
-                           AND (p1.head_mbpl = p2.head_mbpl OR p1.head_mbpl IS NULL OR p2.head_mbpl IS NULL OR p1.head_mbpl = '' OR p2.head_mbpl = '')
-                           AND (p1.spouse_fbpl = p2.spouse_fbpl OR p1.spouse_fbpl IS NULL OR p2.spouse_fbpl IS NULL OR p1.spouse_fbpl = '' OR p2.spouse_fbpl = '')
-                           AND (p1.spouse_mbpl = p2.spouse_mbpl OR p1.spouse_mbpl IS NULL OR p2.spouse_mbpl IS NULL OR p1.spouse_mbpl = '' OR p2.spouse_mbpl = '')
-                )
-                SELECT * FROM profile_matches;
+                INSERT INTO main.debug_individuals
+                SELECT i.* FROM vault_{year}.individuals i
+                JOIN main.debug_families f ON i.family_id = f.family_id
+                WHERE i.histid NOT IN (SELECT histid FROM main.debug_individuals);
             """)
 
-            # TELEMETRY: Calculate how many matches were rejected due to ambiguity
-            raw_count = \
-            con.execute("SELECT COALESCE(SUM(CAST(c1 AS BIGINT) * CAST(c2 AS BIGINT)), 0) FROM raw_matches").fetchone()[
-                0]
+    total_inds = con.execute("SELECT COUNT(*) FROM main.debug_individuals").fetchone()[0]
+    logger.info(f"  -> Added household members. Total debug individuals saved: {total_inds:,}.")
+    logger.info("  -> DEBUG DUMP COMPLETE! Open DemographicMatches.db to view the data.")
 
-            con.execute(f"""
-                INSERT INTO match_db.household_links
-                SELECT family_id_1, family_id_2, 
-                       year_1, year_2,
-                       head_histid_1, head_histid_2,
-                       spouse_histid_1, spouse_histid_2
-                FROM raw_matches r1
-                WHERE family_id_1 IN (
-                    SELECT family_id_1 FROM raw_matches GROUP BY family_id_1 HAVING SUM(c2) = 1
-                )
-                AND family_id_2 IN (
-                    SELECT family_id_2 FROM raw_matches GROUP BY family_id_2 HAVING SUM(c1) = 1
-                );
-            """)
 
-            inserted_cnt = con.execute(
-                f"SELECT COUNT(*) FROM match_db.household_links WHERE year_1={base_year} AND year_2={target_year}").fetchone()[
-                0]
-            rejected_cnt = raw_count - inserted_cnt
-            logger.info(
-                f"     -> Linked {inserted_cnt:,} families. (Rejected {rejected_cnt:,} due to duplicate collisions)")
+def main():
+    logger = gen_logging.setup_logging('DemographicLinker')
+    logger.info("=====================================================================")
+    logger.info("  V3 TIME MACHINE BUILDER - LINKING FAMILIES BY DEMOGRAPHICS")
+    logger.info("=====================================================================")
 
-            # TELEMETRY: Log a tiny sample of the matches so the human can see what is happening!
-            samples = con.execute(
-                f"SELECT family_id_1, family_id_2 FROM match_db.household_links WHERE year_1={base_year} AND year_2={target_year} LIMIT 3").fetchall()
-            for s1, s2 in samples:
-                logger.info(f"       [EXAMPLE] {s1} <---> {s2}")
+    if os.path.exists(MATCH_DB_PATH):
+        os.remove(MATCH_DB_PATH)
+        logger.info(f"Removed old Match DB: {MATCH_DB_PATH}")
 
-            con.execute("DROP TABLE raw_matches")
+    con = duckdb.connect(database=MATCH_DB_PATH, read_only=False)
+    con.execute("PRAGMA memory_limit='32GB';")
 
-            # Mark chunk as complete
-            con.execute(f"INSERT INTO match_db.completed_chunks VALUES ({base_year}, {target_year})")
+    # Allow DuckDB to spill to disk if memory is exceeded
+    temp_dir = os.path.join(BASE_DATA_DIR, "duckdb_temp")
+    os.makedirs(temp_dir, exist_ok=True)
+    temp_dir_fwd = temp_dir.replace('\\', '/')
+    con.execute(f"PRAGMA temp_directory='{temp_dir_fwd}';")
+    con.execute("SET preserve_insertion_order=false;")
 
-    step2_end = time.time()
-    logger.info(f"  -> Step 2 completed in {step2_end - step2_start:.2f} seconds.")
-
-    logger.info("Step 3/3: Enforcing Unique 1-to-1 Mathematical Matches...")
-    # DECISION: Because we now filter IN-MEMORY during Step 2, Step 3 is instantaneous!
-    logger.info("  -> Uniqueness was successfully enforced chunk-by-chunk in memory!")
-
-    match_count = con.execute("SELECT COUNT(*) FROM match_db.household_links").fetchone()[0]
-    logger.info(f"SUCCESS! Found {match_count:,} perfect multi-decade matches.")
+    step_1_attach_databases(con, logger)
+    step_2_target_driven_extraction(con, logger)
+    step_3_identify_multi_decade_individuals(con, logger)
+    step_4_build_clan_database(con, logger)
+    step_5_create_lineage_links(con, logger)
+    step_6_consolidate_data(con, logger)
 
     con.close()
-
-    # --------------------------------------------------------------------------
-    # Step 4: Build the Clans
-    # --------------------------------------------------------------------------
-    # ==================================================================================================
-    #  STEP 4: ASSEMBLING THE TIMELINES (CLAN BUILDING)
-    # --------------------------------------------------------------------------------------------------
-    #  PLAN: The `household_links` table now contains thousands of individual two-point links
-    #        (e.g., FamA -> FamB, FamB -> FamC, FamX -> FamY). The final step is to connect all
-    #        these disparate links into continuous family timelines, which we call "Clans".
-    #        A clan represents the definitive, multi-generational journey of a single family
-    #        through time.
-    #
-    #  PROCESS:
-    #    1. GRAPH BUILDING: We treat each family as a "node" and each link as an "edge" in a
-    #       massive graph. We build an adjacency list, which is a dictionary mapping each
-    #       family ID to a list of all other family IDs it's linked to.
-    #    2. CONNECTED COMPONENTS: We traverse this graph using a standard algorithm (Depth First
-    #       Search) to find all "connected components." Each component is a group of families
-    #       that are all interconnected, forming a single clan.
-    #    3. FINAL VALIDATION & NAMING: As we identify each clan, we perform one last sanity check:
-    #       The "Highlander Rule." A valid clan can only have ONE household from any given
-    #       census year. If a clan somehow contains two households from 1880, it means a
-    #       bad link created a data paradox, and the entire clan is discarded. Valid clans
-    #       are assigned a unique ID (e.g., "CLAN_1", "CLAN_2") and the results are saved to
-    #       the final `clan_mapping` table. This table becomes the master key for the entire
-    #       Time Machine, linking any family from any census year to its complete timeline.
-    # ==================================================================================================
-    logger.info("\nStep 4: Building Time Machine Clans (Connected Components)...")
-    with sqlite3.connect(MATCH_DB) as sq_conn:
-        sq_cursor = sq_conn.cursor()
-
-        logger.info("  -> Building indices on household_links...")
-        sq_cursor.execute("CREATE INDEX IF NOT EXISTS idx_links_famid1 ON household_links(family_id_1);")
-        sq_cursor.execute("CREATE INDEX IF NOT EXISTS idx_links_year1 ON household_links(year_1);")
-
-        links = sq_cursor.execute("SELECT family_id_1, family_id_2 FROM household_links").fetchall()
-
-        from collections import defaultdict
-        adj = defaultdict(list)
-        for u, v in links:
-            adj[u].append(v)
-            adj[v].append(u)
-
-        visited = set()
-        clans = []
-        clan_id_counter = 1
-
-        for node in adj.keys():
-            if node not in visited:
-                stack = [node]
-                current_clan = set()
-                while stack:
-                    curr = stack.pop()
-                    if curr not in visited:
-                        visited.add(curr)
-                        current_clan.add(curr)
-                        for neighbor in adj[curr]:
-                            if neighbor not in visited:
-                                stack.append(neighbor)
-
-                # DECISION: The Highlander Rule. There can be only one household per decade in a valid clan!
-                # If a clan has two households in 1880, a false transitive link corrupted the graph. Discard it.
-                years_in_clan = [fam.split('_')[0] for fam in current_clan]
-                if len(years_in_clan) == len(set(years_in_clan)):
-                    for fam in current_clan:
-                        clans.append((fam, f"CLAN_{clan_id_counter}"))
-                    clan_id_counter += 1
-                else:
-                    # TELEMETRY: Log the paradox! If a clan has two families from 1880, we want to know WHO they are.
-                    if len(current_clan) <= 15:  # Keep log clean from massive runaway cascades
-                        logger.warning(
-                            f"  [CLAN PARADOX DETECTED] Discarding interconnected component due to 'Highlander' violation.")
-                        logger.warning(f"    └─> Conflicting Families: {current_clan}")
-
-        # TELEMETRY: Check for "Mega-Clans" (If a clan has thousands of members, the logic is broken)
-        clan_sizes = defaultdict(int)
-        for fam, clan in clans: clan_sizes[clan] += 1
-        top_clans = sorted(clan_sizes.items(), key=lambda x: x[1], reverse=True)[:5]
-
-        logger.info(f"  -> Formed {clan_id_counter - 1:,} distinct family timelines.")
-        logger.info(f"  -> Top 5 Largest Clans (Safety Check): {top_clans}")
-
-        sq_cursor.execute("DROP TABLE IF EXISTS clan_mapping")
-        sq_cursor.execute("CREATE TABLE clan_mapping (family_id TEXT PRIMARY KEY, clan_id TEXT)")
-        sq_cursor.executemany("INSERT INTO clan_mapping VALUES (?, ?)", clans)
-        sq_cursor.execute("CREATE INDEX IF NOT EXISTS idx_clan_map_fam ON clan_mapping(family_id)")
-        sq_conn.commit()
-
-    logger.info(f"SUCCESS! Time Machine saved to: {MATCH_DB}")
+    logger.info("\nTime Machine construction complete.")
 
 
-if __name__ == "__main__":
-    main_logger = gen_logging.setup_logging(logger_name="DEMO_LINK")
-    link_households_across_decades(main_logger)
+if __name__ == '__main__':
+    main()
