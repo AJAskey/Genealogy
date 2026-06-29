@@ -38,19 +38,29 @@ These are the rules of work that we have agreed to over the past couple months.
 11. It is far better to have an Individual without a name than it is to give an individual
     the wrong name.
 
+12. The parts of this project that are related directly to the IPUMS database are completely
+    deterministic. There is no randomness. IPUMS has figured out all the matches, all the families, and
+    ovides the data to us. We don't need to do a probabilistic survey to find out who the father was.
+    We know that from looking at the census data.
+
+13. Processing GEDCOMs created by crazy grandmothers is probabilistic because they often fudge the
+    numbers they don't really know. They don't get the birth dates correct and sometimes they change
+    correct data because they don't like the way it sounds.  Maybe they don't want the record to show
+    that their daughter was actually pregnant before they got married so they changed the date
+    to match their fantasy but that's not reality.  Humans hallucinate constantly in GEDCOMs.
+
 Design:
     Andy uses the IPUMS interface to download the most recent CSV data representing census files.
 
     The script DatabaseVault.py reads the CSV files and creates a SQLite database of that information.
 
-    The script build_pa_1900_vault.py reads the full DB and creates a SQLite database
-    of A subset of that that information For testing. The subset only contains people from
-    Pennsylvania to execute the testing of generating an overlay from the JSON file.
-
     The script LinkFamiliesByDemographics.py uses duck DB to link the appropriate DB fields from
     the census data and creates one large linked web of census data individuals and families.
+    The census data from IPUMS provides all the information necessary to link families across
+    decades. It is actually a very simple process but we have to make sure our algorithms
+    match that process.
 
-    The script GedcomNameOverlay_V2.py matches data fields up with the database and a JSON file
+    The script GedcomNameOverlay.py matches data fields up with the database and a JSON file
     created from a GEDCOM to overlay the names onto the nameless census data.
     
     Script gedcom_analysis.py is used to parse the GEDCOM and provide names, facts, and 

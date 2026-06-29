@@ -1,0 +1,686 @@
+"""
+-----------------------------------
+File: DatabaseVault.py
+
+Summary: Ingests raw IPUMS data into a strictly normalized SQLite database.
+         Reads the CSV sequentially, buffering households by SERIAL.
+         Maps relationships using POPLOC/MOMLOC to extract exact HISTIDs
+         for parents, and writes to 'families' and 'individuals' tables.
+
+Design:  Single-threaded, sequential read.
+         Preserves empty names if the dataset lacks them.
+         Saves the entire raw CSV row as JSON "bread crumbs" so no data is lost.
+
+Architect & Designer: Andy Askey
+Coders (AI Assistants): Google Gemini, Anthropic Claude, Gemini Code Assist
+
+License: Apache License 2.0 http://www.apache.org/licenses/LICENSE-2.0
+
+GitHub Open Source Project: https://github.com/AJAskey/Genealogy
+
+-----------------------------------
+"""
+
+import argparse
+import csv
+import json
+import os
+import sqlite3
+import sys
+import time
+
+# Add the 'python' directory and project root to sys.path so we can import properly
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(script_dir, '..'))
+for p in [script_dir, project_root]:
+    if p not in sys.path:
+        sys.path.append(p)
+
+from utils import gen_logging
+
+# ==============================================================================
+# TUNING KNOBS
+# ==============================================================================
+SAMPLE_MODE = False
+SAMPLE_CSV_PATH = r"C:\tempc\ShortTermCSVfiles\sample.csv"
+SAMPLE_DB_NAME = "CENSUS-SAMPLE.db"
+
+BATCH_SIZE = 100_000  # Number of *Households* to buffer before committing to DB
+
+if os.name == 'nt':
+    BASE_DATA_DIR = r"c:\Data\Genealogy_Data"
+else:
+    BASE_DATA_DIR = os.path.expanduser("~/Genealogy_Data")
+
+VAULT_DIR = os.path.join(BASE_DATA_DIR, "YearlyVaults")
+input_directory = r"C:\tempc\ShortTermCSVfiles"
+
+
+# ==============================================================================
+# DATABASE SETUP
+# ==============================================================================
+def setup_database(db_path, logger):
+    logger.info(f"Connecting to database (Setup): {db_path}")
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # DECISION: Write-Ahead Logging (WAL) ensures that if the script is killed (Ctrl+C) mid-run,
+    # the database does not corrupt. It safely rolls back incomplete transactions and allows parallel reads.
+    cursor.execute("PRAGMA journal_mode=WAL")
+
+    # DECISION: Set synchronous mode to NORMAL. In WAL mode, this provides a massive write speed boost
+    # without risking database corruption, perfectly balancing our ingestion speed and safety.
+    cursor.execute("PRAGMA synchronous = NORMAL;")
+
+    # DECISION: Enforce Relational Integrity during setup.
+    cursor.execute("PRAGMA foreign_keys = ON;")
+
+    # DECISION: The Families Table represents the "Nuclear Family Unit", NOT just the physical house.
+    # By tracking 'famunit', we separate multiple families living under the same roof (e.g., boarders, servants).
+    # We also extract core metrics (head_histid, spouse_histid, numprec) up to the family level
+    # to make downstream querying incredibly fast without needing complex JOINs.
+    cursor.execute('''
+                   CREATE TABLE IF NOT EXISTS families
+                   (
+                       family_id
+                       TEXT
+                       PRIMARY
+                       KEY,
+                       year
+                       INTEGER,
+                       serial
+                       TEXT,
+                       famunit
+                       TEXT,
+                       head_histid
+                       TEXT,
+                       spouse_histid
+                       TEXT,
+                       head_bpld
+                       TEXT,
+                       spouse_bpld
+                       TEXT,
+                       hhtype
+                       TEXT,
+                       numprec
+                       TEXT,
+                       pernum
+                       TEXT,
+                       eldch
+                       TEXT,
+                       yngch
+                       TEXT,
+                       relate
+                       TEXT,
+                       num_kids
+                       INTEGER,
+                       kids_byr_sum
+                       INTEGER,
+                       stateicp
+                       TEXT,
+                       statefip
+                       TEXT,
+                       countyicp
+                       TEXT,
+                       city
+                       TEXT,
+                       metarea
+                       TEXT,
+                       metaread
+                       TEXT,
+                       hhwt
+                       TEXT,
+                       numperhh
+                       TEXT,
+                       gq
+                       TEXT,
+                       farm
+                       TEXT,
+                       nmothers
+                       TEXT,
+                       nfathers
+                       TEXT,
+                       reel
+                       TEXT,
+                       pageno
+                       TEXT,
+                       line
+                       TEXT,
+                       microseq
+                       TEXT
+                   )
+                   ''')
+
+    # DECISION: The Individuals Table stores the raw demographics and links to the Family Table via Foreign Key.
+    # The 'raw_data' column acts as our "Bread Crumbs", storing the entire JSON row so we
+    # never lose any of the 50+ IPUMS variables, even if we don't explicitly parse them into columns today.
+    # HISTID is used as the Primary Key because IPUMS guarantees it is a universally unique, permanent ID.
+    cursor.execute('''
+                   CREATE TABLE IF NOT EXISTS individuals
+                   (
+                       histid
+                       TEXT
+                       PRIMARY
+                       KEY,
+                       first_name
+                       TEXT,
+                       last_name
+                       TEXT,
+                       sex
+                       TEXT,
+                       birthyr
+                       INTEGER,
+                       birthmo
+                       INTEGER,
+                       marrnoyrs
+                       INTEGER,
+                       bpld
+                       TEXT,
+                       fbpl
+                       TEXT,
+                       mbpl
+                       TEXT,
+                       father_histid
+                       TEXT,
+                       mother_histid
+                       TEXT,
+                       family_id
+                       TEXT,
+                       related
+                       TEXT,
+                       marst
+                       TEXT,
+                       raced
+                       TEXT,
+                       stateicp
+                       TEXT,
+                       countyicp
+                       TEXT,
+                       raw_data
+                       TEXT,
+                       -- The Bread Crumbs! (JSON)
+                       FOREIGN
+                       KEY
+                   (
+                       family_id
+                   ) REFERENCES families
+                   (
+                       family_id
+                   )
+                       )
+                   ''')
+
+    conn.commit()
+    conn.close()
+
+
+# ==============================================================================
+# HOUSEHOLD PROCESSOR
+# ==============================================================================
+def process_household(rows):
+    """
+    Takes a buffer of rows for a single SERIAL number.
+    Maps children to their exact parents using HISTID, and constructs the tables.
+    """
+    # DECISION: Create a quick lookup dictionary mapping the enumerator's line number (PERNUM)
+    # to the person's permanent IPUMS UUID (HISTID). This allows us to instantly resolve POPLOC/MOMLOC pointers.
+    pernum_to_histid = {str(r.get('PERNUM', '')).strip(): str(r.get('HISTID', '')).strip() for r in rows}
+
+    families_dict = {}
+    individuals_by_fam = {}
+
+    for row in rows:
+        # DECISION: HHTYPE Filter. We only want Family Households (1, 2, or 3).
+        # Note: If older census years (like 1850) use '0' (N/A) for HHTYPE, those households will be skipped!
+        hhtype = str(row.get('HHTYPE', '')).strip()
+        if not SAMPLE_MODE and hhtype not in ('1', '2', '3'):
+            continue
+
+        # DECISION: Relatives Filter. We only want immediate/extended family (RELATE 1-9 or RELATED 100-999).
+        # This excludes "Other relatives" (10 / 1000+), "Boarders/Partners" (11 / 1100+), and "Non-relatives" (12 / 1200+).
+        relate_str = str(row.get('RELATE', '')).strip()
+        related_str = str(row.get('RELATED', '')).strip()
+
+        is_family = False
+
+        # Check RELATE code (1 to 9)
+        if relate_str.isdigit() and 1 <= int(relate_str) <= 9:
+            is_family = True
+        # Check RELATED code (100 to 999) if RELATE is missing/different
+        elif related_str.isdigit() and 100 <= int(related_str) <= 999:
+            is_family = True
+        # Check text labels just in case the CSV isn't fully numeric
+        else:
+            txt = (relate_str + " " + related_str).lower()
+            if any(keyword in txt for keyword in ['head', 'spouse', 'wife', 'child', 'parent', 'sibling', 'grand']):
+                is_family = True
+
+        if not SAMPLE_MODE and not is_family:
+            continue
+
+        histid = str(row.get('HISTID', '')).strip()
+        year = str(row.get('YEAR', '')).strip()
+        serial = str(row.get('SERIAL', '')).strip()
+        pernum = str(row.get('PERNUM', '')).strip()
+
+        # DECISION: Failsafe for custom CSVs that lack a HISTID or YEAR
+        if not histid:
+            import uuid
+            # Generate a synthetic ID so the Primary Key doesn't collide
+            histid = f"SYNTH_{serial}_{pernum}_{uuid.uuid4().hex[:8]}"
+        if not 185:
+            year = "1920"  # Fallback so the database doesn't reject the chunk
+
+        # Safely default to '1' if the CSV provides a completely blank string instead of None
+        famunit = str(row.get('FAMUNIT') or '1').strip()
+
+        poploc = str(row.get('POPLOC', '0')).strip()
+        momloc = str(row.get('MOMLOC', '0')).strip()
+        sploc = str(row.get('SPLOC', '0')).strip()
+
+        # DECISION: Use POPLOC and MOMLOC to assign the exact parent HISTID directly to the child.
+        # This means the database natively understands the bloodline without needing future Python processing.
+        father_histid = pernum_to_histid.get(poploc) if poploc != '0' else None
+        mother_histid = pernum_to_histid.get(momloc) if momloc != '0' else None
+
+        # DECISION: Build a unique family ID using Year, Serial (House), and FamUnit (Nuclear Family).
+        family_id = f"{year}_{serial}_{famunit}"
+
+        # DECISION: Capture the Head of Household and Spouse directly into the family record as we iterate.
+        if family_id not in families_dict:
+            families_dict[family_id] = {
+                'year': year, 'serial': serial, 'famunit': famunit,
+                'head_histid': None, 'spouse_histid': None,
+                'head_bpld': None, 'spouse_bpld': None,
+                'hhtype': str(row.get('HHTYPE', '')).strip(),
+                'numprec': str(row.get('NUMPREC', '')).strip(),
+                'pernum': pernum,
+                'eldch': str(row.get('ELDCH', '')).strip(),
+                'yngch': str(row.get('YNGCH', '')).strip(),
+                'relate': str(row.get('RELATE', '')).strip(),
+                'stateicp': str(row.get('STATEICP', '')).strip(),
+                'statefip': str(row.get('STATEFIP', '')).strip(),
+                'countyicp': str(row.get('COUNTYICP', '')).strip(),
+                'city': str(row.get('CITY', '')).strip(),
+                'metarea': str(row.get('METAREA', '')).strip(),
+                'metaread': str(row.get('METAREAD', '')).strip(),
+                'hhwt': str(row.get('HHWT', '')).strip(),
+                'numperhh': str(row.get('NUMPERHH', '')).strip(),
+                'gq': str(row.get('GQ', '')).strip(),
+                'farm': str(row.get('FARM', '')).strip(),
+                'nmothers': str(row.get('NMOTHERS', '')).strip(),
+                'nfathers': str(row.get('NFATHERS', '')).strip(),
+                'reel': str(row.get('REEL', '')).strip(),
+                'pageno': str(row.get('PAGENO', '')).strip(),
+                'line': str(row.get('LINE', '')).strip(),
+                'microseq': str(row.get('MICROSEQ', '')).strip()
+            }
+            individuals_by_fam[family_id] = []
+
+        # DECISION: Catch Head and Spouse. IPUMS codes can be 1-digit (RELATE) or 4-digit (RELATED like 0101).
+        related_pad = str(row.get('RELATED', '')).zfill(4).lower()
+        relate_str = str(row.get('RELATE', '')).strip()
+        txt = (relate_str + " " + related_pad).lower()
+
+        if relate_str in ('1', '01') or related_pad.startswith('01') or 'head' in txt:
+            families_dict[family_id]['head_histid'] = histid
+            families_dict[family_id]['head_bpld'] = str(row.get('BPLD') or row.get('BPL', '')).strip()
+        elif relate_str in ('2', '02') or related_pad.startswith('02') or 'spouse' in txt or 'wife' in txt:
+            families_dict[family_id]['spouse_histid'] = histid
+            families_dict[family_id]['spouse_bpld'] = str(row.get('BPLD') or row.get('BPL', '')).strip()
+
+        # DECISION: Keep names exactly as they are in the database.
+        # If the IPUMS database lacks names, we let them be blank.
+        first_name = str(row.get('NAMEFRST') or row.get('FIRST_NAME') or '').strip()
+        last_name = str(row.get('NAMELAST') or row.get('LAST_NAME') or '').strip()
+
+        # Failsafe if the CSV just has a single "NAME" column
+        if not first_name and not last_name and row.get('NAME'):
+            name_parts = str(row.get('NAME')).strip().split(' ', 1)
+            first_name = name_parts[0]
+            if len(name_parts) > 1:
+                last_name = name_parts[1]
+
+        # DECISION: Filter out junk names (e.g., "! STOCK", "(UNKNOWN)", or single-character last names).
+        # A valid name must start with an alphabetical letter.
+        if first_name and not first_name[0].isalpha():
+            first_name = ""
+        if last_name and (len(last_name) < 3 or not last_name[0].isalpha()):
+            last_name = ""
+
+        # DECISION: Filter out IPUMS illegible/torn page markers (?, *, --, ..)
+        invalid_markers = ['?', '*', '--', '..']
+        if first_name and any(marker in first_name for marker in invalid_markers):
+            first_name = ""
+        if last_name and any(marker in last_name for marker in invalid_markers):
+            last_name = ""
+
+        if not first_name:
+            first_name = ""
+        if not last_name:
+            last_name = ""
+
+        # DECISION: In Sample Mode, skip adding anyone missing a first or last name
+        if SAMPLE_MODE and (not first_name or not last_name):
+            continue
+
+        # DECISION: The JSON Bread Crumbs. Serialize the entire raw CSV row into a JSON string.
+        raw_data_json = json.dumps(row)
+
+        individuals_by_fam[family_id].append((
+            histid, first_name, last_name, row.get('SEX'), row.get('BIRTHYR'),
+            row.get('BIRTHMO'), row.get('MARRNOYR') or row.get('MARRNOYRS'),
+            row.get('BPLD') or row.get('BPL'), row.get('FBPLD') or row.get('FBPL'),
+            row.get('MBPLD') or row.get('MBPL'),
+            father_histid, mother_histid, family_id,
+            related_str, row.get('MARST'), row.get('RACED') or row.get('RACE'),
+            str(row.get('STATEICP', '')).strip(), str(row.get('COUNTYICP', '')).strip(),
+            raw_data_json
+        ))
+
+    final_inds = []
+    final_fams = []
+
+    # DECISION: Lone Wolf Filter. "Don't make a family for one person."
+    # We only create a 'families' record if the unit has more than 1 member.
+    # However, we will now KEEP the individual record for lone wolves, but set their family_id to NULL.
+    for fid, data in families_dict.items():
+        family_members = individuals_by_fam[fid]
+
+        num_kids = 0
+        kids_byr_sum = 0
+
+        for ind in family_members:
+            # ind[16] is father_histid, ind[17] is mother_histid, ind[10] is birthyr
+            is_child = (data['head_histid'] and ind[16] == data['head_histid']) or \
+                       (data['spouse_histid'] and ind[17] == data['spouse_histid'])
+            if is_child:
+                num_kids += 1
+                try:
+                    kids_byr_sum += int(ind[10]) if ind[10] else 0
+                except ValueError:
+                    pass  # Catch edge cases where BIRTHYR might be blank or corrupted
+
+        if len(family_members) > 1:
+            # This is a valid family, process as before.
+            final_fams.append(
+                (fid, data['year'], data['serial'], data['famunit'], data['head_histid'], data['spouse_histid'],
+                 data['head_bpld'], data['spouse_bpld'],
+                 data['hhtype'], data['numprec'], data['pernum'], data['eldch'], data['yngch'], data['relate'],
+                 num_kids, kids_byr_sum, data['stateicp'], data['statefip'], data['countyicp'], data['city'],
+                 data['metarea'], data['metaread'],
+                 data['hhwt'], data['numperhh'], data['gq'], data['farm'], data['nmothers'], data['nfathers'],
+                 data['reel'], data['pageno'], data['line'], data['microseq']))
+            final_inds.extend(family_members)
+        elif len(family_members) == 1:
+            # This is a lone wolf. Keep the individual, but sever the family link.
+            lone_wolf_tuple = family_members[0]
+            list_version = list(lone_wolf_tuple)
+            list_version[12] = None  # Set family_id to None for lone wolves in lean schema
+            final_inds.append(tuple(list_version))
+
+    # Safely extract the year for the entire household to return to the ingestion loop
+    resolved_year = "1920"
+    if rows:
+        resolved_year = str(rows[0].get('YEAR', '')).strip() or "1920"
+
+    return final_inds, final_fams, resolved_year
+
+
+# ==============================================================================
+# INGESTION LOOP
+# ==============================================================================
+def ingest_to_vault(input_csv, logger, record_limit=None):
+    logger.info(f"Opening CSV file for sequential read: {input_csv}")
+
+    conns_by_year = {}
+    ind_batch_by_year = {}
+    fam_batch_by_year = {}
+
+    def get_db(db_key, actual_year):
+        if db_key not in conns_by_year:
+            if SAMPLE_MODE:
+                db_path = os.path.join(VAULT_DIR, SAMPLE_DB_NAME)
+            else:
+                db_path = os.path.join(VAULT_DIR, f"YearVault_{actual_year}.db")
+
+            if not os.path.exists(db_path):
+                setup_database(db_path, logger)
+
+            conn = sqlite3.connect(db_path)
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA foreign_keys = ON;")
+            conns_by_year[db_key] = conn
+            ind_batch_by_year[db_key] = []
+            fam_batch_by_year[db_key] = []
+        return conns_by_year[db_key]
+
+    ind_insert_query = """
+                       INSERT \
+                       OR IGNORE INTO individuals 
+        (histid, first_name, last_name, sex, birthyr, birthmo, marrnoyrs, bpld, fbpl, mbpl, 
+         father_histid, mother_histid, family_id, related, marst, raced, stateicp, countyicp, raw_data)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
+                       """
+
+    fam_insert_query = """
+                       INSERT \
+                       OR IGNORE INTO families 
+        (family_id, year, serial, famunit, head_histid, spouse_histid, head_bpld, spouse_bpld, hhtype, numprec, pernum, eldch, yngch, relate, num_kids, kids_byr_sum,
+         stateicp, statefip, countyicp, city, metarea, metaread, hhwt, numperhh, gq, farm, nmothers, nfathers, reel, pageno, line, microseq)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
+                       """
+
+    count = 0
+    households_processed = 0
+    start_time = time.time()
+
+    # DECISION: 'utf-8-sig' safely removes hidden BOM characters from the first column header
+    with open(input_csv, mode='r', encoding='utf-8-sig', errors='replace') as infile:
+        reader = csv.DictReader(infile, delimiter=',')
+        current_serial = None
+        household_buffer = []
+
+        for raw_row in reader:
+            # Normalize keys to uppercase to prevent case-sensitivity or spacing issues
+            row = {k.upper().strip(): v for k, v in raw_row.items() if k}
+
+            row_year = str(row.get('YEAR', '')).strip()
+
+            # NEW DECISION: Temporarily skip 1940 and 1950 to speed up ingestion!
+            if row_year in ['1940', '1950']:
+                continue
+
+            raw_serial = str(row.get('SERIAL', '')).strip()
+
+            # Initialize on the very first row
+            if current_serial is None:
+                current_serial = raw_serial
+
+            # DECISION: Sequential Household Buffering. The CSV is historically ordered by the census taker.
+            # Everyone in the same house (SERIAL) is listed sequentially. We buffer rows in memory until
+            # the SERIAL changes, meaning we have the complete house and can process them as a single atomic unit.
+            if raw_serial != current_serial:
+                inds, fams, hh_year = process_household(household_buffer)
+
+                if hh_year:
+                    db_key = "SAMPLE" if SAMPLE_MODE else hh_year
+                    get_db(db_key, hh_year)
+                    ind_batch_by_year[db_key].extend(inds)
+                    fam_batch_by_year[db_key].extend(fams)
+
+                    if len(fam_batch_by_year[db_key]) >= BATCH_SIZE:
+                        conn = conns_by_year[db_key]
+                        cursor = conn.cursor()
+                        cursor.executemany(fam_insert_query, fam_batch_by_year[db_key])
+                        cursor.executemany(ind_insert_query, ind_batch_by_year[db_key])
+                        conn.commit()
+                        ind_batch_by_year[db_key] = []
+                        fam_batch_by_year[db_key] = []
+
+                households_processed += 1
+                count += len(household_buffer)
+
+                if households_processed % 100_000 == 0:
+                    logger.info(f"  -> Processed {households_processed:,} households ({count:,} individuals)...")
+
+                # Reset the buffer for the new household
+                household_buffer = [row]
+                current_serial = raw_serial
+
+                # DECISION: Graceful Shutdown. By checking the limit here and clearing the buffer,
+                # we ensure we don't commit a partially-read family if the limit is reached mid-household.
+                if record_limit and count >= record_limit:
+                    logger.info(f"  -> Reached record limit ({record_limit:,}). Stopping early for review.")
+                    household_buffer = []  # Clear the buffer so we don't insert a partial household
+                    break
+            else:
+                # Still in the same household, add to buffer
+                household_buffer.append(row)
+
+        # Catch the final household buffer when the file ends
+        if household_buffer:
+            inds, fams, hh_year = process_household(household_buffer)
+
+            if hh_year:
+                db_key = "SAMPLE" if SAMPLE_MODE else hh_year
+                get_db(db_key, hh_year)
+                fam_batch_by_year[db_key].extend(fams)
+                ind_batch_by_year[db_key].extend(inds)
+
+            count += len(household_buffer)
+            households_processed += 1
+
+        for db_key, conn in conns_by_year.items():
+            try:
+                if fam_batch_by_year[db_key]:
+                    cursor = conn.cursor()
+                    cursor.executemany(fam_insert_query, fam_batch_by_year[db_key])
+                    cursor.executemany(ind_insert_query, ind_batch_by_year[db_key])
+                    conn.commit()
+            finally:
+                conn.close()
+
+    elapsed = round((time.time() - start_time) / 60, 2)
+    logger.info(f"  [{os.path.basename(input_csv)}]  DONE — {count:,} records in {elapsed} min.")
+
+
+# ==============================================================================
+# DATA VAULT HASH BUILDER
+# ==============================================================================
+def build_computed_hashes(vault_dir, logger):
+    logger.info("Generating computed Data Vault keys (dem_hash & family_hash)...")
+    for filename in os.listdir(vault_dir):
+        if SAMPLE_MODE and filename != SAMPLE_DB_NAME: continue
+        if not SAMPLE_MODE and not (filename.startswith("YearVault_") and filename.endswith(".db") and "Copy" not in filename): continue
+        
+        db_path = os.path.join(vault_dir, filename)
+        logger.info(f"  -> Computing hashes for {filename}...")
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("CREATE TABLE IF NOT EXISTS computed_ind_hashes (histid TEXT PRIMARY KEY, dem_hash TEXT)")
+            cursor.execute("CREATE TABLE IF NOT EXISTS computed_fam_hashes (family_id TEXT PRIMARY KEY, family_hash TEXT)")
+            
+            # SQLite uses '/' for integer division
+            cursor.execute("""
+                INSERT OR IGNORE INTO computed_ind_hashes (histid, dem_hash)
+                SELECT histid,
+                       TRIM(CAST(birthyr AS TEXT)) || '|' || 
+                       TRIM(CAST(sex AS TEXT)) || '|' || 
+                       CAST(CASE WHEN CAST(bpld AS INTEGER) >= 1000 THEN CAST(bpld AS INTEGER) / 100 ELSE CAST(bpld AS INTEGER) END AS TEXT) || '|' || 
+                       COALESCE(CAST(CASE WHEN CAST(fbpl AS INTEGER) >= 1000 THEN CAST(fbpl AS INTEGER) / 100 ELSE CAST(fbpl AS INTEGER) END AS TEXT), '0') || '|' || 
+                       COALESCE(CAST(CASE WHEN CAST(mbpl AS INTEGER) >= 1000 THEN CAST(mbpl AS INTEGER) / 100 ELSE CAST(mbpl AS INTEGER) END AS TEXT), '0')
+                FROM individuals
+            """)
+            cursor.execute("""
+                INSERT OR IGNORE INTO computed_fam_hashes (family_id, family_hash)
+                SELECT f.family_id,
+                       h.dem_hash || '-SP-' || COALESCE(s.dem_hash, 'NONE')
+                FROM families f
+                JOIN computed_ind_hashes h ON f.head_histid = h.histid
+                LEFT JOIN computed_ind_hashes s ON f.spouse_histid = s.histid
+            """)
+
+# ==============================================================================
+# INDEX OPTIMIZATION
+# ==============================================================================
+def build_indices(vault_dir, logger):
+    """
+    Builds database indices AFTER the bulk ingestion is complete.
+    Creating indices before inserting 816 million rows dramatically slows down ingestion.
+    """
+    logger.info("Building indices for downstream queries... (This may take a while)")
+    for filename in os.listdir(vault_dir):
+        if SAMPLE_MODE:
+            if filename != SAMPLE_DB_NAME: continue
+        else:
+            if not (filename.startswith("YearVault_") and filename.endswith(".db") and "Copy" not in filename): continue
+
+        db_path = os.path.join(vault_dir, filename)
+        logger.info(f"  -> Indexing {filename}...")
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_individuals_parents ON individuals(father_histid, mother_histid);")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_individuals_names ON individuals(last_name, first_name);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_families_year_serial ON families(year, serial);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_individuals_family ON individuals(family_id);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_families_head ON families(head_histid);")
+    logger.info("Indices built successfully!")
+
+
+# ==============================================================================
+# MAIN
+# ==============================================================================
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Ingest census CSVs into a relational SQLite vault.")
+    parser.add_argument("--limit", type=int, default=0,
+                        help="Stop reading after this many individuals (0 for all).")
+    args = parser.parse_args()
+
+    record_limit = args.limit if args.limit > 0 else None
+
+    main_logger = gen_logging.setup_logging(logger_name="MAIN")
+
+    main_logger.info("====================================================")
+    main_logger.info("  RELATIONAL DATABASE INGESTION (SINGLE THREADED)")
+    main_logger.info("====================================================")
+
+    if os.path.exists(VAULT_DIR):
+        if not SAMPLE_MODE:  main_logger.info(f"Starting fresh! Clearing old databases in {VAULT_DIR}...")
+        for filename in os.listdir(VAULT_DIR):
+            if SAMPLE_MODE and filename == SAMPLE_DB_NAME:
+                try:
+                    os.remove(os.path.join(VAULT_DIR, filename))
+                except OSError as e:
+                    main_logger.error(f"CRITICAL: Could not delete {filename}! Is it open in another program? {e}")
+                    sys.exit(1)
+            elif not SAMPLE_MODE and filename.startswith("YearVault_"):
+                try:
+                    os.remove(os.path.join(VAULT_DIR, filename))
+                except OSError as e:
+                    main_logger.error(f"CRITICAL: Could not delete {filename}! Is it open in another program? {e}")
+                    sys.exit(1)
+    else:
+        os.makedirs(VAULT_DIR, exist_ok=True)
+
+    if SAMPLE_MODE:
+        main_logger.info(f"SAMPLE MODE ENABLED. Processing single file: {SAMPLE_CSV_PATH}")
+        files_to_process = [SAMPLE_CSV_PATH]
+    else:
+        files_to_process = [os.path.join(input_directory, f) for f in os.listdir(input_directory) if f.endswith(".csv")]
+
+    for file_path in files_to_process:
+        if os.path.exists(file_path):
+            ingest_to_vault(file_path, main_logger, record_limit)
+        else:
+            main_logger.error(f"File not found: {file_path}")
+
+    # Build computed hashes and indices at the very end of the script
+    build_computed_hashes(VAULT_DIR, main_logger)
+    build_indices(VAULT_DIR, main_logger)
+
+    main_logger.info("\nAll CSV files have been processed and loaded into the Relational Vault.")
