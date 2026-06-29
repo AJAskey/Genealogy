@@ -5,6 +5,7 @@ Summary: Reads duck_hunting.json and hunts for the specific families
 """
 import os
 import json
+
 import duckdb
 import csv
 from utils import gen_logging
@@ -17,7 +18,7 @@ if os.name == 'nt':
     BASE_DATA_DIR = r"D:\Data\Genealogy_Data"
 else:
     BASE_DATA_DIR = os.path.expanduser("~/Genealogy_Data")
-MATCH_DB = os.path.join(BASE_DATA_DIR, "DemographicMatches2.db")
+MATCH_DB = os.path.join(BASE_DATA_DIR, "DemographicMatchesTest.db")
 
 STATE_TO_ICP = {
     "CONNECTICUT": 1, "MAINE": 5, "MASSACHUSETTS": 2, "NEW HAMPSHIRE": 4, "RHODE ISLAND": 3, "VERMONT": 6,
@@ -67,8 +68,10 @@ def get_bpl_code(bpl_str):
 
 def main():
     logger.info("--- Starting The Duck Hunter ---")
+    logger.info(f"MATCH_DB : {MATCH_DB}")
+
     if not os.path.exists(JSON_PATH):
-        print(f"Error: Could not find {JSON_PATH}")
+        logger.warning(f"Error: Could not find {JSON_PATH}")
         return
 
     with open(JSON_PATH, 'r', encoding='utf-8') as f:
@@ -78,29 +81,31 @@ def main():
     con = duckdb.connect()
 
     # Attach the high-speed Time Machine instead of the slow raw SQLite vaults!
-    con.execute(f"ATTACH '{MATCH_DB}' AS match_db")
+    con.execute(f"ATTACH '{MATCH_DB}' AS match_db (READ_ONLY)")
     attached_years = [y for y in range(1850, 1950, 10) if y != 1890]
 
     os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
     with open(OUTPUT_CSV, 'w', newline='', encoding='utf-8') as csv_file:
         writer = csv.writer(csv_file)
-        writer.writerow(["Target_Name", "Census_Year", "State_Searched", "DB_Family_ID", "DB_H_Name", "DB_W_Name",
-                         "County_ICP", "Kid_Fingerprint", "Match_Type", "DB_Kids"])
-        logger.info('"Target_Name", "Census_Year", "State_Searched", "DB_Family_ID", "DB_H_Name", "DB_W_Name", \
-                         "County_ICP", "Kid_Fingerprint", "Match_Type", "DB_Kids"]')
+        writer.writerow(
+            ["Target_Name", "Census_Year", "Score", "Match_Reasons", "DB_Family_ID", "DB_H_Name", "DB_W_Name",
+             "DB_State_ICP", "DB_County_ICP", "Target_KFP", "DB_Snapshot_KFP", "DB_Lifetime_KFP", "DB_Kids"])
+
+        stats = {
+            "total_targets": len(targets),
+            "exact_kfp_found": 0,
+            "near_miss_kfp_found": 0,
+            "no_match_found": 0
+        }
 
         for t in targets:
+
             h_first, h_last = t.get('h_first', ''), t.get('h_last', '')
             w_first, w_last = t.get('w_first', ''), t.get('w_last', '')
 
             # Temporary filter for testing!
-            if "FOSTER EDGAR" not in h_first.upper() and "WILLIAM FRANCIS" not in h_first.upper():
-                continue
-
-            target_name = f"{h_first} {h_last} & {w_first} {w_last}"
-            h_byr = int(t.get('h_byr', 0)) if str(t.get('h_byr', '')).isnumeric() else 0
-            w_byr = int(t.get('w_byr', 0)) if str(t.get('w_byr', '')).isnumeric() else 0
-            if h_byr == 0 or w_byr == 0: continue
+            # if "FOSTER EDGAR" not in h_first.upper() and "WILLIAM FRANCIS" not in h_first.upper():
+            #     continue
 
             h_bpl = get_bpl_code(t.get('h_bpl', ''))
             w_bpl = get_bpl_code(t.get('w_bpl', ''))
@@ -110,59 +115,122 @@ def main():
             w_mbpl = get_bpl_code(t.get('w_mbpl', ''))
             kfp = t.get('kid_fingerprint', '')
 
+            target_name = f"{h_first} {h_last} & {w_first} {w_last}"
+            h_byr = int(t.get('h_byr', 0)) if str(t.get('h_byr', '')).isnumeric() else 0
+            w_byr = int(t.get('w_byr', 0)) if str(t.get('w_byr', '')).isnumeric() else 0
+
+            if h_byr == 0 or w_byr == 0 or h_bpl == 0 or w_bpl == 0: continue
+            if h_fbpl == 0 or h_mbpl == 0: continue
+
+            best_target_drift = None
+            num_kids = int(t.get('num_children', 0)) if str(t.get('num_children', '')).isnumeric() else 0
+
+            logger.info("***************************************************")
+            logger.info(f"Hunting: {target_name}...")
             logger.info(
                 f"h_bpl : {h_bpl}  w_bpl:{w_bpl}  h_fbpl:{h_fbpl}  h_mbpl:{h_mbpl}  w_fbpl:{w_fbpl}  w_mbpl:{w_mbpl}  kfp:{kfp}")
-
-            # k_print = int(t.get('kid_fingerprint', 0)) if str(t.get('kid_fingerprint', '')).isnumeric() else 0
-            # logger.info(f"k_print:{k_print}")
-
-            logger.info(f"Hunting: {target_name}...")
+            gen_logging.log_dict(logger, t, "target data")
 
             for year in attached_years:
-                res_state = str(t.get(f'h_rsst_{year}', '')).upper().strip()
-                if not res_state: res_state = str(t.get(f'w_rsst_{year}', '')).upper().strip()
+                search_location = "ALL STATES"
 
-                state_filter_sql = ""
-                search_location = "ALL STATES (Missing in GEDCOM)"
+                sql = f"SELECT f.family_id, h.first_name, h.last_name, s.first_name, s.last_name, f.stateicp, f.countyicp, f.kids_byr_sum, f.head_histid, f.spouse_histid, COALESCE(cd.lifetime_kfp, 0) AS lifetime_kfp FROM match_db.tm_families f JOIN match_db.tm_individuals h ON f.head_histid = h.histid JOIN match_db.tm_individuals s ON f.spouse_histid = s.histid LEFT JOIN match_db.clan_mapping cm ON f.family_id = cm.family_id LEFT JOIN match_db.clan_details cd ON cm.clan_id = cd.clan_id WHERE f.year = {year} AND h.sex = '1' AND s.sex = '2' AND h.byr_int = {h_byr} AND s.byr_int = {w_byr}"
 
-                if res_state and res_state in STATE_TO_ICP:
-                    state_filter_sql = f"f.stateicp = {STATE_TO_ICP[res_state]} AND "
-                    search_location = res_state
+                if h_bpl > 0: sql += f" AND h.bpl_int = {h_bpl}"
+                if w_bpl > 0: sql += f" AND s.bpl_int = {w_bpl}"
+                if h_fbpl > 0: sql += f" AND h.fbpl_int = {h_fbpl}"
+                if h_mbpl > 0: sql += f" AND h.mbpl_int = {h_mbpl}"
+                if w_fbpl > 0: sql += f" AND s.fbpl_int = {w_fbpl}"
+                if w_mbpl > 0: sql += f" AND s.mbpl_int = {w_mbpl}"
 
-                sql = f"SELECT f.family_id, h.first_name, h.last_name, s.first_name, s.last_name, f.countyicp, f.kids_byr_sum, f.head_histid, f.spouse_histid FROM match_db.tm_families f JOIN match_db.tm_individuals h ON f.head_histid = h.histid JOIN match_db.tm_individuals s ON f.spouse_histid = s.histid WHERE f.year = {year} AND {state_filter_sql}h.sex = '1' AND s.sex = '2' AND TRY_CAST(h.birthyr AS INTEGER) BETWEEN {h_byr - 2} AND {h_byr + 2} AND TRY_CAST(s.birthyr AS INTEGER) BETWEEN {w_byr - 2} AND {w_byr + 2}"
-                if h_bpl > 0: sql += f" AND (CASE WHEN TRY_CAST(h.bpld AS INTEGER) >= 1000 THEN TRY_CAST(h.bpld AS INTEGER) // 100 ELSE TRY_CAST(h.bpld AS INTEGER) END) = {h_bpl}"
-                if w_bpl > 0: sql += f" AND (CASE WHEN TRY_CAST(s.bpld AS INTEGER) >= 1000 THEN TRY_CAST(s.bpld AS INTEGER) // 100 ELSE TRY_CAST(s.bpld AS INTEGER) END) = {w_bpl}"
-                if h_fbpl > 0: sql += f" AND (CASE WHEN TRY_CAST(h.fbpl AS INTEGER) >= 1000 THEN TRY_CAST(h.fbpl AS INTEGER) // 100 ELSE TRY_CAST(h.fbpl AS INTEGER) END) = {h_fbpl}"
-                if h_mbpl > 0: sql += f" AND (CASE WHEN TRY_CAST(h.mbpl AS INTEGER) >= 1000 THEN TRY_CAST(h.mbpl AS INTEGER) // 100 ELSE TRY_CAST(h.mbpl AS INTEGER) END) = {h_mbpl}"
-                if w_fbpl > 0: sql += f" AND (CASE WHEN TRY_CAST(s.fbpl AS INTEGER) >= 1000 THEN TRY_CAST(s.fbpl AS INTEGER) // 100 ELSE TRY_CAST(s.fbpl AS INTEGER) END) = {w_fbpl}"
-                if w_mbpl > 0: sql += f" AND (CASE WHEN TRY_CAST(s.mbpl AS INTEGER) >= 1000 THEN TRY_CAST(s.mbpl AS INTEGER) // 100 ELSE TRY_CAST(s.mbpl AS INTEGER) END) = {w_mbpl}"
+                logger.info(f"SQL : {sql}")
 
                 # REMOVED: We cannot use the GEDCOM lifetime fingerprint to search a point-in-time census snapshot!
 
                 k_print = int(t.get('kid_fingerprint', 0)) if str(t.get('kid_fingerprint', '')).isnumeric() else 0
-                if k_print > 0:
-                    sql += f" AND f.kids_byr_sum = {k_print}"
+                # if k_print > 0:
+                #     sql += f" AND f.kids_byr_sum = {k_print}"
 
+                results = con.execute(sql).fetchall()
+                logger.info(f"Found {len(results)} candidate families for {year}")
+
+                scored_results = []
                 wcnt = 0
-                for r in con.execute(sql).fetchall():
-                    logger.info(f"len(r) = {len(r)}   -->  k_print = {k_print}")
+                for r in results:
 
-                    fam_id, head_id, spouse_id = r[0], r[7], r[8]
+                    fam_id = r[0]
+                    db_stateicp = r[5]
+                    db_countyicp = r[6]
+                    db_snapshot_kfp = r[7]
+                    db_lifetime_kfp = r[10]
 
-                    # Fetch the kids from the Time Machine
-                    kids_sql = f"SELECT first_name, birthyr FROM match_db.tm_individuals WHERE family_id = '{fam_id}' AND histid != '{head_id}' AND histid != '{spouse_id}' ORDER BY birthyr"
+                    score = 0
+                    reasons = []
+
+                    # Check 1: Did they live in the expected state?
+                    target_state = str(t.get(f'h_rsst_{year}', '')).upper().strip()
+                    if not target_state: target_state = str(t.get(f'w_rsst_{year}', '')).upper().strip()
+
+                    if target_state and target_state in STATE_TO_ICP:
+                        if db_stateicp == STATE_TO_ICP[target_state]:
+                            score += 5
+                            reasons.append("State Match")
+
+                    # Check 2: Exact Match with Telemetry for Near Misses (1% drift allowance)
+                    if k_print > 0:
+                        drift = abs(int(db_snapshot_kfp) - int(k_print))
+                        if drift == 0:
+                            score += 100
+                            reasons.append("Exact Snapshot KFP")
+                            best_target_drift = 0
+                        elif num_kids > 0 and drift <= num_kids:
+                            # Allow a maximum of 1 year of drift per kid (Very tight "1% off" rule)
+                            score += 75
+                            reasons.append(f"Near Snapshot KFP (Off by {drift})")
+                            if best_target_drift is None or drift < best_target_drift:
+                                best_target_drift = drift
+
+                    kids_sql = f"SELECT first_name, byr_int FROM match_db.tm_individuals WHERE family_id = '{fam_id}' AND histid != '{r[8]}' AND histid != '{r[9]}' ORDER BY byr_int"
                     kids = con.execute(kids_sql).fetchall()
                     kids_str = ", ".join([f"{k[0]} (b.{k[1]})" for k in kids]) if kids else "None"
 
-                    writer.writerow(
-                        [target_name, year, search_location, fam_id, f"{r[1]} {r[2]}", f"{r[3]} {r[4]}", r[5], r[6],
-                         "Exact Fingerprint" if k_print > 0 else "Demographic", kids_str])
-                    if wcnt < 100:
-                        wcnt += 1
-                        logger.info([wcnt, target_name, year, search_location, fam_id, f"{r[1]} {r[2]}",
-                                     f"{r[3]} {r[4]}", r[5],
-                                     r[6],
-                                     "Exact Fingerprint" if k_print > 0 else "Demographic", kids_str])
+                    scored_results.append({
+                        'row': [target_name, year, score, " + ".join(reasons) if reasons else "Demographics Only",
+                                fam_id, f"{r[1]} {r[2]}", f"{r[3]} {r[4]}", db_stateicp, db_countyicp, k_print,
+                                db_snapshot_kfp, db_lifetime_kfp, kids_str],
+                        'score': score
+                    })
+
+                # Sort results by score (highest first) so your true ancestor is always at the top!
+                scored_results.sort(key=lambda x: x['score'], reverse=True)
+
+                # Only write the top 3 highest-scoring candidates to the CSV!
+                for sr in scored_results[:333]:
+                    writer.writerow(sr['row'])
+
+            # Tally the statistics for this target across all decades
+            if best_target_drift == 0:
+                stats["exact_kfp_found"] += 1
+            elif best_target_drift is not None:
+                stats["near_miss_kfp_found"] += 1
+            else:
+                stats["no_match_found"] += 1
+
+    # Print the Final Telemetry Report
+    logger.info("\n=====================================================================")
+    logger.info("HUNTING STATISTICS & KFP DRIFT REPORT")
+    logger.info("=====================================================================")
+    logger.info(f"Total Targets Hunted : {stats['total_targets']}")
+    if stats['total_targets'] > 0:
+        logger.info(
+            f"Exact KFP Matches    : {stats['exact_kfp_found']} ({(stats['exact_kfp_found'] / stats['total_targets']) * 100:.1f}%)")
+        logger.info(
+            f"Near Miss KFP Matches: {stats['near_miss_kfp_found']} ({(stats['near_miss_kfp_found'] / stats['total_targets']) * 100:.1f}%)")
+        logger.info(
+            f"No KFP Match Found   : {stats['no_match_found']} ({(stats['no_match_found'] / stats['total_targets']) * 100:.1f}%)")
+    else:
+        logger.info("No targets were processed, so percentages cannot be calculated.")
+    logger.info("=====================================================================")
 
     logger.info(f"\nDone! Results saved to {OUTPUT_CSV}")
 

@@ -142,16 +142,21 @@ def log_dict(logger, dik, desc=""):
     logger.info(out_str)
 
 
-def log_tuple(logger, t, desc=""):
+def log_tuple(logger, t, desc="", headers=None):
     out_str = f"{desc}\n"
-    # i = 0
-    # for item in t:
-    # if item:
-    #     i += 1
+    
+    # 1. Try to extract headers dynamically if it's a dict or sqlite3.Row
+    if not headers:
+        if hasattr(t, 'keys') and callable(getattr(t, 'keys')):
+            headers = list(t.keys())
+        elif hasattr(t, '_fields'):  # For namedtuples
+            headers = t._fields
+            
     for i, val in enumerate(t):
-        if val:
+        if val is not None and val != "":
             sval = str(val)
-            out_str += f" {desc} [{i:<3}] : {sval:<20} -- {common_utils.DB_ROWS[i]}\n"
+            col_name = headers[i] if headers and i < len(headers) else f"Col_{i}"
+            out_str += f" {desc} [{i:<3}] : {sval:<20} -- {col_name}\n"
     logger.info(f" {out_str}")
 
 

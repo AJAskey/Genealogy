@@ -167,18 +167,6 @@ def setup_database(db_path, logger):
                        TEXT,
                        last_name
                        TEXT,
-                       year
-                       INTEGER,
-                       sample
-                       TEXT,
-                       serial
-                       TEXT,
-                       pernum
-                       TEXT,
-                       famunit
-                       TEXT,
-                       age
-                       INTEGER,
                        sex
                        TEXT,
                        birthyr
@@ -199,44 +187,19 @@ def setup_database(db_path, logger):
                        TEXT,
                        family_id
                        TEXT,
-                       raw_data
-                       TEXT, -- The Bread Crumbs! (JSON)
-                       versionhist
-                       TEXT,
-                       famsize
-                       TEXT,
-                       momloc
-                       TEXT,
-                       poploc
-                       TEXT,
-                       sploc
-                       TEXT,
                        related
-                       TEXT,
-                       nchild
-                       TEXT,
-                       nsibs
-                       TEXT,
-                       chborn
                        TEXT,
                        marst
                        TEXT,
-                       race
-                       TEXT,
                        raced
                        TEXT,
-                       bpl
+                       stateicp
                        TEXT,
-                       mbpld
+                       countyicp
                        TEXT,
-                       fbpld
+                       raw_data
                        TEXT,
-                       occ1950
-                       TEXT,
-                       ind1950
-                       TEXT,
-                       perwt
-                       TEXT,
+                       -- The Bread Crumbs! (JSON)
                        FOREIGN
                        KEY
                    (
@@ -406,16 +369,14 @@ def process_household(rows):
         raw_data_json = json.dumps(row)
 
         individuals_by_fam[family_id].append((
-            histid, first_name, last_name, year, row.get('SAMPLE'), serial, pernum, famunit,
-            row.get('AGE'), row.get('SEX'), row.get('BIRTHYR'),
+            histid, first_name, last_name, row.get('SEX'), row.get('BIRTHYR'),
             row.get('BIRTHMO'), row.get('MARRNOYR') or row.get('MARRNOYRS'),
             row.get('BPLD') or row.get('BPL'), row.get('FBPLD') or row.get('FBPL'),
             row.get('MBPLD') or row.get('MBPL'),
-            father_histid, mother_histid, family_id, raw_data_json,
-            row.get('VERSIONHIST'), row.get('FAMSIZE'), momloc, poploc, sploc,
-            related_str, row.get('NCHILD'), row.get('NSIBS'), row.get('CHBORN'),
-            row.get('MARST'), row.get('RACE'), row.get('RACED'), row.get('BPL'),
-            row.get('MBPLD'), row.get('FBPLD'), row.get('OCC1950'), row.get('IND1950'), row.get('PERWT')
+            father_histid, mother_histid, family_id,
+            related_str, row.get('MARST'), row.get('RACED') or row.get('RACE'),
+            str(row.get('STATEICP', '')).strip(), str(row.get('COUNTYICP', '')).strip(),
+            raw_data_json
         ))
 
     final_inds = []
@@ -456,10 +417,15 @@ def process_household(rows):
             # This is a lone wolf. Keep the individual, but sever the family link.
             lone_wolf_tuple = family_members[0]
             list_version = list(lone_wolf_tuple)
-            list_version[18] = None  # Set family_id (the 19th element) to None
+            list_version[12] = None  # Set family_id to None for lone wolves in lean schema
             final_inds.append(tuple(list_version))
 
-    return final_inds, final_fams
+    # Safely extract the year for the entire household to return to the ingestion loop
+    resolved_year = "1920"
+    if rows:
+        resolved_year = str(rows[0].get('YEAR', '')).strip() or "1920"
+
+    return final_inds, final_fams, resolved_year
 
 
 # ==============================================================================
@@ -493,11 +459,9 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
     ind_insert_query = """
                        INSERT \
                        OR IGNORE INTO individuals 
-        (histid, first_name, last_name, year, sample, serial, pernum, famunit, 
-         age, sex, birthyr, birthmo, marrnoyrs, bpld, fbpl, mbpl, father_histid, mother_histid, family_id, raw_data,
-         versionhist, famsize, momloc, poploc, sploc, related, nchild, nsibs, chborn, marst, race, raced, bpl, mbpld, fbpld, occ1950, ind1950, perwt)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
+        (histid, first_name, last_name, sex, birthyr, birthmo, marrnoyrs, bpld, fbpl, mbpl, 
+         father_histid, mother_histid, family_id, related, marst, raced, stateicp, countyicp, raw_data)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
                        """
 
     fam_insert_query = """
@@ -523,9 +487,10 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
             # Normalize keys to uppercase to prevent case-sensitivity or spacing issues
             row = {k.upper().strip(): v for k, v in raw_row.items() if k}
 
-            # DECISION: Skip years before 1900 so we don't overwrite or touch old databases!
             row_year = str(row.get('YEAR', '')).strip()
-            if row_year.isdigit() and int(row_year) < 1900:
+
+            # NEW DECISION: Temporarily skip 1940 and 1950 to speed up ingestion!
+            if row_year in ['1940', '1950']:
                 continue
 
             raw_serial = str(row.get('SERIAL', '')).strip()
@@ -538,13 +503,7 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
             # Everyone in the same house (SERIAL) is listed sequentially. We buffer rows in memory until
             # the SERIAL changes, meaning we have the complete house and can process them as a single atomic unit.
             if raw_serial != current_serial:
-                inds, fams = process_household(household_buffer)
-
-                hh_year = None
-                if fams:
-                    hh_year = fams[0][1]
-                elif inds:
-                    hh_year = inds[0][3]
+                inds, fams, hh_year = process_household(household_buffer)
 
                 if hh_year:
                     db_key = "SAMPLE" if SAMPLE_MODE else hh_year
@@ -583,13 +542,7 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
 
         # Catch the final household buffer when the file ends
         if household_buffer:
-            inds, fams = process_household(household_buffer)
-
-            hh_year = None
-            if fams:
-                hh_year = fams[0][1]
-            elif inds:
-                hh_year = inds[0][3]
+            inds, fams, hh_year = process_household(household_buffer)
 
             if hh_year:
                 db_key = "SAMPLE" if SAMPLE_MODE else hh_year
@@ -613,6 +566,42 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
     elapsed = round((time.time() - start_time) / 60, 2)
     logger.info(f"  [{os.path.basename(input_csv)}]  DONE — {count:,} records in {elapsed} min.")
 
+
+# ==============================================================================
+# DATA VAULT HASH BUILDER
+# ==============================================================================
+def build_computed_hashes(vault_dir, logger):
+    logger.info("Generating computed Data Vault keys (dem_hash & family_hash)...")
+    for filename in os.listdir(vault_dir):
+        if SAMPLE_MODE and filename != SAMPLE_DB_NAME: continue
+        if not SAMPLE_MODE and not (filename.startswith("YearVault_") and filename.endswith(".db") and "Copy" not in filename): continue
+        
+        db_path = os.path.join(vault_dir, filename)
+        logger.info(f"  -> Computing hashes for {filename}...")
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("CREATE TABLE IF NOT EXISTS computed_ind_hashes (histid TEXT PRIMARY KEY, dem_hash TEXT)")
+            cursor.execute("CREATE TABLE IF NOT EXISTS computed_fam_hashes (family_id TEXT PRIMARY KEY, family_hash TEXT)")
+            
+            # SQLite uses '/' for integer division
+            cursor.execute("""
+                INSERT OR IGNORE INTO computed_ind_hashes (histid, dem_hash)
+                SELECT histid,
+                       TRIM(CAST(birthyr AS TEXT)) || '|' || 
+                       TRIM(CAST(sex AS TEXT)) || '|' || 
+                       CAST(CASE WHEN CAST(bpld AS INTEGER) >= 1000 THEN CAST(bpld AS INTEGER) / 100 ELSE CAST(bpld AS INTEGER) END AS TEXT) || '|' || 
+                       COALESCE(CAST(CASE WHEN CAST(fbpl AS INTEGER) >= 1000 THEN CAST(fbpl AS INTEGER) / 100 ELSE CAST(fbpl AS INTEGER) END AS TEXT), '0') || '|' || 
+                       COALESCE(CAST(CASE WHEN CAST(mbpl AS INTEGER) >= 1000 THEN CAST(mbpl AS INTEGER) / 100 ELSE CAST(mbpl AS INTEGER) END AS TEXT), '0')
+                FROM individuals
+            """)
+            cursor.execute("""
+                INSERT OR IGNORE INTO computed_fam_hashes (family_id, family_hash)
+                SELECT f.family_id,
+                       h.dem_hash || '-SP-' || COALESCE(s.dem_hash, 'NONE')
+                FROM families f
+                JOIN computed_ind_hashes h ON f.head_histid = h.histid
+                LEFT JOIN computed_ind_hashes s ON f.spouse_histid = s.histid
+            """)
 
 # ==============================================================================
 # INDEX OPTIMIZATION
@@ -669,7 +658,7 @@ if __name__ == '__main__':
                 except OSError as e:
                     main_logger.error(f"CRITICAL: Could not delete {filename}! Is it open in another program? {e}")
                     sys.exit(1)
-            elif not SAMPLE_MODE and filename.startswith("YearVault_") and not filename.startswith("YearVault_18"):
+            elif not SAMPLE_MODE and filename.startswith("YearVault_"):
                 try:
                     os.remove(os.path.join(VAULT_DIR, filename))
                 except OSError as e:
@@ -690,7 +679,8 @@ if __name__ == '__main__':
         else:
             main_logger.error(f"File not found: {file_path}")
 
-    # Build indices at the very end of the script to guarantee max insert speed
+    # Build computed hashes and indices at the very end of the script
+    build_computed_hashes(VAULT_DIR, main_logger)
     build_indices(VAULT_DIR, main_logger)
 
     main_logger.info("\nAll CSV files have been processed and loaded into the Relational Vault.")

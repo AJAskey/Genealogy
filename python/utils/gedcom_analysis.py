@@ -158,7 +158,7 @@ def parse_gedcom(filepath):
                     continue
 
                 if level == '3':
-                    if tag in ('PAGE', 'TEXT', 'DATA'):
+                    if tag in ('PAGE'):
                         if "census" in line.lower():
                             year_pattern = re.compile(r"(\d{4})\s*U\s*S\s*Census|Year:\s*(\d{4})", re.IGNORECASE)
                             place_pattern = re.compile(r"Census\s+Place:\s*([^;]+)")
@@ -171,11 +171,11 @@ def parse_gedcom(filepath):
                                 year = year_match.group(1) if year_match.group(1) else year_match.group(2)
 
                             place = place_match.group(1).strip() if place_match else "Not Found"
-                            if year != "Not Found" and place != "Not Found":
+
+                            if year != "Not Found" or place != "Not Found":
                                 indi['events'].append({'date': year, 'place': place})
                                 add_place(common_utils.extract_state(place))
-                            else:
-                                print(f"{linecnt}  {line}")
+                                logger.info(f"{linecnt}  {line}")
 
             if cur_fam_id:
                 fam = families[cur_fam_id]
@@ -193,6 +193,7 @@ def parse_gedcom(filepath):
                     if tag == 'MARR':
                         cur_event = 'MARR'
                         continue
+
                 if level == '2' and cur_event == 'MARR':
                     if tag == 'DATE':
                         fam['marr_date'] = value
@@ -222,12 +223,12 @@ def build_individuals_rows(individuals, families):
     def birth_place_of(indi_id):
         if not indi_id or indi_id not in individuals:
             return ''
-        return individuals[indi_id].get('birth_place', '')
+        return common_utils.extract_state(individuals[indi_id].get('birth_place', ''))
 
     def birth_county_of(indi_id):
         if not indi_id or indi_id not in individuals:
             return ''
-        return extract_county(individuals[indi_id].get('birth_place', ''))
+        return common_utils.extract_county(individuals[indi_id].get('birth_place', ''))
 
     for indi_id, i in individuals.items():
         if not i.get('first_name') or '-' in i.get('first_name') or '-' in i.get('last_name') or 'Living' in i.get(
@@ -250,12 +251,12 @@ def build_individuals_rows(individuals, families):
                 father_id = fam['husb']
                 father_name = name_of(fam['husb'])
                 father_birth_year = birth_year_of(fam['husb'])
-                father_birth_place = birth_place_of(fam['husb'])
+                father_birth_place = common_utils.extract_state(birth_place_of(fam['husb']))
                 father_birth_county = birth_county_of(fam['husb'])
                 mother_id = fam['wife']
                 mother_name = name_of(fam['wife'])
                 mother_birth_year = birth_year_of(fam['wife'])
-                mother_birth_place = birth_place_of(fam['wife'])
+                mother_birth_place = common_utils.extract_state(birth_place_of(fam['wife']))
                 mother_birth_county = birth_county_of(fam['wife'])
                 add_place(common_utils.extract_state(mother_birth_place))
                 add_place(common_utils.extract_state(father_birth_place))
@@ -275,7 +276,7 @@ def build_individuals_rows(individuals, families):
             spouse_ids.append(spouse_id)
             spouse_names.append(name_of(spouse_id))
             spouse_birth_years.append(birth_year_of(spouse_id))
-            spouse_birth_places.append(birth_place_of(spouse_id))
+            spouse_birth_places.append(common_utils.extract_state(birth_place_of(spouse_id)))
             spouse_birth_counties.append(birth_county_of(spouse_id))
             marr_dates.append(fam['marr_date'])
             marr_places.append(fam['marr_place'])
@@ -299,8 +300,8 @@ def build_individuals_rows(individuals, families):
 
         residences_extracted = {}
         for yr in range(1850, 1960, 10):
-            residences_extracted[f"{yr} County"] = extract_county(residences[str(yr)])
-            residences_extracted[f"{yr} State"] = extract_state(residences[str(yr)])
+            residences_extracted[f"{yr} County"] = common_utils.extract_county(residences[str(yr)])
+            residences_extracted[f"{yr} State"] = common_utils.extract_state(residences[str(yr)])
 
         rows.append({
             'ID': indi_id,
@@ -309,7 +310,7 @@ def build_individuals_rows(individuals, families):
             'Sex': i['sex'],
             'Birth Date': i['birth_date'],
             'Birth Place': i['birth_place'],
-            'Birth County': extract_county(i['birth_place']),
+            'Birth County': common_utils.extract_county(i['birth_place']),
             'Death Date': i['death_date'],
             'Death Place': i['death_place'],
             'Burial Date': i['burial_date'],
@@ -397,7 +398,7 @@ def analyze_homeland_counties(individuals, families, logger, out_dir):
 
     def add_county(plac_str):
         if not plac_str: return
-        c = extract_county(plac_str)
+        c = common_utils.extract_county(plac_str)
         if c:
             c_clean = c.upper().replace(" COUNTY", "").replace(" CO.", "").strip()
             if c_clean and len(c_clean) > 2:
@@ -427,38 +428,6 @@ def analyze_homeland_counties(individuals, families, logger, out_dir):
         json.dump(dict(top_counties), f, indent=4)
 
     logger.info(f"Homeland analysis exported to: {homeland_file}")
-
-
-def extract_county(loc_str):
-    """Strips city/state and returns only the county name."""
-    if not loc_str: return ""
-    parts = [p.strip() for p in loc_str.split(',')]
-    if len(parts) >= 2:
-        # If the last part is a country like USA, the logic shifts
-        if parts[-1].upper() == 'USA':
-            if len(parts) >= 3:  # e.g., "Clearfield, Pennsylvania, USA" or "City, County, State, USA"
-                return parts[-3]
-            else:
-                return ""  # Not enough parts for a county (e.g., "Pennsylvania, USA")
-        else:  # No "USA" at the end, e.g., "Pike, Clearfield, Pennsylvania"
-            return parts[-2]
-    return ""
-
-
-def extract_state(loc_str):
-    """Strips city/county and returns only the state name."""
-    if not loc_str: return ""
-    parts = [p.strip() for p in loc_str.split(',')]
-    if len(parts) >= 1:
-        # If the last part is a country like USA, the state is the one before it
-        if parts[-1].upper() == 'USA':
-            if len(parts) >= 2:  # e.g., "Pennsylvania, USA"
-                return parts[-2]
-            else:
-                return ""  # Just "USA", no state
-        else:  # No "USA" at the end, e.g., "Pennsylvania" or "Clearfield, Pennsylvania"
-            return parts[-1]
-    return ""
 
 
 def parse_date(date_str):
@@ -521,46 +490,32 @@ WHERE
         f.write(sql_query)
 
 
+def to_pos_int(str):
+    if not str: return 0
+    if not str.isnumeric(): return 0
+    num = int(str)
+    if num < 1: num = 0
+    return num
+
+
+def to_len(str):
+    if not str: return 0
+    if str.isnumeric(): return 0
+    num = len(str.strip())
+    if num < 1: num = 0
+    return num
+
+
 def build_couples_rows(individuals, families):
     """Generates the Expanded Nuclear Family Fingerprint."""
     records = []
     seen_couples = set()
 
-    def extract_county(loc_str):
-        """Strips city/state and returns only the county name."""
-        if not loc_str: return ""
-        parts = [p.strip() for p in loc_str.split(',')]
-        if len(parts) >= 2:
-            # If the last part is a country like USA, the logic shifts
-            if parts[-1].upper() == 'USA':
-                if len(parts) >= 3:  # e.g., "Clearfield, Pennsylvania, USA" or "City, County, State, USA"
-                    return parts[-3]
-                else:
-                    return ""  # Not enough parts for a county (e.g., "Pennsylvania, USA")
-            else:  # No "USA" at the end, e.g., "Pike, Clearfield, Pennsylvania"
-                return parts[-2]
-        return ""
-
-    def extract_state(loc_str):
-        """Strips city/county and returns only the state name."""
-        if not loc_str: return ""
-        parts = [p.strip() for p in loc_str.split(',')]
-        if len(parts) >= 1:
-            # If the last part is a country like USA, the state is the one before it
-            if parts[-1].upper() == 'USA':
-                if len(parts) >= 2:  # e.g., "Pennsylvania, USA"
-                    return parts[-2]
-                else:
-                    return ""  # Just "USA", no state
-            else:  # No "USA" at the end, e.g., "Pennsylvania" or "Clearfield, Pennsylvania"
-                return parts[-1]
-        return ""
-
     def get_res_c(indi_id, year_str):
         if not indi_id or indi_id not in individuals: return ""
         for ev in individuals[indi_id].get('events', []):
             if year_str in ev['date']:
-                cty = extract_county(ev['place'])
+                cty = common_utils.extract_county(ev['place'])
                 return cty
         return ""
 
@@ -568,7 +523,7 @@ def build_couples_rows(individuals, families):
         if not indi_id or indi_id not in individuals: return ""
         for ev in individuals[indi_id].get('events', []):
             if year_str in ev['date']:
-                st = extract_state(ev['place'])
+                st = common_utils.extract_state(ev['place'])
                 return st
         return ""
 
@@ -599,38 +554,38 @@ def build_couples_rows(individuals, families):
         h_first, h_last, h_byr, h_bmo, h_bpl, h_fbpl, h_mbpl, h_st, h_cty, h_dyr, h_dpl = get_fingerprint(h_id)
         w_first, w_last, w_byr, w_bmo, w_bpl, w_fbpl, w_mbpl, w_st, w_cty, w_dyr, w_dpl = get_fingerprint(w_id)
 
-        if h_dyr and h_dyr.isnumeric() and int(h_dyr) < 1850:
+        if to_pos_int(h_dyr) < 1850 or to_pos_int(w_dyr) < 1850:
             continue
-        if w_dyr and w_dyr.isnumeric() and int(w_dyr) < 1850:
+        if to_len(h_first) < 1 or to_len(w_first) < 1 or to_len(h_last) < 1 or to_len(w_last) < 1:
+            continue
+        if to_len(h_bpl) < 1 or to_len(w_bpl) < 1 or to_len(w_fbpl) < 1 or to_len(w_last) < 1:
+            continue
+
+        # Filter out fake names but ALLOW families without a wife's first name
+        if not h_first or not h_last:
+            logger.info(f"Skipping {fam_id}: Missing Husband Name ({h_first} {h_last})")
             continue
 
         marr_yr, _ = parse_date(fam.get('marr_date', ''))
         marr_pl = common_utils.extract_state(fam.get('marr_place', ''))
         num_children = len(fam.get('children', []))
 
-        child_byrs = []
         kid_fingerprint = 0
+        child_byrs = []
         for c_id in fam.get('children', []):
             c_byr, _ = parse_date(individuals.get(c_id, {}).get('birth_date', ''))
             if c_byr:
                 child_byrs.append(c_byr)
-                kfp = 0
+                kid_fingerprint += common_utils.safe_cast(c_byr)
 
-        kidbys = '|'.join(sorted(child_byrs))
-        for k in child_byrs:
-            kid_fingerprint += int(k)
-
-        # Filter out fake names but ALLOW families without a wife's first name
-        if not h_first or not h_last:
-            print(f"Skipping {fam_id}: Missing Husband Name ({h_first} {h_last})")
-            continue
-
-        if len(h_first.strip()) < 1 or len(h_last.strip()) < 1:
-            continue
+        # kid_fingerprint = 0
+        # kidbys = '|'.join(sorted(child_byrs))
+        # for k in child_byrs:
+        #     kid_fingerprint += int(k)
 
         if ('--' in h_first or ' --' in h_last or 'Living' in h_last or '[' in h_last) or \
                 ('--' in w_last or 'Living' in w_last or '[' in w_last):
-            print(f"Skipping {fam_id}: Fake/Living Name Detected")
+            logger.info(f"Skipping {fam_id}: Fake/Living Name Detected")
             continue
 
         gtg = False
@@ -672,15 +627,14 @@ def build_couples_rows(individuals, families):
                 continue
             if not first or '--' in first or 'Living' in first or '[' in first:
                 continue
-            # Don't care about the young'uns.
-            if not byr.isnumeric() or not dyr.isnumeric():
-                continue
-            lspan = int(dyr) - int(byr)
-            if not byr or (int(byr) >= 1935) or (lspan < 21):
-                continue
-            if not bpl or not mbpl or not fbpl:
+                if to_len(first) < 1 or to_len(last) < 1:
+                    continue
+            if (to_pos_int(dyr) < 1850 and to_pos_int(byr) < 19250) or to_pos_int(byr) < 1800:
                 logger.warning(
-                    f"need birth place(s) for {last} {first}, bpl:[{bpl}] fbpl:[{fbpl}] mbpl[{mbpl}]   {byr} - {dyr} : {lspan}")
+                    f"need birth place(s) for {last} {first}, bpl:[{bpl}] fbpl:[{fbpl}] mbpl[{mbpl}]   byr:{byr} - dyr:{dyr} : {lspan}")
+                continue
+            lspan = to_pos_int(dyr) - to_pos_int(byr)
+            if (lspan < 21) or to_pos_int(byr) > 1935:
                 continue
 
             row = {}
@@ -732,7 +686,6 @@ def build_couples_rows(individuals, families):
 
     with open(r'../../JSON/gedcom_couples.json', 'w', encoding='utf-8') as f:
         json.dump(records, f, indent=4, ensure_ascii=False)
-    print("it")
     return records
 
 
@@ -743,7 +696,7 @@ def write_csv(rows, filepath):
         writer = csv.DictWriter(f, fieldnames=rows[0].keys())
         writer.writeheader()
         writer.writerows(rows)
-    print(f"  CSV written: {filepath}")
+    logger.info(f"  CSV written: {filepath}")
 
 
 def write_xlsx(indi_rows, fam_rows, couple_rows, filepath):
@@ -824,13 +777,13 @@ def write_xlsx(indi_rows, fam_rows, couple_rows, filepath):
         c.alignment = Alignment(horizontal='right')
 
     wb.save(filepath)
-    print(f"  XLSX written: {filepath}")
+    logger.info(f"  XLSX written: {filepath}")
 
 
 if __name__ == '__main__':
     places = []
 
-    logger = gen_logging.setup_logging(logger_name="gedcom_analysisb")
+    logger = gen_logging.setup_logging(logger_name="gedcom_analysis")
 
     parser = argparse.ArgumentParser(description="Parse GEDCOM and export to CSV and formatted XLSX.")
     parser.add_argument("-i", "--input", default=INPUT_GEDCOM, help="Path to input GEDCOM file.")
@@ -841,30 +794,30 @@ if __name__ == '__main__':
     out_dir = args.outdir
 
     if not os.path.exists(gedcom_path):
-        print(f"ERROR: GEDCOM file not found: {gedcom_path}")
+        logger.error(f"ERROR: GEDCOM file not found: {gedcom_path}")
         sys.exit(1)
 
     os.makedirs(out_dir, exist_ok=True)
     base_name = os.path.splitext(os.path.basename(gedcom_path))[0]
 
-    print(f"Parsing: {gedcom_path}")
+    logger.info(f"Parsing: {gedcom_path}")
     individuals, families = parse_gedcom(gedcom_path)
-    print(f"  Found {len(individuals):,} individuals, {len(families):,} families.")
+    logger.info(f"  Found {len(individuals):,} individuals, {len(families):,} families.")
 
-    print("Analyzing Homeland Counties...")
+    logger.info("Analyzing Homeland Counties...")
     analyze_homeland_counties(individuals, families, logger, out_dir)
 
-    print("Building rows...")
+    logger.info("Building rows...")
     indi_rows = build_individuals_rows(individuals, families)
     fam_rows = build_families_rows(individuals, families)
     couple_rows = build_couples_rows(individuals, families)
 
-    print("Writing CSV files...")
+    logger.info("Writing CSV files...")
     write_csv(indi_rows, os.path.join(out_dir, f"{base_name}_individuals.csv"))
     write_csv(fam_rows, os.path.join(out_dir, f"{base_name}_families.csv"))
     write_csv(couple_rows, os.path.join(out_dir, f"{base_name}_couples.csv"))
 
-    print("Writing Excel workbook...")
+    logger.info("Writing Excel workbook...")
     write_xlsx(indi_rows, fam_rows, couple_rows, os.path.join(out_dir, f"{base_name}.xlsx"))
 
     places.sort()
@@ -880,4 +833,4 @@ if __name__ == '__main__':
     str = common_utils.dict_to_str(individuals, 1)
     logger.info(str)
 
-    print("\nDone!")
+    logger.info("\nDone!")

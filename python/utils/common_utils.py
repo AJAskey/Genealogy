@@ -270,6 +270,53 @@ def get_bpl_num(birth_place):
     return int(lnum[0])
 
 
+def extract_county(loc_str):
+    """Strips city/state and returns only the county name."""
+    if not loc_str: return ""
+    parts = [p.strip() for p in loc_str.split(',')]
+    if len(parts) >= 2:
+        # If the last part is a country like USA, the logic shifts
+        if parts[-1].upper() == 'USA':
+            if len(parts) >= 3:  # e.g., "Clearfield, Pennsylvania, USA" or "City, County, State, USA"
+                return parts[-3]
+            else:
+                return ""  # Not enough parts for a county (e.g., "Pennsylvania, USA")
+        else:  # No "USA" at the end, e.g., "Pike, Clearfield, Pennsylvania"
+            return parts[-2]
+    return ""
+
+
+def extract_state(loc_str):
+    """Strips city/county and returns only the state name."""
+    if not loc_str: return ""
+    parts = [p.strip() for p in loc_str.split(',')]
+    if len(parts) >= 1:
+        # If the last part is a country like USA, the state is the one before it
+        if parts[-1].upper() == 'USA':
+            if len(parts) >= 2:  # e.g., "Pennsylvania, USA"
+                return parts[-2]
+            else:
+                return ""  # Just "USA", no state
+        else:  # No "USA" at the end, e.g., "Pennsylvania" or "Clearfield, Pennsylvania"
+            return parts[-1]
+    return ""
+
+
+def safe_cast(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def safe_check(value):
+    try:
+        int(value)
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
 def get_bpl_prefixes(birth_place, desc=""):
     """Translates a free-text location string into standard IPUMS BPL prefixes."""
     if not birth_place: return None

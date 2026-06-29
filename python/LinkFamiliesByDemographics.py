@@ -39,7 +39,7 @@ else:
     BASE_DATA_DIR = os.path.expanduser("~/Genealogy_Data")
 
 YEARLY_VAULT_DIR = os.path.join(BASE_DATA_DIR, "YearlyVaults")
-MATCH_DB_PATH = os.path.join(BASE_DATA_DIR, "DemographicMatches.db")
+MATCH_DB_PATH = os.path.join(BASE_DATA_DIR, "DemographicMatches2.db")
 JSON_PATH = os.path.join(project_root, "JSON", "gedcom_couples.json")
 DEBUG_SURNAME = None  # "BOSSELSTINK"  # Set to your anonymized surname for the debug dump!
 
@@ -129,8 +129,8 @@ def step_2_target_driven_extraction(con, logger):
         w_fbpl = get_base_code(couple.get('w_fbpl'))
         w_mbpl = get_base_code(couple.get('w_mbpl'))
 
-        # Skip couples missing required parent BPLs to enforce strict rules
-        if 0 in (h_bpl, w_bpl, h_fbpl, h_mbpl, w_fbpl, w_mbpl):
+        # Skip couples missing core demographics, but allow missing parents so we cast a wide net into the Time Machine!
+        if 0 in (h_bpl, w_bpl):
             continue
 
         h_byr_int = int(h_byr)
@@ -227,88 +227,40 @@ def step_3_identify_multi_decade_individuals(con, logger):
                 FROM temp.all_individuals;
                 """)
 
-    con.execute("""
-                CREATE
-                TEMP TABLE multi_decade_individuals AS
-                SELECT dem_hash,
-                       list(histid)    as histid_list,
-                       list(family_id) as family_id_list,
-                       count(*)        as num_appearances
-                FROM temp.dem_hashes
-                GROUP BY dem_hash
-                HAVING count(*) > 1;
-                """)
-    count = con.execute("SELECT COUNT(*) FROM multi_decade_individuals").fetchone()[0]
-    logger.info(f"  -> Found {count:,} unique demographic clusters appearing in multiple decades.")
-    logger.info("  -> Step 3 complete.")
+    logger.info("  -> Step 3 complete. Demographic hashes created.")
 
 
 def step_4_build_clan_database(con, logger):
     """
-    Builds a graph of family connections for the multi-decade individuals
-    and saves the resulting 'clans' (connected components) to the final DB.
+    Groups families into 'clans' by enforcing the Dual-Key Lock (Head + Spouse).
     """
     logger.info("\n=====================================================================")
-    logger.info("STEP 4: BUILDING FAMILY GRAPH AND IDENTIFYING CLANS...")
+    logger.info("STEP 4: BUILDING CLANS VIA DUAL-KEY LOCK...")
     logger.info("=====================================================================")
 
+    # Create a family hash by combining Head and Spouse demographic hashes
     con.execute("""
                 CREATE
-                TEMP TABLE family_links AS
-                SELECT unnest(family_id_list) as family_id, dem_hash
-                FROM temp.multi_decade_individuals;
+                TEMP TABLE family_hashes AS
+                SELECT f.family_id,
+                       h.dem_hash || '-SP-' || COALESCE(s.dem_hash, 'NONE') AS family_hash
+                FROM temp.all_families f
+                         JOIN temp.dem_hashes h ON f.head_histid = h.histid
+                         LEFT JOIN temp.dem_hashes s ON f.spouse_histid = s.histid;
                 """)
 
-    logger.info("  -> Extracting family links to build Python graph...")
-    links = con.execute("SELECT family_id, dem_hash FROM temp.family_links").fetchall()
-
-    adj = defaultdict(list)
-    for fid, dhash in links:
-        adj[fid].append(dhash)
-        adj[dhash].append(fid)
-
-    visited = set()
-    clan_records = []
-    clan_id = 1
-
-    for node in adj.keys():
-        if node not in visited:
-            comp_nodes = []
-            queue = deque([node])
-            visited.add(node)
-            while queue:
-                curr = queue.popleft()
-                comp_nodes.append(curr)
-                for neighbor in adj[curr]:
-                    if neighbor not in visited:
-                        visited.add(neighbor)
-                        queue.append(neighbor)
-
-            # Extract only family_ids from this component
-            for n in comp_nodes:
-                if "_" in str(n) and "|" not in str(n):
-                    clan_records.append((clan_id, n))
-            clan_id += 1
-
     con.execute("DROP TABLE IF EXISTS main.clan_mapping;")
-    con.execute("CREATE TABLE main.clan_mapping (clan_id INTEGER, family_id TEXT);")
-
-    logger.info("  -> Writing clans back to database...")
-
-    # DuckDB's executemany is extremely slow for millions of rows.
-    # The fastest native way to bulk-insert is writing a quick temporary CSV!
-    temp_csv = os.path.join(BASE_DATA_DIR, "duckdb_temp", "temp_clans.csv").replace('\\', '/')
-    with open(temp_csv, 'w', newline='', encoding='utf-8') as f:
-        csv.writer(f).writerows(clan_records)
-
-    con.execute(f"COPY main.clan_mapping FROM '{temp_csv}' (FORMAT CSV);")
-    os.path.exists(temp_csv) and os.remove(temp_csv)
+    # DENSE_RANK assigns a unique integer ID to each unique Dual-Key family hash!
+    con.execute("""
+                CREATE TABLE main.clan_mapping AS
+                SELECT DENSE_RANK() OVER (ORDER BY family_hash) AS clan_id, family_id
+                FROM temp.family_hashes;
+                """)
 
     clan_count = con.execute("SELECT COUNT(DISTINCT clan_id) FROM main.clan_mapping").fetchone()[0]
     family_count = con.execute("SELECT COUNT(*) FROM main.clan_mapping").fetchone()[0]
-    logger.info(f"  -> Identified {clan_count:,} distinct Clans containing {family_count:,} total families.")
-    logger.info(f"  -> Clan data saved to: {MATCH_DB_PATH}")
-    logger.info("  -> Step 4 complete.")
+    logger.info(f"  -> Identified {clan_count:,} distinct Dual-Key Clans containing {family_count:,} total families.")
+    logger.info("  -> Step 4 complete. The Hairball has been eliminated!")
 
 
 def step_5_create_lineage_links(con, logger):
@@ -320,49 +272,12 @@ def step_5_create_lineage_links(con, logger):
     logger.info("STEP 5: STITCHING GENERATIONS (CHILD-TO-ADULT LINEAGE LINKS)...")
     logger.info("=====================================================================")
 
-    con.execute("""
-                CREATE
-                TEMP TABLE child_profiles AS
-                SELECT c.clan_id,
-                       i.family_id,
-                       i.histid,
-                       dh.dem_hash
-                FROM temp.all_individuals i
-                         JOIN main.clan_mapping c ON i.family_id = c.family_id
-                         JOIN temp.all_families f ON i.family_id = f.family_id
-                         JOIN temp.dem_hashes dh ON i.histid = dh.histid
-                WHERE i.histid != f.head_histid AND (f.spouse_histid IS NULL OR i.histid != f.spouse_histid);
-                """)
-
-    con.execute("""
-        CREATE TEMP TABLE adult_profiles AS
-        SELECT
-            c.clan_id,
-            i.family_id,
-            i.histid,
-            dh.dem_hash
-        FROM temp.all_individuals i
-        JOIN main.clan_mapping c ON i.family_id = c.family_id
-        JOIN temp.all_families f ON i.family_id = f.family_id
-        JOIN temp.dem_hashes dh ON i.histid = dh.histid
-        WHERE i.histid = f.head_histid OR i.histid = f.spouse_histid;
-    """)
-
     con.execute("DROP TABLE IF EXISTS main.lineage_links;")
-    con.execute("""
-        CREATE TABLE main.lineage_links AS
-        SELECT
-            c.clan_id as child_clan_id,
-            a.clan_id as adult_clan_id
-        FROM temp.child_profiles c
-        JOIN temp.adult_profiles a ON c.dem_hash = a.dem_hash
-        WHERE c.clan_id != a.clan_id
-        GROUP BY child_clan_id, adult_clan_id;
-    """)
+    con.execute("CREATE TABLE main.lineage_links (child_clan_id INTEGER, adult_clan_id INTEGER);")
 
-    link_count = con.execute("SELECT COUNT(*) FROM main.lineage_links").fetchone()[0]
-    logger.info(f"  -> Found and saved {link_count:,} potential inter-generational links.")
-    logger.info("  -> Step 5 complete. Inter-generational links have been stitched and saved.")
+    logger.info("  -> Step 5 temporarily bypassed for MVP.")
+    logger.info(
+        "  -> (Joining purely on dem_hash creates a massive Cartesian explosion. We will tackle lineage linking later!)")
 
 
 def step_6_consolidate_data(con, logger):
@@ -374,14 +289,14 @@ def step_6_consolidate_data(con, logger):
     logger.info("STEP 6: CONSOLIDATING ALL LINKED DATA INTO THE TIME MACHINE")
     logger.info("=====================================================================")
 
-    family_ids_query = con.execute("SELECT family_id FROM main.clan_mapping")
+    family_ids_query = con.execute("SELECT DISTINCT family_id FROM temp.all_families")
     if not family_ids_query:
-        logger.warning("No families found in clan_mapping. Skipping consolidation.")
+        logger.warning("No families found in target extraction. Skipping consolidation.")
         return
 
     family_ids = [f[0] for f in family_ids_query.fetchall()]
     if not family_ids:
-        logger.warning("No families found in clan_mapping. Skipping consolidation.")
+        logger.warning("No families found in target extraction. Skipping consolidation.")
         return
 
     # Create the final tables in the Time Machine DB
@@ -397,8 +312,20 @@ def step_6_consolidate_data(con, logger):
     reference_vault = db_list[0][0]  # Use the first available vault for schema
 
     # Fixed syntax to safely copy schema without using LIKE on attached databases
-    con.execute(f"CREATE TABLE main.tm_families AS SELECT * FROM {reference_vault}.families WHERE 1=0;")
-    con.execute(f"CREATE TABLE main.tm_individuals AS SELECT * FROM {reference_vault}.individuals WHERE 1=0;")
+    con.execute(
+        f"CREATE TABLE main.tm_families AS SELECT family_id, year, head_histid, spouse_histid, kids_byr_sum, stateicp, countyicp FROM {reference_vault}.families WHERE 1=0;")
+    con.execute(f"""
+        CREATE TABLE main.tm_individuals AS 
+        SELECT i.histid, i.family_id, i.first_name, i.last_name, i.sex,
+               TRY_CAST(i.birthyr AS INTEGER) AS byr_int,
+               CASE WHEN TRY_CAST(i.bpld AS INTEGER) >= 1000 THEN TRY_CAST(i.bpld AS INTEGER) // 100 ELSE TRY_CAST(i.bpld AS INTEGER) END AS bpl_int,
+               CASE WHEN TRY_CAST(i.fbpl AS INTEGER) >= 1000 THEN TRY_CAST(i.fbpl AS INTEGER) // 100 ELSE TRY_CAST(i.fbpl AS INTEGER) END AS fbpl_int,
+               CASE WHEN TRY_CAST(i.mbpl AS INTEGER) >= 1000 THEN TRY_CAST(i.mbpl AS INTEGER) // 100 ELSE TRY_CAST(i.mbpl AS INTEGER) END AS mbpl_int,
+               f.stateicp, f.countyicp
+        FROM {reference_vault}.individuals i
+        JOIN {reference_vault}.families f ON i.family_id = f.family_id 
+        WHERE 1=0;
+    """)
 
     # Create a temporary table of all target family IDs for hyper-efficient joining
     con.execute("CREATE TEMP TABLE temp_fids AS SELECT unnest(?) AS column0", [family_ids])
@@ -413,12 +340,63 @@ def step_6_consolidate_data(con, logger):
         # Use the temp table for efficient joins
         con.execute(f"""
             INSERT INTO main.tm_families 
-            SELECT f.* FROM vault_{year}.families f JOIN temp_fids tf ON f.family_id = tf.column0;
+            SELECT f.family_id, f.year, f.head_histid, f.spouse_histid, f.kids_byr_sum, f.stateicp, f.countyicp
+            FROM vault_{year}.families f JOIN temp_fids tf ON f.family_id = tf.column0;
         """)
         con.execute(f"""
             INSERT INTO main.tm_individuals
-            SELECT i.* FROM vault_{year}.individuals i JOIN temp_fids tf ON i.family_id = tf.column0;
+            SELECT i.histid, i.family_id, i.first_name, i.last_name, i.sex,
+                   TRY_CAST(i.birthyr AS INTEGER) AS byr_int,
+                   CASE WHEN TRY_CAST(i.bpld AS INTEGER) >= 1000 THEN TRY_CAST(i.bpld AS INTEGER) // 100 ELSE TRY_CAST(i.bpld AS INTEGER) END AS bpl_int,
+                   CASE WHEN TRY_CAST(i.fbpl AS INTEGER) >= 1000 THEN TRY_CAST(i.fbpl AS INTEGER) // 100 ELSE TRY_CAST(i.fbpl AS INTEGER) END AS fbpl_int,
+                   CASE WHEN TRY_CAST(i.mbpl AS INTEGER) >= 1000 THEN TRY_CAST(i.mbpl AS INTEGER) // 100 ELSE TRY_CAST(i.mbpl AS INTEGER) END AS mbpl_int,
+                   f.stateicp, f.countyicp
+            FROM vault_{year}.individuals i 
+            JOIN temp_fids tf ON i.family_id = tf.column0
+            JOIN vault_{year}.families f ON i.family_id = f.family_id;
         """)
+
+    logger.info("  -> Building high-performance indexes on Demographics Database...")
+    con.execute("CREATE INDEX idx_tm_inds_histid ON main.tm_individuals(histid);")
+    con.execute("CREATE INDEX idx_tm_inds_famid ON main.tm_individuals(family_id);")
+    con.execute("CREATE INDEX idx_tm_fams_famid ON main.tm_families(family_id);")
+    con.execute("CREATE INDEX idx_tm_inds_byr ON main.tm_individuals(byr_int);")
+
+    logger.info("  -> Pre-calculating eternal 'Lifetime Kid Fingerprints' for all Clans...")
+    con.execute("DROP TABLE IF EXISTS main.clan_details;")
+    con.execute("""
+                CREATE TABLE main.clan_details AS
+                WITH clan_kids AS (SELECT DISTINCT c.clan_id,
+                                                   i.sex,
+                                                   i.byr_int
+                                   FROM main.clan_mapping c
+                                            JOIN main.tm_individuals i ON c.family_id = i.family_id
+                                            JOIN main.tm_families f ON i.family_id = f.family_id
+                                   WHERE i.histid != f.head_histid
+                    AND
+                (
+                    f
+                    .
+                    spouse_histid
+                    IS
+                    NULL
+                    OR
+                    i
+                    .
+                    histid
+                    !=
+                    f
+                    .
+                    spouse_histid
+                )
+                    AND i.byr_int IS NOT NULL
+                    )
+                SELECT clan_id, 
+                       SUM(byr_int) AS lifetime_kfp,
+                       STRING_AGG(CAST(byr_int AS VARCHAR), ',' ORDER BY byr_int) AS lifetime_kid_list
+                FROM clan_kids
+                GROUP BY clan_id;
+                """)
 
     logger.info("\nSUCCESS! Time Machine is now a self-contained data warehouse.")
 
