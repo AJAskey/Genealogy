@@ -28,6 +28,7 @@ import os
 import sqlite3
 import sys
 import time
+import uuid
 
 # Add the 'python' directory and project root to sys.path so we can import properly
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -197,6 +198,10 @@ def setup_database(db_path, logger):
                        TEXT,
                        countyicp
                        TEXT,
+                       occ1950
+                       TEXT,
+                       ind1950
+                       TEXT,
                        raw_data
                        TEXT,
                        -- The Bread Crumbs! (JSON)
@@ -266,10 +271,9 @@ def process_household(rows):
 
         # DECISION: Failsafe for custom CSVs that lack a HISTID or YEAR
         if not histid:
-            import uuid
             # Generate a synthetic ID so the Primary Key doesn't collide
             histid = f"SYNTH_{serial}_{pernum}_{uuid.uuid4().hex[:8]}"
-        if not 185:
+        if not year:
             year = "1920"  # Fallback so the database doesn't reject the chunk
 
         # Safely default to '1' if the CSV provides a completely blank string instead of None
@@ -376,6 +380,8 @@ def process_household(rows):
             father_histid, mother_histid, family_id,
             related_str, row.get('MARST'), row.get('RACED') or row.get('RACE'),
             str(row.get('STATEICP', '')).strip(), str(row.get('COUNTYICP', '')).strip(),
+            row.get('OCC1950'),
+            row.get('IND1950'),
             raw_data_json
         ))
 
@@ -392,13 +398,13 @@ def process_household(rows):
         kids_byr_sum = 0
 
         for ind in family_members:
-            # ind[16] is father_histid, ind[17] is mother_histid, ind[10] is birthyr
-            is_child = (data['head_histid'] and ind[16] == data['head_histid']) or \
-                       (data['spouse_histid'] and ind[17] == data['spouse_histid'])
+            # ind[10] is father_histid, ind[11] is mother_histid, ind[4] is birthyr
+            is_child = (data['head_histid'] and ind[10] == data['head_histid']) or \
+                       (data['spouse_histid'] and ind[11] == data['spouse_histid'])
             if is_child:
                 num_kids += 1
                 try:
-                    kids_byr_sum += int(ind[10]) if ind[10] else 0
+                    kids_byr_sum += int(ind[4]) if ind[4] else 0
                 except ValueError:
                     pass  # Catch edge cases where BIRTHYR might be blank or corrupted
 
@@ -450,6 +456,7 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
 
             conn = sqlite3.connect(db_path)
             conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous = NORMAL;")
             conn.execute("PRAGMA foreign_keys = ON;")
             conns_by_year[db_key] = conn
             ind_batch_by_year[db_key] = []
@@ -459,9 +466,9 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
     ind_insert_query = """
                        INSERT \
                        OR IGNORE INTO individuals 
-        (histid, first_name, last_name, sex, birthyr, birthmo, marrnoyrs, bpld, fbpl, mbpl, 
-         father_histid, mother_histid, family_id, related, marst, raced, stateicp, countyicp, raw_data)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
+        (histid, first_name, last_name, sex, birthyr, birthmo, marrnoyrs, bpld, fbpl, mbpl,
+         father_histid, mother_histid, family_id, related, marst, raced, stateicp, countyicp, occ1950, ind1950, raw_data)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
                        """
 
     fam_insert_query = """
@@ -555,81 +562,18 @@ def ingest_to_vault(input_csv, logger, record_limit=None):
 
         for db_key, conn in conns_by_year.items():
             try:
+                cursor = conn.cursor()
                 if fam_batch_by_year[db_key]:
-                    cursor = conn.cursor()
                     cursor.executemany(fam_insert_query, fam_batch_by_year[db_key])
+                if ind_batch_by_year[db_key]:
                     cursor.executemany(ind_insert_query, ind_batch_by_year[db_key])
+                if fam_batch_by_year[db_key] or ind_batch_by_year[db_key]:
                     conn.commit()
             finally:
                 conn.close()
 
     elapsed = round((time.time() - start_time) / 60, 2)
     logger.info(f"  [{os.path.basename(input_csv)}]  DONE — {count:,} records in {elapsed} min.")
-
-
-# ==============================================================================
-# DATA VAULT HASH BUILDER
-# ==============================================================================
-def build_computed_hashes(vault_dir, logger):
-    logger.info("Generating computed Data Vault keys (dem_hash & family_hash)...")
-    for filename in os.listdir(vault_dir):
-        if SAMPLE_MODE and filename != SAMPLE_DB_NAME: continue
-        if not SAMPLE_MODE and not (filename.startswith("YearVault_") and filename.endswith(".db") and "Copy" not in filename): continue
-        
-        db_path = os.path.join(vault_dir, filename)
-        logger.info(f"  -> Computing hashes for {filename}...")
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("CREATE TABLE IF NOT EXISTS computed_ind_hashes (histid TEXT PRIMARY KEY, dem_hash TEXT)")
-            cursor.execute("CREATE TABLE IF NOT EXISTS computed_fam_hashes (family_id TEXT PRIMARY KEY, family_hash TEXT)")
-            
-            # SQLite uses '/' for integer division
-            cursor.execute("""
-                INSERT OR IGNORE INTO computed_ind_hashes (histid, dem_hash)
-                SELECT histid,
-                       TRIM(CAST(birthyr AS TEXT)) || '|' || 
-                       TRIM(CAST(sex AS TEXT)) || '|' || 
-                       CAST(CASE WHEN CAST(bpld AS INTEGER) >= 1000 THEN CAST(bpld AS INTEGER) / 100 ELSE CAST(bpld AS INTEGER) END AS TEXT) || '|' || 
-                       COALESCE(CAST(CASE WHEN CAST(fbpl AS INTEGER) >= 1000 THEN CAST(fbpl AS INTEGER) / 100 ELSE CAST(fbpl AS INTEGER) END AS TEXT), '0') || '|' || 
-                       COALESCE(CAST(CASE WHEN CAST(mbpl AS INTEGER) >= 1000 THEN CAST(mbpl AS INTEGER) / 100 ELSE CAST(mbpl AS INTEGER) END AS TEXT), '0')
-                FROM individuals
-            """)
-            cursor.execute("""
-                INSERT OR IGNORE INTO computed_fam_hashes (family_id, family_hash)
-                SELECT f.family_id,
-                       h.dem_hash || '-SP-' || COALESCE(s.dem_hash, 'NONE')
-                FROM families f
-                JOIN computed_ind_hashes h ON f.head_histid = h.histid
-                LEFT JOIN computed_ind_hashes s ON f.spouse_histid = s.histid
-            """)
-
-# ==============================================================================
-# INDEX OPTIMIZATION
-# ==============================================================================
-def build_indices(vault_dir, logger):
-    """
-    Builds database indices AFTER the bulk ingestion is complete.
-    Creating indices before inserting 816 million rows dramatically slows down ingestion.
-    """
-    logger.info("Building indices for downstream queries... (This may take a while)")
-    for filename in os.listdir(vault_dir):
-        if SAMPLE_MODE:
-            if filename != SAMPLE_DB_NAME: continue
-        else:
-            if not (filename.startswith("YearVault_") and filename.endswith(".db") and "Copy" not in filename): continue
-
-        db_path = os.path.join(vault_dir, filename)
-        logger.info(f"  -> Indexing {filename}...")
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_individuals_parents ON individuals(father_histid, mother_histid);")
-            cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_individuals_names ON individuals(last_name, first_name);")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_families_year_serial ON families(year, serial);")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_individuals_family ON individuals(family_id);")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_families_head ON families(head_histid);")
-    logger.info("Indices built successfully!")
 
 
 # ==============================================================================
@@ -678,9 +622,5 @@ if __name__ == '__main__':
             ingest_to_vault(file_path, main_logger, record_limit)
         else:
             main_logger.error(f"File not found: {file_path}")
-
-    # Build computed hashes and indices at the very end of the script
-    build_computed_hashes(VAULT_DIR, main_logger)
-    build_indices(VAULT_DIR, main_logger)
 
     main_logger.info("\nAll CSV files have been processed and loaded into the Relational Vault.")

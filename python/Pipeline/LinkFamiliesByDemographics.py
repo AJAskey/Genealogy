@@ -37,53 +37,20 @@ from utils import gen_logging
 # CONFIGURATION
 # ==============================================================================
 if os.name == 'nt':
-    BASE_DATA_DIR = r"c:\Data\Genealogy_Data"
-    BASE_DATA_DIR = r"c:\Data\Genealogy_Data"
+    BASE_DATA_DIR = r"d:\Data\Genealogy_Data"
 else:
     BASE_DATA_DIR = os.path.expanduser("~/Genealogy_Data")
 
 YEARLY_VAULT_DIR = os.path.join(BASE_DATA_DIR, "YearlyVaults")
 MATCH_DB_PATH = os.path.join(BASE_DATA_DIR, "DemographicMatches.db")
-JSON_PATH = os.path.join(project_root, "JSON", "gedcom_couples.json")
 DEBUG_SURNAME = None  # Disabled: Names no longer exist in the V4 schema
-
-NAME_TO_BPL = {
-    "ALABAMA": 1, "ALASKA": 2, "ARIZONA": 4, "ARKANSAS": 5, "CALIFORNIA": 6,
-    "COLORADO": 8, "CONNECTICUT": 9, "DELAWARE": 10, "DISTRICT OF COLUMBIA": 11,
-    "FLORIDA": 12, "GEORGIA": 13, "HAWAII": 15, "IDAHO": 16, "ILLINOIS": 17,
-    "INDIANA": 18, "IOWA": 19, "KANSAS": 20, "KENTUCKY": 21, "LOUISIANA": 22,
-    "MAINE": 23, "MARYLAND": 24, "MASSACHUSETTS": 25, "MICHIGAN": 26,
-    "MINNESOTA": 27, "MISSISSIPPI": 28, "MISSOURI": 29, "MONTANA": 30,
-    "NEBRASKA": 31, "NEVADA": 32, "NEW HAMPSHIRE": 33, "NEW JERSEY": 34,
-    "NEW MEXICO": 35, "NEW YORK": 36, "NORTH CAROLINA": 37, "NORTH DAKOTA": 38,
-    "OHIO": 39, "OKLAHOMA": 40, "OREGON": 41, "PENNSYLVANIA": 42,
-    "RHODE ISLAND": 44, "SOUTH CAROLINA": 45, "SOUTH DAKOTA": 46, "TENNESSEE": 47,
-    "TEXAS": 48, "UTAH": 49, "VERMONT": 50, "VIRGINIA": 51, "WASHINGTON": 53,
-    "WEST VIRGINIA": 54, "WISCONSIN": 55, "WYOMING": 56,
-    "CANADA": 150, "MEXICO": 200, "DENMARK": 400, "NORWAY": 401, "SWEDEN": 404,
-    "ENGLAND": 410, "WALES": 411, "SCOTLAND": 412, "NORTHERN IRELAND": 413, "IRELAND": 414,
-    "FRANCE": 421, "NETHERLANDS": 425, "SWITZERLAND": 426, "GERMANY": 453,
-    "JAPAN": 501, "SOUTH Korea": 502
-}
-
-
-def get_base_code(code_str):
-    if not code_str: return 0
-    try:
-        val = int(float(code_str))
-        return val // 100 if val >= 1000 else val
-    except (ValueError, TypeError):
-        clean_str = str(code_str).strip().upper()
-        if clean_str in NAME_TO_BPL:
-            return NAME_TO_BPL[clean_str]
-        return 0
 
 
 # ==============================================================================
 
 def step_1_attach_databases(con, logger):
     """Attaches all yearly SQLite vaults to the in-memory DuckDB instance."""
-    logger.info("STEP 1: ATTACHING ALL YEARLY VAULTS...")
+    logger.info(f"STEP 1: ATTACHING ALL YEARLY VAULTS FROM {YEARLY_VAULT_DIR}...")
     con.execute("INSTALL sqlite; LOAD sqlite; SET sqlite_all_varchar=true;")
 
     attached_dbs = 0
@@ -100,56 +67,30 @@ def step_1_attach_databases(con, logger):
     logger.info("  -> Step 1 complete. All available vaults are connected.")
 
 
-def step_2_target_driven_extraction(con, logger):
+def step_2_extract_census_data(con, logger):
     """
-    Uses the JSON targets as a strict filter to extract ONLY relevant families
-    from the census rows, preventing RAM Out-Of-Memory crashes!
+    Extracts ALL families directly from the deterministic census vaults.
+    No probabilistic GEDCOM targets are used here. This is pure census truth.
     """
     logger.info("\n=====================================================================")
-    logger.info("STEP 2: TARGET-DRIVEN EXTRACTION (PULLING RELEVANT DATA INTO RAM)...")
+    logger.info("STEP 2: EXTRACTING ALL CENSUS DATA (PURE DETERMINISTIC)...")
     logger.info("=====================================================================")
 
-    if not os.path.exists(JSON_PATH):
-        logger.error(f"CRITICAL: Cannot find JSON file at {JSON_PATH}. Aborting.")
+    # Pre-flight check to ensure hash tables exist before we do any heavy lifting.
+    logger.info("  -> Performing pre-flight check for computed hash tables...")
+    try:
+        # We only need to check one vault. If 1850 has it, they all should.
+        con.execute("SELECT 1 FROM vault_1850.computed_fam_hashes LIMIT 1;")
+        logger.info("     [OK] Hash tables found. Proceeding with extraction.")
+    except duckdb.CatalogException:
+        logger.error("CRITICAL: The 'computed_fam_hashes' table was not found in YearVault_1850.db.")
+        logger.error("          This likely means the 'BuildVaultHashes.py' script has not been run on this dataset.")
+        logger.error("          Please run the overnight hash builder script on this data directory and try again.")
         sys.exit(1)
 
-    with open(JSON_PATH, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-
-    con.execute(
-        "CREATE TEMP TABLE mem_targets (h_byr_min INTEGER, h_byr_max INTEGER, h_bpl INTEGER, w_byr_min INTEGER, w_byr_max INTEGER, w_bpl INTEGER)")
-
-    targets_inserted = 0
-    for couple in data:
-        h_byr = couple.get('h_byr')
-        w_byr = couple.get('w_byr')
-        if not h_byr or not w_byr or not str(h_byr).isnumeric() or not str(w_byr).isnumeric():
-            continue
-
-        h_bpl = get_base_code(couple.get('h_bpl'))
-        w_bpl = get_base_code(couple.get('w_bpl'))
-
-        if 0 in (h_bpl, w_bpl):
-            continue
-
-        h_byr_int = int(h_byr)
-        w_byr_int = int(w_byr)
-
-        # Insert target with a +/- 5 year age drift window
-        con.execute("INSERT INTO mem_targets VALUES (?, ?, ?, ?, ?, ?)",
-                    (h_byr_int - 5, h_byr_int + 5, h_bpl, w_byr_int - 5, w_byr_int + 5, w_bpl))
-        targets_inserted += 1
-
-    logger.info(f"  -> Loaded {targets_inserted:,} fully-documented target couples into RAM filter.")
-
-    con.execute("""
-        CREATE TEMP TABLE all_individuals AS 
-        SELECT histid, family_id, sex, birthyr, bpld, fbpl, mbpl 
-        FROM vault_1850.individuals WHERE 1=0;
-    """)
     con.execute("""
         CREATE TEMP TABLE all_families AS 
-        SELECT f.family_id, f.head_histid, f.spouse_histid, h.family_hash 
+        SELECT f.family_id, f.head_histid, f.spouse_histid, h.family_hash, h.snapshot_fam_hash 
         FROM vault_1850.families f 
         JOIN vault_1850.computed_fam_hashes h ON f.family_id = h.family_id 
         WHERE 1=0;
@@ -162,65 +103,46 @@ def step_2_target_driven_extraction(con, logger):
         # Force a sequential bulk-read into DuckDB RAM to completely bypass slow SQLite index lookups
         con.execute(f"""
             CREATE TEMP TABLE local_fams AS SELECT family_id, head_histid, spouse_histid FROM vault_{year}.families;
-            CREATE TEMP TABLE local_inds AS SELECT histid, family_id, sex, birthyr, bpld, fbpl, mbpl FROM vault_{year}.individuals;
-            CREATE TEMP TABLE local_hashes AS SELECT family_id, family_hash FROM vault_{year}.computed_fam_hashes;
+            CREATE TEMP TABLE local_hashes AS SELECT family_id, family_hash, snapshot_fam_hash FROM vault_{year}.computed_fam_hashes;
         """)
 
-        # Extract only the families that mathematically match our target filters
         con.execute(f"""
             INSERT INTO all_families
-            SELECT DISTINCT f.family_id, f.head_histid, f.spouse_histid, lh.family_hash
+            SELECT f.family_id, f.head_histid, f.spouse_histid, lh.family_hash, lh.snapshot_fam_hash
             FROM local_fams f
-            JOIN local_hashes lh ON f.family_id = lh.family_id
-            JOIN local_inds h ON f.head_histid = h.histid
-            JOIN local_inds s ON f.spouse_histid = s.histid
-            JOIN mem_targets t ON 
-                TRY_CAST(h.birthyr AS INTEGER) BETWEEN t.h_byr_min AND t.h_byr_max
-                AND TRY_CAST(s.birthyr AS INTEGER) BETWEEN t.w_byr_min AND t.w_byr_max
-                AND h.sex = '1' AND s.sex = '2'
-                AND (CASE WHEN TRY_CAST(h.bpld AS INTEGER) >= 1000 THEN TRY_CAST(h.bpld AS INTEGER)//100 ELSE TRY_CAST(h.bpld AS INTEGER) END) = t.h_bpl
-                AND (CASE WHEN TRY_CAST(s.bpld AS INTEGER) >= 1000 THEN TRY_CAST(s.bpld AS INTEGER)//100 ELSE TRY_CAST(s.bpld AS INTEGER) END) = t.w_bpl;
-        """)
-
-        # Pull the individuals for those matched families
-        con.execute(f"""
-            INSERT INTO all_individuals
-            SELECT i.* FROM local_inds i
-            JOIN all_families af ON i.family_id = af.family_id
-            WHERE i.family_id LIKE '{year}_%';
+            JOIN local_hashes lh ON f.family_id = lh.family_id;
         """)
 
         con.execute("DROP TABLE local_fams;")
-        con.execute("DROP TABLE local_inds;")
         con.execute("DROP TABLE local_hashes;")
 
-        count = con.execute(f"SELECT COUNT(*) FROM all_individuals WHERE family_id LIKE '{year}_%'").fetchone()[0]
-        logger.info(f"  -> Extracted {count:,} highly relevant individuals from {year}.")
+        count = con.execute(f"SELECT COUNT(*) FROM all_families WHERE family_id LIKE '{year}_%'").fetchone()[0]
+        logger.info(f"  -> Extracted {count:,} census families from {year}.")
 
-    total = con.execute("SELECT COUNT(*) FROM all_individuals").fetchone()[0]
-    logger.info(f"  -> Step 2 complete. Reduced processing pool down to {total:,} total individuals.")
+    total = con.execute("SELECT COUNT(*) FROM all_families").fetchone()[0]
+    logger.info(f"  -> Step 2 complete. Loaded {total:,} total families into Time Machine framework.")
 
 
 def step_3_build_clan_database(con, logger):
     """
-    Groups families into 'clans' by enforcing the Dual-Key Lock (Head + Spouse).
+    Groups families by their exact SNAPSHOT hash to prevent clone merging!
     """
     logger.info("\n=====================================================================")
-    logger.info("STEP 3: BUILDING CLANS VIA DUAL-KEY LOCK...")
+    logger.info("STEP 3: ISOLATING UNIQUE FAMILY SNAPSHOTS...")
     logger.info("=====================================================================")
 
     con.execute("DROP TABLE IF EXISTS main.clan_mapping;")
-    # DENSE_RANK assigns a unique integer ID to each unique Dual-Key family hash directly from the vault!
+    # Assign a unique ID to every exact snapshot so families with identical parents aren't merged
     con.execute("""
                 CREATE TABLE main.clan_mapping AS
-                SELECT DENSE_RANK() OVER (ORDER BY family_hash) AS clan_id, family_id
+                SELECT DENSE_RANK() OVER (ORDER BY snapshot_fam_hash) AS clan_id, family_id, snapshot_fam_hash
                 FROM temp.all_families;
                 """)
 
     clan_count = con.execute("SELECT COUNT(DISTINCT clan_id) FROM main.clan_mapping").fetchone()[0]
     family_count = con.execute("SELECT COUNT(*) FROM main.clan_mapping").fetchone()[0]
-    logger.info(f"  -> Identified {clan_count:,} distinct Dual-Key Clans containing {family_count:,} total families.")
-    logger.info("  -> Step 3 complete. The Hairball has been eliminated!")
+    logger.info(f"  -> Identified {clan_count:,} unique Snapshots across {family_count:,} records.")
+    logger.info("  -> Step 3 complete. Super-Clan Hairballs have been eliminated!")
 
 
 def step_4_create_lineage_links(con, logger):
@@ -246,15 +168,8 @@ def step_5_consolidate_data(con, logger):
     logger.info("STEP 5: CONSOLIDATING ALL LINKED DATA INTO THE TIME MACHINE")
     logger.info("=====================================================================")
 
-    family_ids_query = con.execute("SELECT DISTINCT family_id FROM temp.all_families")
-    if not family_ids_query:
-        logger.warning("No families found in target extraction. Skipping consolidation.")
-        return
-
-    family_ids = [f[0] for f in family_ids_query.fetchall()]
-    if not family_ids:
-        logger.warning("No families found in target extraction. Skipping consolidation.")
-        return
+    # We don't need to pass family_ids through Python anymore! 
+    # main.clan_mapping already contains the exact, target-filtered families.
 
     con.execute("DROP TABLE IF EXISTS main.tm_individuals;")
     con.execute("DROP TABLE IF EXISTS main.tm_families;")
@@ -267,21 +182,21 @@ def step_5_consolidate_data(con, logger):
     reference_vault = db_list[0][0]
 
     con.execute(
-        f"CREATE TABLE main.tm_families AS SELECT family_id, year, head_histid, spouse_histid, kids_byr_sum, stateicp, countyicp FROM {reference_vault}.families WHERE 1=0;")
+        f"CREATE TABLE main.tm_families AS SELECT family_id, 0 AS clan_id, year, head_histid, spouse_histid, kids_byr_sum, stateicp, countyicp FROM {reference_vault}.families WHERE 1=0;")
     con.execute(f"""
         CREATE TABLE main.tm_individuals AS 
-        SELECT i.histid, i.family_id, i.sex,
+        SELECT i.histid, i.family_id, 0 AS clan_id, CAST('' AS VARCHAR) AS snapshot_fam_hash, CAST('' AS VARCHAR) AS person_id,
+               i.sex,
                TRY_CAST(i.birthyr AS INTEGER) AS byr_int,
                CASE WHEN TRY_CAST(i.bpld AS INTEGER) >= 1000 THEN TRY_CAST(i.bpld AS INTEGER) // 100 ELSE TRY_CAST(i.bpld AS INTEGER) END AS bpl_int,
                CASE WHEN TRY_CAST(i.fbpl AS INTEGER) >= 1000 THEN TRY_CAST(i.fbpl AS INTEGER) // 100 ELSE TRY_CAST(i.fbpl AS INTEGER) END AS fbpl_int,
                CASE WHEN TRY_CAST(i.mbpl AS INTEGER) >= 1000 THEN TRY_CAST(i.mbpl AS INTEGER) // 100 ELSE TRY_CAST(i.mbpl AS INTEGER) END AS mbpl_int,
-               f.stateicp, f.countyicp
+               f.stateicp, f.countyicp,
+               i.occ1950, i.ind1950
         FROM {reference_vault}.individuals i
         JOIN {reference_vault}.families f ON i.family_id = f.family_id 
         WHERE 1=0;
     """)
-
-    con.execute("CREATE TEMP TABLE temp_fids AS SELECT unnest(?) AS column0", [family_ids])
 
     for year in range(1850, 1960, 10):
         if not con.execute(f"SELECT 1 FROM duckdb_databases() WHERE database_name = 'vault_{year}'").fetchone():
@@ -290,19 +205,23 @@ def step_5_consolidate_data(con, logger):
         logger.info(f"  -> Extracting consolidated data from {year}...")
         con.execute(f"""
             INSERT INTO main.tm_families 
-            SELECT f.family_id, f.year, f.head_histid, f.spouse_histid, f.kids_byr_sum, f.stateicp, f.countyicp
-            FROM vault_{year}.families f JOIN temp_fids tf ON f.family_id = tf.column0;
+            SELECT f.family_id, c.clan_id, f.year, f.head_histid, f.spouse_histid, f.kids_byr_sum, f.stateicp, f.countyicp
+            FROM vault_{year}.families f 
+            JOIN main.clan_mapping c ON f.family_id = c.family_id;
         """)
         con.execute(f"""
             INSERT INTO main.tm_individuals
-            SELECT i.histid, i.family_id, i.sex,
+            SELECT i.histid, i.family_id, c.clan_id, c.snapshot_fam_hash,
+                   CAST(c.clan_id AS VARCHAR) || '_' || i.sex || '_' || CAST(TRY_CAST(i.birthyr AS INTEGER) AS VARCHAR) AS person_id,
+                   i.sex,
                    TRY_CAST(i.birthyr AS INTEGER) AS byr_int,
                    CASE WHEN TRY_CAST(i.bpld AS INTEGER) >= 1000 THEN TRY_CAST(i.bpld AS INTEGER) // 100 ELSE TRY_CAST(i.bpld AS INTEGER) END AS bpl_int,
                    CASE WHEN TRY_CAST(i.fbpl AS INTEGER) >= 1000 THEN TRY_CAST(i.fbpl AS INTEGER) // 100 ELSE TRY_CAST(i.fbpl AS INTEGER) END AS fbpl_int,
                    CASE WHEN TRY_CAST(i.mbpl AS INTEGER) >= 1000 THEN TRY_CAST(i.mbpl AS INTEGER) // 100 ELSE TRY_CAST(i.mbpl AS INTEGER) END AS mbpl_int,
-                   f.stateicp, f.countyicp
+                   f.stateicp, f.countyicp,
+                   i.occ1950, i.ind1950
             FROM vault_{year}.individuals i 
-            JOIN temp_fids tf ON i.family_id = tf.column0
+            JOIN main.clan_mapping c ON i.family_id = c.family_id
             JOIN vault_{year}.families f ON i.family_id = f.family_id;
         """)
 
@@ -311,40 +230,73 @@ def step_5_consolidate_data(con, logger):
     con.execute("CREATE INDEX idx_tm_inds_famid ON main.tm_individuals(family_id);")
     con.execute("CREATE INDEX idx_tm_fams_famid ON main.tm_families(family_id);")
     con.execute("CREATE INDEX idx_tm_inds_byr ON main.tm_individuals(byr_int);")
+    con.execute("CREATE INDEX idx_tm_inds_pid ON main.tm_individuals(person_id);")
+
+    logger.info("  -> Building Master Person Index (person_trajectories)...")
+    con.execute("DROP TABLE IF EXISTS main.person_trajectories;")
+    con.execute("""
+                CREATE TABLE main.person_trajectories AS
+                SELECT person_id,
+                       clan_id,
+                       i.sex,
+                       i.byr_int,
+                       STRING_AGG(CAST(f.year AS VARCHAR) || ':' || i.histid, ', ' ORDER BY f.year) AS histid_trail,
+                       STRING_AGG(CASE
+                                      WHEN i.occ1950 IS NOT NULL AND i.occ1950 != '' THEN CAST(f.year AS VARCHAR) || ':' || i.occ1950
+                                      ELSE NULL END,
+                                  ', ' ORDER BY f.year)                                             AS lifetime_occ_trail,
+                       STRING_AGG(CASE
+                                      WHEN i.ind1950 IS NOT NULL AND i.ind1950 != '' THEN CAST(f.year AS VARCHAR) || ':' || i.ind1950
+                                      ELSE NULL END,
+                                  ', ' ORDER BY f.year)                                             AS lifetime_ind_trail
+                FROM main.tm_individuals i
+                         JOIN main.tm_families f ON i.family_id = f.family_id
+                WHERE i.person_id IS NOT NULL
+                GROUP BY person_id, clan_id, i.sex, i.byr_int;
+                """)
 
     logger.info("  -> Pre-calculating eternal 'Lifetime Kid Fingerprints' for all Clans...")
     con.execute("DROP TABLE IF EXISTS main.clan_details;")
     con.execute("""
                 CREATE TABLE main.clan_details AS
-                WITH clan_kids AS (SELECT DISTINCT c.clan_id,
-                                                   i.sex,
-                                                   i.byr_int
-                                   FROM main.clan_mapping c
-                                            JOIN main.tm_individuals i ON c.family_id = i.family_id
-                                            JOIN main.tm_families f ON i.family_id = f.family_id
-                                   WHERE i.histid != f.head_histid
-                    AND
-                (
-                    f
-                    .
-                    spouse_histid
-                    IS
-                    NULL
-                    OR
-                    i
-                    .
-                    histid
-                    !=
-                    f
-                    .
-                    spouse_histid
+                WITH base_clans AS (
+                    SELECT DISTINCT clan_id, snapshot_fam_hash FROM main.clan_mapping
+                ),
+                clan_kids AS (
+                    SELECT DISTINCT c.clan_id, i.sex, i.byr_int
+                    FROM main.clan_mapping c
+                    JOIN main.tm_individuals i ON c.family_id = i.family_id
+                    JOIN main.tm_families f ON i.family_id = f.family_id
+                    WHERE i.histid != f.head_histid
+                      AND (f.spouse_histid IS NULL OR i.histid != f.spouse_histid)
+                      AND i.byr_int IS NOT NULL
+                ),
+                kid_agg AS (
+                    SELECT clan_id,
+                           SUM(byr_int) AS lifetime_kfp,
+                           STRING_AGG(CAST(byr_int AS VARCHAR), ',' ORDER BY byr_int) AS lifetime_kid_list
+                    FROM clan_kids
+                    GROUP BY clan_id
+                ),
+                clan_residences AS (
+                    SELECT DISTINCT c.clan_id, f.year, f.stateicp, f.countyicp
+                    FROM main.clan_mapping c
+                    JOIN main.tm_families f ON c.family_id = f.family_id
+                ),
+                residence_agg AS (
+                    SELECT clan_id,
+                           STRING_AGG(CAST(year AS VARCHAR) || ':' || stateicp || '_' || countyicp, ',' ORDER BY year) AS lifetime_residence_list
+                    FROM clan_residences
+                    GROUP BY clan_id
                 )
-                    AND i.byr_int IS NOT NULL)
-                SELECT clan_id,
-                       SUM(byr_int)                                               AS lifetime_kfp,
-                       STRING_AGG(CAST(byr_int AS VARCHAR), ',' ORDER BY byr_int) AS lifetime_kid_list
-                FROM clan_kids
-                GROUP BY clan_id;
+                SELECT b.clan_id,
+                       b.snapshot_fam_hash,
+                       COALESCE(k.lifetime_kfp, 0) AS lifetime_kfp,
+                       k.lifetime_kid_list,
+                       r.lifetime_residence_list
+                FROM base_clans b
+                         LEFT JOIN kid_agg k ON b.clan_id = k.clan_id
+                         LEFT JOIN residence_agg r ON b.clan_id = r.clan_id;
                 """)
     logger.info("\nSUCCESS! Time Machine is now a self-contained data warehouse.")
 
@@ -366,6 +318,10 @@ def main():
     logger.info("=====================================================================")
     logger.info("  V4 TIME MACHINE BUILDER - STRICT DETERMINISTIC PIPELINE")
     logger.info("=====================================================================")
+    logger.info(f"Source Vaults Directory: {YEARLY_VAULT_DIR}")
+    logger.info(f"Output Time Machine DB:  {MATCH_DB_PATH}")
+    logger.info(f"Temp Directory:          {os.path.join(BASE_DATA_DIR, 'duckdb_temp')}")
+    logger.info("=====================================================================")
 
     if os.path.exists(MATCH_DB_PATH):
         os.remove(MATCH_DB_PATH)
@@ -381,7 +337,7 @@ def main():
     con.execute("SET preserve_insertion_order=false;")
 
     step_1_attach_databases(con, logger)
-    step_2_target_driven_extraction(con, logger)
+    step_2_extract_census_data(con, logger)
     step_3_build_clan_database(con, logger)
     step_4_create_lineage_links(con, logger)
     step_5_consolidate_data(con, logger)
