@@ -168,7 +168,7 @@ def step_5_consolidate_data(con, logger):
     logger.info("STEP 5: CONSOLIDATING ALL LINKED DATA INTO THE TIME MACHINE")
     logger.info("=====================================================================")
 
-    # We don't need to pass family_ids through Python anymore! 
+    # We don't need to pass family_ids through Python anymore!
     # main.clan_mapping already contains the exact, target-filtered families.
 
     con.execute("DROP TABLE IF EXISTS main.tm_individuals;")
@@ -185,8 +185,8 @@ def step_5_consolidate_data(con, logger):
         f"CREATE TABLE main.tm_families AS SELECT family_id, 0 AS clan_id, year, head_histid, spouse_histid, kids_byr_sum, stateicp, countyicp FROM {reference_vault}.families WHERE 1=0;")
     con.execute(f"""
         CREATE TABLE main.tm_individuals AS 
-        SELECT i.histid, i.family_id, 0 AS clan_id, CAST('' AS VARCHAR) AS snapshot_fam_hash, CAST('' AS VARCHAR) AS person_id,
-               i.sex,
+        SELECT i.histid, i.family_id, 0 AS clan_id, CAST('' AS VARCHAR) AS snapshot_fam_hash,
+               TRY_CAST(i.sex AS INTEGER) AS sex_int,
                TRY_CAST(i.birthyr AS INTEGER) AS byr_int,
                CASE WHEN TRY_CAST(i.bpld AS INTEGER) >= 1000 THEN TRY_CAST(i.bpld AS INTEGER) // 100 ELSE TRY_CAST(i.bpld AS INTEGER) END AS bpl_int,
                CASE WHEN TRY_CAST(i.fbpl AS INTEGER) >= 1000 THEN TRY_CAST(i.fbpl AS INTEGER) // 100 ELSE TRY_CAST(i.fbpl AS INTEGER) END AS fbpl_int,
@@ -212,8 +212,7 @@ def step_5_consolidate_data(con, logger):
         con.execute(f"""
             INSERT INTO main.tm_individuals
             SELECT i.histid, i.family_id, c.clan_id, c.snapshot_fam_hash,
-                   CAST(c.clan_id AS VARCHAR) || '_' || i.sex || '_' || CAST(TRY_CAST(i.birthyr AS INTEGER) AS VARCHAR) AS person_id,
-                   i.sex,
+                   TRY_CAST(i.sex AS INTEGER) AS sex_int,
                    TRY_CAST(i.birthyr AS INTEGER) AS byr_int,
                    CASE WHEN TRY_CAST(i.bpld AS INTEGER) >= 1000 THEN TRY_CAST(i.bpld AS INTEGER) // 100 ELSE TRY_CAST(i.bpld AS INTEGER) END AS bpl_int,
                    CASE WHEN TRY_CAST(i.fbpl AS INTEGER) >= 1000 THEN TRY_CAST(i.fbpl AS INTEGER) // 100 ELSE TRY_CAST(i.fbpl AS INTEGER) END AS fbpl_int,
@@ -225,20 +224,14 @@ def step_5_consolidate_data(con, logger):
             JOIN vault_{year}.families f ON i.family_id = f.family_id;
         """)
 
-    logger.info("  -> Building high-performance indexes on Demographics Database...")
-    con.execute("CREATE INDEX idx_tm_inds_histid ON main.tm_individuals(histid);")
-    con.execute("CREATE INDEX idx_tm_inds_famid ON main.tm_individuals(family_id);")
-    con.execute("CREATE INDEX idx_tm_fams_famid ON main.tm_families(family_id);")
-    con.execute("CREATE INDEX idx_tm_inds_byr ON main.tm_individuals(byr_int);")
-    con.execute("CREATE INDEX idx_tm_inds_pid ON main.tm_individuals(person_id);")
+    logger.info("  -> Skipping explicit indexes (DuckDB columnar scans are natively fast enough).")
 
     logger.info("  -> Building Master Person Index (person_trajectories)...")
     con.execute("DROP TABLE IF EXISTS main.person_trajectories;")
     con.execute("""
                 CREATE TABLE main.person_trajectories AS
-                SELECT person_id,
-                       clan_id,
-                       i.sex,
+                SELECT i.clan_id,
+                       i.sex_int,
                        i.byr_int,
                        STRING_AGG(CAST(f.year AS VARCHAR) || ':' || i.histid, ', ' ORDER BY f.year) AS histid_trail,
                        STRING_AGG(CASE
@@ -251,8 +244,8 @@ def step_5_consolidate_data(con, logger):
                                   ', ' ORDER BY f.year)                                             AS lifetime_ind_trail
                 FROM main.tm_individuals i
                          JOIN main.tm_families f ON i.family_id = f.family_id
-                WHERE i.person_id IS NOT NULL
-                GROUP BY person_id, clan_id, i.sex, i.byr_int;
+                WHERE i.byr_int IS NOT NULL
+                GROUP BY i.clan_id, i.sex_int, i.byr_int;
                 """)
 
     logger.info("  -> Pre-calculating eternal 'Lifetime Kid Fingerprints' for all Clans...")
@@ -263,7 +256,7 @@ def step_5_consolidate_data(con, logger):
                     SELECT DISTINCT clan_id, snapshot_fam_hash FROM main.clan_mapping
                 ),
                 clan_kids AS (
-                    SELECT DISTINCT c.clan_id, i.sex, i.byr_int
+                    SELECT DISTINCT c.clan_id, i.sex_int, i.byr_int
                     FROM main.clan_mapping c
                     JOIN main.tm_individuals i ON c.family_id = i.family_id
                     JOIN main.tm_families f ON i.family_id = f.family_id
@@ -303,7 +296,7 @@ def step_5_consolidate_data(con, logger):
 
 def step_6_debug_dump(con, logger):
     """
-    Bypassed in V4: Since names have been fully purged from the deterministic Vault schema, 
+    Bypassed in V4: Since names have been fully purged from the deterministic Vault schema,
     we can no longer pull a debug dump based on a hardcoded surname string.
     """
     logger.warning("\n=====================================================================")
@@ -328,7 +321,7 @@ def main():
         logger.info(f"Removed old Match DB: {MATCH_DB_PATH}")
 
     con = duckdb.connect(database=MATCH_DB_PATH, read_only=False)
-    con.execute("PRAGMA memory_limit='32GB';")
+    # PRAGMA memory_limit removed: Letting DuckDB automatically scale to 80% of system RAM
 
     temp_dir = os.path.join(BASE_DATA_DIR, "duckdb_temp")
     os.makedirs(temp_dir, exist_ok=True)
