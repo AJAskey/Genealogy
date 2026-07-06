@@ -25,7 +25,9 @@ import csv
 import os
 import psutil, gen_logging, common_utils
 from duckdb.experimental.spark.sql.type_utils import convert_nested_type
+from internetarchive.cli.ia_delete import delete_files
 from networkx.algorithms.d_separation import find_minimal_d_separator
+from sqlglot.dialects.dialect import length_or_char_length_sql
 
 
 class Individual:
@@ -120,6 +122,9 @@ class Individual:
                 pass
         return False
 
+    def get_id(self):
+        return f"{self.serial} {self.year}"
+
 
 class Family:
     """
@@ -190,6 +195,10 @@ class Person:
                 # If no label exists (e.g., for names, ages), just show the value
                 output.append(f"  {var:<15}: {code}")
         return "\n".join(output)
+
+
+'''
+'''
 
 
 def read():
@@ -291,41 +300,94 @@ def read():
     return inds, total_lines_read, skipped_count
 
 
-def get_godview(t_ind):
-    logger.info(f"In godview with {len(inds)} inds")
+# def create_test_file_from_lines(source_path, dest_path, line_numbers_to_keep):
+#     """
+#     Creates a new CSV file containing only specified line numbers from a source CSV.
+#     This is memory-efficient as it reads the source file line by line.
+#
+#     Args:
+#         source_path (str): The path to the large source CSV file.
+#         dest_path (str): The path where the new smaller CSV will be saved.
+#         line_numbers_to_keep (set): A set of integer line numbers to extract.
+#     """
+#     logger.info(f"Creating test file from {len(line_numbers_to_keep)} specified lines...")
+#     lines_set = set(line_numbers_to_keep)
+#
+#     try:
+#         with open(source_path, 'r', encoding='utf-8-sig') as infile, \
+#                 open(dest_path, 'w', newline='', encoding='utf-8-sig') as outfile:
+#
+#             reader = csv.reader(infile)
+#             writer = csv.writer(outfile)
+#
+#             # Read and write the header row (line 1)
+#             header = next(reader)
+#             writer.writerow(header)
+#
+#             # Iterate through the rest of the file, starting from line 2
+#             for i, row in enumerate(reader, start=2):
+#                 if i in lines_set:
+#                     writer.writerow(row)
+#         logger.info(f"Test file created successfully at: {dest_path}")
+#     except FileNotFoundError:
+#         logger.error(f"Error: Source file not found at {source_path}")
+#     except Exception as e:
+#         logger.error(f"An error occurred during test file creation: {e}")
+
+
+def get_godview(t_ind, all_inds):
+    logger.info(f"In godview with {len(all_inds)} inds for HOH")
     f_inds = []
-    for i, ind in enumerate(inds):
+    for i, ind in enumerate(all_inds):
         if ind.in_use or ind.year == t_ind.year: continue
-        if t_ind.birthyr != ind.birthyr:
-            continue
+        if t_ind.birthyr != ind.birthyr:  continue
+        if t_ind.sex != ind.sex: continue
         if t_ind.bpl == ind.bpl and t_ind.mbpl == ind.mbpl and t_ind.fbpl == ind.fbpl:
             f_inds.append(ind)
-
+    logger.info(f"Return godview with {len(f_inds)} Potential Matches ")
     return f_inds
 
 
-def process(inds):
-    ind = get_a_hoh(inds)
-    gen_logging.log_obj(logger, ind, "HOH")
+def process(inds, source_csv_path, output_dir):
+    """
+    Finds the first available family, creates a golden test case file from it,
+    and then proceeds with the deeper analysis.
+    """
+    hoh = get_a_hoh(inds)
+    if not hoh:
+        logger.warning("Could not find an available Head of Household to process.")
+        return
 
-    if ind:
-        fams = get_serial_family(inds, ind.serial, ind.year)
-        for i, fam in enumerate(fams):
-            fam.in_use = True
-            f_inds = get_godview(fam)
-            gen_logging.log_obj(logger, fam, f"Before godview with tgt: {i + 1} len f_inds {len(f_inds)}")
+    logger.info(f"Found Head of Household to process: SERIAL: {hoh.get_id()}")
+    gen_logging.log_obj(logger, hoh, "HOH")
 
-            for j, f_ind in enumerate(f_inds):
-                f_ind.in_use = True
-                gen_logging.log_obj(logger, f_ind, f"Ind : {j + 1}")
+    # --- Create the Golden Test Case ---
+    family_members = get_serial_family(inds, hoh.serial, hoh.year)
+    if family_members:
+        logger.info(f"Found {len(family_members)} members for {hoh.get_id()}")
+        # line_numbers_to_extract = {member.linenum for member in family_members}
+        # test_filename = f"family_{hoh.serial}_test.csv"
+        # test_filepath = os.path.join(output_dir, test_filename)
+        # create_test_file_from_lines(source_csv_path, test_filepath, line_numbers_to_extract)
+
+    # --- Continue with existing analysis ---
+    for i, fam_member in enumerate(family_members):
+        fam_member.in_use = True
+        f_inds = get_godview(fam_member, inds)
+        gen_logging.log_obj(logger, fam_member, f"After god view with family tgt: {i + 1} len f_inds {len(f_inds)}")
+
+        for j, f_ind in enumerate(f_inds):
+            f_ind.in_use = True
+            gen_logging.log_obj(logger, f_ind, f"God view Candidate.  Ind : {j + 1}")
 
 
 def get_serial_family(inds, sn, yr):
     fams = []
     for i, ind in enumerate(inds):
         if not ind.in_use:
-            if ind.serial == sn:
+            if ind.serial == sn and (ind.relate == 2 or ind.relate == 3):
                 fams.append(ind)
+    logger.info(f" Return from get_seial_family with {len(fams)}")
     return fams
 
 
@@ -423,7 +485,8 @@ if __name__ == '__main__':
     inds, total_lines_read, skipped_count = read()
 
     if inds:
-        process(inds)
+        output_directory = os.path.dirname(checkpoint_file)
+        process(inds, csv_file, output_directory)
 
     # Print a final newline to clean up the progress dots.
     logger.info("\n--- Processing Complete ---")
