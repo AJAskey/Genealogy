@@ -26,7 +26,7 @@ female_names = [
     "Ursula",  # U
     "Valerie",  # V
     "Willow",  # W
-    "Xena",  # X (Used for completion)
+    "Xena",  # X 
     "Yvonne",  # Y
     "Zoe"  # Z
 ]
@@ -63,11 +63,42 @@ male_names = [
     "Yves",  # Y
     "Zachary"  # Z
 ]
-
-surnames = [
-    'Johnson', 'McDonald', 'Stewart', 'Miller', 'Lucas', 'Taylor', 'Nichols', 'Askin', 'Barr',
-    'Garcia'
-]
+surnames = ["Smith   ",
+            "Johnson ",
+            "Williams ",
+            "Brown ",
+            "Jones ",
+            "Miller ",
+            "Davis ",
+            "Martin ",
+            "Anderson ",
+            "Wilson",
+            "Thomas",
+            "Moore",
+            "Taylor",
+            "Lucas",
+            "Martin",
+            "Clark",
+            "Walker,",
+            "Clark",
+            "Wright",
+            "Flanagan",
+            "Allen",
+            "Hill",
+            "Green",
+            "Baker",
+            "Evans",
+            "Phillips",
+            "Parker",
+            "Turner",
+            "Wells",
+            "Stewart",
+            "Cook",
+            "Gracia",
+            "Cooper",
+            "Morgan",
+            "Kelly",
+            "Foster"]
 
 import random
 
