@@ -17,18 +17,18 @@ def main():
 
     # --- REGISTER PYTHON UDFs ---
     # This bridges the gap between Python and the Database!
-    def get_random_surname() -> str:
+    def get_random_surname(dummy_year: str, dummy_serial: str) -> str:
         # Grab the surname and clean up any trailing commas/spaces from the list
         return NameList.getNextSurname().replace(',', '').strip()
 
-    def get_random_first(sex: str) -> str:
+    def get_random_first(sex: str, dummy_histid: str) -> str:
         # IPUMS SEX code: '1' is Male, anything else (like '2') is Female
         if str(sex).strip() == '1':
             return NameList.getNextMale().replace(',', '').strip()
         return NameList.getNextFemale().replace(',', '').strip()
 
-    con.create_function("get_random_surname", get_random_surname, [], str)
-    con.create_function("get_random_first", get_random_first, [str], str)
+    con.create_function("get_random_surname", get_random_surname, [str, str], str)
+    con.create_function("get_random_first", get_random_first, [str, str], str)
 
     print(f"Finding {dec_cnt}+ decade Key Players in Centre/Clearfield County and writing to CSV...")
 
@@ -71,23 +71,27 @@ def main():
                 SELECT DISTINCT i.YEAR, i.SERIAL
                 FROM individuals i
                 JOIN tracker_histids t ON UPPER(TRIM(i.HISTID)) = UPPER(t.histid)
+                JOIN families f ON i.YEAR = f.YEAR AND i.SERIAL = f.SERIAL
                 WHERE TRY_CAST(i.STATEICP AS INTEGER) = 42
-                  AND TRY_CAST(i.COUNTYICP AS INTEGER) IN (270, 330)
+                  AND TRY_CAST(i.COUNTYICP AS INTEGER) IN (270, 330, 150, 230, 350, 470, 550, 810)
+                  AND f.spouse_histid IS NOT NULL
+                  AND f.num_kids > 0
             ),
             named_households AS (
                 -- Assign a unique, readable name to each household for easy tracking in the CSV
                 SELECT
                     *,
-                    get_random_surname() AS fake_last_name
+                    get_random_surname(YEAR, SERIAL) AS fake_last_name
                 FROM target_households
             )
-            -- Finally, select EVERYONE in those households
+            -- Finally, select ONLY the nuclear family (Head, Spouse, Kids)
             SELECT
                 i.*,
-                get_random_first(i.SEX) AS first_name,
+                get_random_first(i.SEX, i.HISTID) AS first_name,
                 nh.fake_last_name AS last_name
             FROM individuals i
             INNER JOIN named_households nh ON i.YEAR = nh.YEAR AND i.SERIAL = nh.SERIAL
+            WHERE i.RELATE IN ('01', '1', 'Head/householder', '02', '2', 'Spouse', '03', '3', 'Child')
         ) TO '{OUTPUT_CSV}' (HEADER, DELIMITER ',');
     """
     con.execute(query)

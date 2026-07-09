@@ -25,13 +25,13 @@ if python_dir not in sys.path:
 from utils import gen_logging
 
 # --- CONFIGURATION ---
-RAW_CENSUS_CSV = r"C:\tempc\ShortTermCSVfiles\census-1850-1950-ALL.csv"
-MASTER_VAULT_DB = r"d:\Data\Genealogy_Data\Master_DuckDB_Vault.db"
+RAW_CENSUS_CSV = r"C:\tempc\ShortTermCSVfiles\super_trackers_pa.csv"
+MASTER_VAULT_DB = r"d:\Data\Genealogy_Data\Test_DuckDB_Vault.db"
 TEMP_DIR = r"d:\Data\Genealogy_Data\duckdb_temp"
 
 
 def main():
-    logger = gen_logging.setup_logging('DuckDBVaultBuilder')
+    logger = gen_logging.setup_logging('DuckTestDBVaultBuilder')
     logger.info("=====================================================================")
     logger.info("  TWO-STEP DUCKDB VAULT BUILDER (RESUME-FRIENDLY)")
     logger.info("=====================================================================")
@@ -46,7 +46,7 @@ def main():
     os.makedirs(TEMP_DIR, exist_ok=True)
     con.execute(f"PRAGMA temp_directory='{TEMP_DIR}';")
     con.execute("PRAGMA memory_limit='100GB';")
-    
+
     # Check what tables already exist
     existing_tables = [r[0] for r in con.execute("SHOW TABLES;").fetchall()]
 
@@ -73,19 +73,63 @@ def main():
         # DuckDB groups by SERIAL (the household) and mathematically plucks out the Head,
         # the Spouse, and adds up the children's birth years on the fly.
         con.execute("""
-            CREATE TABLE families AS
-            SELECT
-                YEAR,
-                SERIAL,
-                MAX(CASE WHEN RELATE IN ('01', '1', 'Head/householder') THEN HISTID ELSE NULL END) AS head_histid,
-                MAX(CASE WHEN RELATE IN ('02', '2', 'Spouse') THEN HISTID ELSE NULL END) AS spouse_histid,
-                SUM(CASE WHEN RELATE IN ('03', '3', 'Child') THEN TRY_CAST(BIRTHYR AS INTEGER) ELSE 0 END) AS kids_byr_sum,
-                COUNT(CASE WHEN RELATE IN ('03', '3', 'Child') THEN 1 ELSE NULL END) AS num_kids,
-                STATEICP,
-                COUNTYICP
-            FROM individuals
-            GROUP BY YEAR, SERIAL, STATEICP, COUNTYICP;
-        """)
+                    CREATE TABLE families AS
+                    SELECT
+                        YEAR,
+                        SERIAL,
+                        MAX
+                    (
+                        CASE
+                        WHEN
+                        RELATE
+                        IN
+                    (
+                        '01',
+                        '1',
+                        'Head/householder'
+                    ) THEN HISTID ELSE NULL END) AS head_histid,
+                        MAX
+                    (
+                        CASE
+                        WHEN
+                        RELATE
+                        IN
+                    (
+                        '02',
+                        '2',
+                        'Spouse'
+                    ) THEN HISTID ELSE NULL END) AS spouse_histid,
+                        SUM
+                    (
+                        CASE
+                        WHEN
+                        RELATE
+                        IN
+                    (
+                        '03',
+                        '3',
+                        'Child'
+                    ) THEN TRY_CAST
+                    (
+                        BIRTHYR AS
+                        INTEGER
+                    ) ELSE 0 END) AS kids_byr_sum,
+                        COUNT
+                    (
+                        CASE
+                        WHEN
+                        RELATE
+                        IN
+                    (
+                        '03',
+                        '3',
+                        'Child'
+                    ) THEN 1 ELSE NULL END) AS num_kids,
+                        STATEICP,
+                        COUNTYICP
+                        FROM individuals
+                        GROUP BY YEAR, SERIAL, STATEICP, COUNTYICP;
+                    """)
         logger.info("-> 'families' table created successfully.")
     else:
         logger.info("-> STEP 2: 'families' table already exists.")
