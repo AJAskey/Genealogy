@@ -13,11 +13,41 @@ MASTER_VAULT_DB = r"d:\Data\Genealogy_Data\Test_DuckDB_Vault.db"
 CROSSWALK_DB = r"d:\Data\Genealogy_Data\IPUMS_Crosswalk.db"
 OUTPUT_GEDCOM = r"C:\tempc\ShortTermCSVfiles\multigen_census.ged"
 
+# --- ISOLATION CONFIGURATION ---
+# Put a specific HIK here to extract ONLY their interconnected family tree.
+# If left blank (""), the script will automatically find and export the single largest tree.
+TARGET_HIK = ""
+
 STATE_MAP = {
-    "42": "Pennsylvania, USA", "39": "Ohio, USA", "36": "New York, USA",
-    "17": "Illinois, USA", "18": "Indiana, USA", "34": "New Jersey, USA",
-    "24": "Maryland, USA", "54": "West Virginia, USA", "51": "Virginia, USA",
-    "25": "Massachusetts, USA"
+    "1": "Alabama, USA", "01": "Alabama, USA",
+    "2": "Alaska, USA", "02": "Alaska, USA",
+    "4": "Arizona, USA", "04": "Arizona, USA",
+    "5": "Arkansas, USA", "05": "Arkansas, USA",
+    "6": "California, USA", "06": "California, USA",
+    "8": "Colorado, USA", "08": "Colorado, USA",
+    "9": "Connecticut, USA", "09": "Connecticut, USA",
+    "10": "Delaware, USA", "11": "District of Columbia, USA",
+    "12": "Florida, USA", "13": "Georgia, USA",
+    "15": "Hawaii, USA", "16": "Idaho, USA",
+    "17": "Illinois, USA", "18": "Indiana, USA",
+    "19": "Iowa, USA", "20": "Kansas, USA",
+    "21": "Kentucky, USA", "22": "Louisiana, USA",
+    "23": "Maine, USA", "24": "Maryland, USA",
+    "25": "Massachusetts, USA", "26": "Michigan, USA",
+    "27": "Minnesota, USA", "28": "Mississippi, USA",
+    "29": "Missouri, USA", "30": "Montana, USA",
+    "31": "Nebraska, USA", "32": "Nevada, USA",
+    "33": "New Hampshire, USA", "34": "New Jersey, USA",
+    "35": "New Mexico, USA", "36": "New York, USA",
+    "37": "North Carolina, USA", "38": "North Dakota, USA",
+    "39": "Ohio, USA", "40": "Oklahoma, USA",
+    "41": "Oregon, USA", "42": "Pennsylvania, USA",
+    "44": "Rhode Island, USA", "45": "South Carolina, USA",
+    "46": "South Dakota, USA", "47": "Tennessee, USA",
+    "48": "Texas, USA", "49": "Utah, USA",
+    "50": "Vermont, USA", "51": "Virginia, USA",
+    "53": "Washington, USA", "54": "West Virginia, USA",
+    "55": "Wisconsin, USA", "56": "Wyoming, USA"
 }
 
 def main():
@@ -95,12 +125,66 @@ def main():
         fam_children.setdefault(fam_id, []).append(child_hik)
         ind_famc.setdefault(child_hik, []).append(fam_id)
 
+    fam_dict = {}
     for fam in fams:
         fam_id, head_hik, spouse_hik = fam
+        fam_dict[fam_id] = fam
         if head_hik:
             ind_fams.setdefault(head_hik, []).append(fam_id)
         if spouse_hik:
             ind_fams.setdefault(spouse_hik, []).append(fam_id)
+
+    # --- ISOLATE A SINGLE SIGNIFICANT TREE ---
+    print("Isolating a single significant family tree to reduce file size...")
+    def get_tree(start_hik):
+        visited_hiks = set()
+        visited_fams = set()
+        stack = [start_hik]
+        
+        while stack:
+            curr_hik = stack.pop()
+            if curr_hik in visited_hiks:
+                continue
+            visited_hiks.add(curr_hik)
+            
+            connected_fams = ind_fams.get(curr_hik, []) + ind_famc.get(curr_hik, [])
+            for f_id in connected_fams:
+                if f_id not in visited_fams:
+                    visited_fams.add(f_id)
+                    fam_record = fam_dict.get(f_id)
+                    if fam_record:
+                        _, h_hik, s_hik = fam_record
+                        if h_hik and h_hik not in visited_hiks: stack.append(h_hik)
+                        if s_hik and s_hik not in visited_hiks: stack.append(s_hik)
+                    for c_hik in fam_children.get(f_id, []):
+                        if c_hik not in visited_hiks: stack.append(c_hik)
+        return visited_hiks, visited_fams
+
+    target_tree_hiks = set()
+    target_tree_fams = set()
+    all_hiks = {i[0] for i in inds}
+    
+    if TARGET_HIK and TARGET_HIK in all_hiks:
+        print(f"Isolating tree for targeted HIK: {TARGET_HIK}")
+        target_tree_hiks, target_tree_fams = get_tree(TARGET_HIK)
+    else:
+        if TARGET_HIK:
+            print(f"Warning: TARGET_HIK '{TARGET_HIK}' not found. Falling back to largest tree.")
+        print("Automatically finding the largest interconnected tree...")
+        global_visited = set()
+        for hik in all_hiks:
+            if hik not in global_visited:
+                tree_hiks, tree_fams = get_tree(hik)
+                global_visited.update(tree_hiks)
+                if len(tree_hiks) > len(target_tree_hiks):
+                    target_tree_hiks = tree_hiks
+                    target_tree_fams = tree_fams
+
+    print(f"Isolated Tree Size: {len(target_tree_hiks)} individuals, {len(target_tree_fams)} families.")
+
+    # Overwrite our main lists with ONLY the isolated tree
+    inds = [i for i in inds if i[0] in target_tree_hiks]
+    fams = [f for f in fams if f[0] in target_tree_fams]
 
     # Create simple 22-character limit GEDCOM IDs
     ind_map = {ind[0]: f"I{i}" for i, ind in enumerate(inds, 1)}

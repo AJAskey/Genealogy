@@ -7,7 +7,7 @@ MASTER_VAULT_DB = r"d:\Data\Genealogy_Data\Master_DuckDB_Vault.db"
 CROSSWALK_DB = r"d:\Data\Genealogy_Data\IPUMS_Crosswalk.db"
 OUTPUT_CSV = r"C:\tempc\ShortTermCSVfiles\super_trackers_pa.csv"
 
-dec_cnt = 6
+dec_cnt = 5
 
 
 def main():

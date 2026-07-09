@@ -39,13 +39,21 @@ def main():
     con = duckdb.connect(database=MASTER_VAULT_DB)
     start_time = time.time()
 
+    # 1. Force DuckDB to use every single hardware thread your processor has
+    con.execute("PRAGMA threads=24;")
+    
+    # 2. BREAK THE BOTTLENECK: Tell DuckDB not to wait in line.
+    con.execute("PRAGMA preserve_insertion_order=FALSE;")
+    
     # Enable DuckDB's built-in terminal progress bar for long-running queries!
     con.execute("PRAGMA enable_progress_bar;")
 
     # Create temp directory and force DuckDB to use D: drive for overflow to prevent C: drive crashes
     os.makedirs(TEMP_DIR, exist_ok=True)
     con.execute(f"PRAGMA temp_directory='{TEMP_DIR}';")
-    con.execute("PRAGMA memory_limit='100GB';")
+    
+    # 3. Raise the memory ceiling slightly since you have 128GB
+    con.execute("PRAGMA memory_limit='110GB';")
 
     # Check what tables already exist
     existing_tables = [r[0] for r in con.execute("SHOW TABLES;").fetchall()]
