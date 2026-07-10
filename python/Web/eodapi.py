@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 # 1. Define your core parameters
 # You get this token from your EODData account dashboard.
 API_TOKEN = "xNrqzn9LHldoTDrvin683LoM"
-EXCHANGE = "NASDAQ"
+EXCHANGE = "AMEX"
 TICKER = "AAPL"
 
 # 2. Dynamically calculate the date range for the last 6 weeks
@@ -22,7 +22,8 @@ start_date_str = "2026-01-02"
 # Use EODData's actual REST API endpoint for historical quote lists.
 # Note that EODData uses 'apiKey=' instead of 'api_token='.
 url = (
-    f"https://api.eoddata.com/Quote/List/{EXCHANGE}/{TICKER}?ApiKey={API_TOKEN}&Interval=d&FromDateStamp={start_date_str}&ToDateStamp={end_date_str}")
+    f"https://api.eoddata.com/Quote/List/{EXCHANGE}?ApiKey={API_TOKEN}&Interval=d&FromDateStamp={start_date_str}&ToDateStamp={end_date_str}")
+#   f"https://api.eoddata.com/Quote/List/{EXCHANGE}/{TICKER}?ApiKey={API_TOKEN}&Interval=d&FromDateStamp={start_date_str}&ToDateStamp={end_date_str}")
 
 print(f"Making request to: {url}")
 
