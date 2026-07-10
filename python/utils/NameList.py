@@ -107,21 +107,21 @@ def getNextMale():
     ln = len(male_names) - 1
     ptr = random.randint(0, ln)
     s = male_names[ptr]
-    return s
+    return 'Thomas'
 
 
 def getNextFemale():
     ln = len(female_names) - 1
     ptr = random.randint(0, ln)
     s = female_names[ptr]
-    return s
+    return 'Elizabeth'
 
 
 def getNextSurname():
     ln = len(surnames) - 1
     ptr = random.randint(0, ln)
     s = surnames[ptr]
-    return s
+    return 'Askey'
 
 
 if __name__ == '__main__':
