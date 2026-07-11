@@ -1,7 +1,7 @@
 """
 File: Export_MultiGen_GEDCOM.py
 
-Summary: Uses the IPUMS Crosswalk to stitch individuals together across 
+Summary: Uses the IPUMS Crosswalk to stitch individuals together across
          multiple decades. Outputs a multi-generational GEDCOM 5.5.1 file.
 """
 
@@ -11,12 +11,13 @@ import os
 # --- CONFIGURATION ---
 MASTER_VAULT_DB = r"d:\Data\Genealogy_Data\Test_DuckDB_Vault.db"
 CROSSWALK_DB = r"d:\Data\Genealogy_Data\IPUMS_Crosswalk.db"
-OUTPUT_GEDCOM = r"C:\tempc\ShortTermCSVfiles\multigen_census.ged"
+OUTPUT_GEDCOM = r"C:\tempc\ShortTermCSVfiles\test_census.ged"
 
 # --- ISOLATION CONFIGURATION ---
 # Put a specific HIK here to extract ONLY their interconnected family tree.
 # If left blank (""), the script will automatically find and export the single largest tree.
-TARGET_HIK = ""
+T_HIK = "asH1V0OxvQyWD8VotLi6f"
+TARGET_HIK = T_HIK.strip()
 
 STATE_MAP = {
     "1": "Alabama, USA", "01": "Alabama, USA",
@@ -50,16 +51,18 @@ STATE_MAP = {
     "55": "Wisconsin, USA", "56": "Wyoming, USA"
 }
 
+
 def main():
     print(f"Connecting to Test Vault: {MASTER_VAULT_DB}...")
     con = duckdb.connect(database=MASTER_VAULT_DB, read_only=True)
-    
+
     print(f"Attaching Crosswalk Time Machine...")
     con.execute(f"ATTACH '{CROSSWALK_DB}' AS cw (READ_ONLY);")
 
     print("Mapping all HISTIDs to their eternal Crosswalk IDs (HIK)...")
     con.execute("""
-        CREATE TEMP TABLE vault_hiks AS
+                CREATE
+                TEMP TABLE vault_hiks AS
         WITH all_histids AS (
             SELECT DISTINCT HISTID FROM individuals
         ),
@@ -75,45 +78,42 @@ def main():
             UNION ALL SELECT TRIM(histid_1940), HIK FROM cw.ipums_crosswalk WHERE LENGTH(TRIM(histid_1940)) > 5
             UNION ALL SELECT TRIM(histid_1950), HIK FROM cw.ipums_crosswalk WHERE LENGTH(TRIM(histid_1950)) > 5
         )
-        SELECT a.HISTID, COALESCE(c.HIK, a.HISTID) AS HIK
-        FROM all_histids a
-        LEFT JOIN cw_unpivoted c ON UPPER(TRIM(a.HISTID)) = UPPER(c.histid);
-    """)
+                SELECT a.HISTID, TRIM(COALESCE(c.HIK, a.HISTID)) AS HIK
+                FROM all_histids a
+                         LEFT JOIN cw_unpivoted c ON UPPER(TRIM(a.HISTID)) = UPPER(c.histid);
+                """)
 
     print("Extracting Unified Individuals across all decades...")
     inds = con.execute("""
-        SELECT 
-            v.HIK, 
-            MAX(i.first_name) AS first_name, 
-            MAX(i.last_name) AS last_name, 
-            MAX(i.SEX) AS SEX, 
-            MIN(i.BIRTHYR) AS BIRTHYR, 
-            MAX(i.BPL) AS BPL
-        FROM individuals i
-        JOIN vault_hiks v ON i.HISTID = v.HISTID
-        GROUP BY v.HIK
-    """).fetchall()
+                       SELECT TRIM(v.HIK)             AS HIK,
+                              MODE(TRIM(i.NAMEFIRST)) AS first_name,
+                              MODE(TRIM(i.NAMELAST))  AS last_name,
+                              MODE(i.SEX)             AS SEX,
+                              MODE(i.BIRTHYR)         AS BIRTHYR,
+                              MODE(i.BPL)             AS BPL
+                       FROM individuals i
+                                JOIN vault_hiks v ON i.HISTID = v.HISTID
+                       GROUP BY v.HIK
+                       """).fetchall()
 
     print("Extracting Families across all decades...")
     fams = con.execute("""
-        SELECT 
-            f.YEAR || '_' || f.SERIAL AS fam_id,
-            vh.HIK AS head_hik,
-            vs.HIK AS spouse_hik
-        FROM families f
-        LEFT JOIN vault_hiks vh ON f.head_histid = vh.HISTID
-        LEFT JOIN vault_hiks vs ON f.spouse_histid = vs.HISTID
-    """).fetchall()
+                       SELECT f.YEAR || '_' || f.SERIAL AS fam_id,
+                              vh.HIK                    AS head_hik,
+                              vs.HIK                    AS spouse_hik
+                       FROM families f
+                                LEFT JOIN vault_hiks vh ON f.head_histid = vh.HISTID
+                                LEFT JOIN vault_hiks vs ON f.spouse_histid = vs.HISTID
+                       """).fetchall()
 
     print("Mapping children to multi-generational families...")
     children = con.execute("""
-        SELECT 
-            i.YEAR || '_' || i.SERIAL AS fam_id,
-            v.HIK AS child_hik
-        FROM individuals i
-        JOIN vault_hiks v ON i.HISTID = v.HISTID
-        WHERE i.RELATE IN ('03', '3', 'Child')
-    """).fetchall()
+                           SELECT i.YEAR || '_' || i.SERIAL AS fam_id,
+                                  v.HIK                     AS child_hik
+                           FROM individuals i
+                                    JOIN vault_hiks v ON i.HISTID = v.HISTID
+                           WHERE i.RELATE IN ('03', '3', 'Child')
+                           """).fetchall()
 
     # Build linking dictionaries
     fam_children = {}
@@ -136,17 +136,18 @@ def main():
 
     # --- ISOLATE A SINGLE SIGNIFICANT TREE ---
     print("Isolating a single significant family tree to reduce file size...")
+
     def get_tree(start_hik):
         visited_hiks = set()
         visited_fams = set()
         stack = [start_hik]
-        
+
         while stack:
             curr_hik = stack.pop()
             if curr_hik in visited_hiks:
                 continue
             visited_hiks.add(curr_hik)
-            
+
             connected_fams = ind_fams.get(curr_hik, []) + ind_famc.get(curr_hik, [])
             for f_id in connected_fams:
                 if f_id not in visited_fams:
@@ -163,13 +164,15 @@ def main():
     target_tree_hiks = set()
     target_tree_fams = set()
     all_hiks = {i[0] for i in inds}
-    
+
     if TARGET_HIK and TARGET_HIK in all_hiks:
         print(f"Isolating tree for targeted HIK: {TARGET_HIK}")
         target_tree_hiks, target_tree_fams = get_tree(TARGET_HIK)
     else:
         if TARGET_HIK:
-            print(f"Warning: TARGET_HIK '{TARGET_HIK}' not found. Falling back to largest tree.")
+            print(f"\n❌ ERROR: TARGET_HIK '{TARGET_HIK}' was NOT found in the database!")
+            print("Aborting so you don't accidentally export the wrong tree.")
+            return
         print("Automatically finding the largest interconnected tree...")
         global_visited = set()
         for hik in all_hiks:
@@ -186,9 +189,50 @@ def main():
     inds = [i for i in inds if i[0] in target_tree_hiks]
     fams = [f for f in fams if f[0] in target_tree_fams]
 
+    # Ensure the TARGET_HIK is the first person in the list
+    # This makes Ancestry automatically assign them as the default "Home Person"
+    if TARGET_HIK:
+        inds.sort(key=lambda x: 0 if x[0] == TARGET_HIK else 1)
+
     # Create simple 22-character limit GEDCOM IDs
     ind_map = {ind[0]: f"I{i}" for i, ind in enumerate(inds, 1)}
     fam_map = {fam[0]: f"F{i}" for i, fam in enumerate(fams, 1)}
+
+    # --- NEW: ROOT ANCESTOR TRACING ---
+    print("Calculating ultimate root ancestors (Adams & Eves) for each person...")
+    ind_data = {ind[0]: ind for ind in inds}
+    roots_memo = {}
+
+    def get_roots(hik, current_path=None):
+        if current_path is None:
+            current_path = set()
+        if hik in roots_memo:
+            return roots_memo[hik]
+        if hik in current_path:
+            return set()  # Cycle detected in data, safely abort this path
+
+        current_path.add(hik)
+        parents = []
+        if hik in ind_famc:
+            for fam_id in ind_famc[hik]:
+                fam_record = fam_dict.get(fam_id)
+                if fam_record:
+                    _, h_hik, s_hik = fam_record
+                    if h_hik and h_hik in ind_data: parents.append(h_hik)
+                    if s_hik and s_hik in ind_data: parents.append(s_hik)
+
+        if not parents:
+            roots_memo[hik] = {hik}
+            current_path.remove(hik)
+            return {hik}
+
+        ultimate_roots = set()
+        for p_hik in parents:
+            ultimate_roots.update(get_roots(p_hik, current_path))
+
+        roots_memo[hik] = ultimate_roots
+        current_path.remove(hik)
+        return ultimate_roots
 
     print(f"Writing Multi-Generational GEDCOM to {OUTPUT_GEDCOM}...")
     with open(OUTPUT_GEDCOM, 'w', encoding='utf-8') as f:
@@ -200,7 +244,7 @@ def main():
         f.write("2 VERS 5.5.1\n")
         f.write("2 FORM LINEAGE-LINKED\n")
         f.write("1 CHAR UTF-8\n")
-        
+
         f.write("0 @U1@ SUBM\n")
         f.write("1 NAME Andy Askey\n")
 
@@ -231,11 +275,27 @@ def main():
             # Add the HIK as a searchable Reference Number in the GEDCOM
             f.write(f"1 REFN {hik}\n")
 
+            # --- Calculate and Add Adam/Eve Notes ---
+            roots = get_roots(hik)
+            roots_excluding_self = [r for r in roots if r != hik]
+
+            if roots_excluding_self:
+                f.write("1 NOTE Ultimate Root Ancestors:\n")
+                for r_hik in roots_excluding_self:
+                    r_ind = ind_data.get(r_hik)
+                    if r_ind:
+                        r_fname = r_ind[1] if r_ind[1] else "Unknown"
+                        r_lname = r_ind[2] if r_ind[2] else "Unknown"
+                        r_sex = 'Adam' if str(r_ind[3]).strip() == '1' else 'Eve'
+                        f.write(f"2 CONT - {r_fname} {r_lname} ({r_sex}) [HIK: {r_hik}]\n")
+            else:
+                f.write("1 NOTE This person is a root ancestor (Adam/Eve) in this tree.\n")
+
             # Link to Spouse Families
             if hik in ind_fams:
                 for fam_id in set(ind_fams[hik]):
                     f.write(f"1 FAMS @{fam_map.get(fam_id)}@\n")
-            
+
             # Link to Child Families (The Grandparent Link!)
             if hik in ind_famc:
                 for fam_id in set(ind_famc[hik]):
@@ -245,7 +305,7 @@ def main():
         for fam in fams:
             fam_id, head_hik, spouse_hik = fam
             mapped_fam = fam_map.get(fam_id)
-            
+
             f.write(f"0 @{mapped_fam}@ FAM\n")
             if head_hik:
                 f.write(f"1 HUSB @{ind_map.get(head_hik)}@\n")
@@ -260,6 +320,7 @@ def main():
         f.write("0 TRLR\n")
 
     print("SUCCESS! Multi-Generational GEDCOM ready for Ancestry.")
+
 
 if __name__ == "__main__":
     main()

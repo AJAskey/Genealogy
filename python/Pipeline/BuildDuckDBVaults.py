@@ -7,10 +7,11 @@ Summary: Replaces the old Python line-by-line vaulting process.
          tables in a resume-friendly manner.
 """
 
-import duckdb
 import os
 import sys
 import time
+
+import duckdb
 
 # Dynamically add the project paths for utility imports
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -25,10 +26,10 @@ if python_dir not in sys.path:
 from utils import gen_logging
 
 # --- CONFIGURATION ---
-# RAW_CENSUS_CSV = r"C:\tempc\ShortTermCSVfiles\super_trackers_pa.csv"
-# MASTER_VAULT_DB = r"d:\Data\Genealogy_Data\Test_DuckDB_Vault.db"
-RAW_CENSUS_CSV = r"C:\tempc\ShortTermCSVfiles\census-1850-1950-ALL.csv"
-MASTER_VAULT_DB = r"d:\Data\Genealogy_Data\New_DuckDB_Vault.db"
+RAW_CENSUS_CSV = r"C:\tempc\ShortTermCSVfiles\super_trackers_pa.csv"
+MASTER_VAULT_DB = r"d:\Data\Genealogy_Data\Test_DuckDB_Vault.db"
+# RAW_CENSUS_CSV = r"C:\tempc\ShortTermCSVfiles\census_samples.csv"
+# MASTER_VAULT_DB = r"d:\Data\Genealogy_Data\Sample_DuckDB_Vault.db"
 TEMP_DIR = r"d:\Data\Genealogy_Data\duckdb_temp"
 
 
@@ -65,10 +66,22 @@ def main():
     # ---------------------------------------------------------
     if 'individuals' not in existing_tables:
         logger.info(f"STEP 1: Ingesting raw individuals from {RAW_CENSUS_CSV}...")
+        logger.info(f"STEP 1:                           to {MASTER_VAULT_DB}...")
+
+        # Dynamically check if HISTID exists in the CSV
+        headers = [col[0].upper() for col in con.execute(
+            f"SELECT * FROM read_csv('{RAW_CENSUS_CSV}', auto_detect=TRUE, all_varchar=TRUE) LIMIT 0").description]
+
+        if 'HISTID' in headers:
+            select_clause = "*"
+        else:
+            logger.info("-> 'HISTID' not found in CSV. Synthesizing ID from YEAR_SERIAL_PERNUM...")
+            select_clause = "*, YEAR || '_' || SERIAL || '_' || PERNUM AS HISTID"
+
         # We apply the filters (like Race = White) right at the point of ingestion!
         con.execute(f"""
             CREATE TABLE individuals AS 
-            SELECT * FROM read_csv('{RAW_CENSUS_CSV}', auto_detect=TRUE, all_varchar=TRUE)
+            SELECT {select_clause} FROM read_csv('{RAW_CENSUS_CSV}', auto_detect=TRUE, all_varchar=TRUE, ignore_errors=TRUE)
             WHERE RACE = '1' AND SEX IS NOT NULL;
         """)
         logger.info("-> 'individuals' table created successfully.")

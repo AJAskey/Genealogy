@@ -30,7 +30,7 @@ def main():
     con.create_function("get_random_surname", get_random_surname, [str, str], str)
     con.create_function("get_random_first", get_random_first, [str, str], str)
 
-    print(f"Finding {dec_cnt}+ decade Key Players in Centre/Clearfield County and writing to CSV...")
+    print(f"Finding {dec_cnt}+ decade Key Players in Centre/Clearfield and surrounding Counties and writing to CSV...")
 
     # This query uses the crosswalk to find people with 5+ appearances,
     # filters them by county in the vault, and exports their households to a CSV.
@@ -72,8 +72,8 @@ def main():
                 FROM individuals i
                 JOIN tracker_histids t ON UPPER(TRIM(i.HISTID)) = UPPER(t.histid)
                 JOIN families f ON i.YEAR = f.YEAR AND i.SERIAL = f.SERIAL
-                WHERE TRY_CAST(i.STATEICP AS INTEGER) = 42
-                  AND TRY_CAST(i.COUNTYICP AS INTEGER) IN (270, 330, 150, 230, 350, 470, 550, 810)
+                WHERE TRY_CAST(i.STATEICP AS INTEGER) = 14
+                  AND TRY_CAST(i.COUNTYICP AS INTEGER) IN (270, 330, 230, 350, 470, 810, 630)
                   AND f.spouse_histid IS NOT NULL
                   AND f.num_kids > 0
             ),
@@ -87,8 +87,8 @@ def main():
             -- Finally, select ONLY the nuclear family (Head, Spouse, Kids)
             SELECT
                 i.*,
-                get_random_first(i.SEX, i.HISTID) AS first_name,
-                nh.fake_last_name AS last_name
+                get_random_first(i.SEX, i.HISTID) AS NAMEFIRST,
+                nh.fake_last_name AS NAMELAST
             FROM individuals i
             INNER JOIN named_households nh ON i.YEAR = nh.YEAR AND i.SERIAL = nh.SERIAL
             WHERE i.RELATE IN ('01', '1', 'Head/householder', '02', '2', 'Spouse', '03', '3', 'Child')

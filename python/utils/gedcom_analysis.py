@@ -35,7 +35,7 @@ import gen_logging
 # CONFIGURATION — edit these paths before running
 # ==============================================================================
 OUTPUT_DIR = r"E:\Users\Andy\PycharmProjects\Genealogy\output"
-INPUT_GEDCOM = r"E:\Users\Andy\PycharmProjects\Genealogy\gedcom_sources\AskeyWorking_2026.ged"
+INPUT_GEDCOM = r"C:\tempc\ShortTermCSVfiles\test_census.ged"
 
 
 # ==============================================================================
@@ -631,7 +631,7 @@ def build_couples_rows(individuals, families):
                     continue
             if (to_pos_int(dyr) < 1850 and to_pos_int(byr) < 19250) or to_pos_int(byr) < 1800:
                 logger.warning(
-                    f"need birth place(s) for {last} {first}, bpl:[{bpl}] fbpl:[{fbpl}] mbpl[{mbpl}]   byr:{byr} - dyr:{dyr} : {lspan}")
+                    f"need birth place(s) for {last} {first}, bpl:[{bpl}] fbpl:[{fbpl}] mbpl[{mbpl}]   byr:{byr} - dyr:{dyr} : 0")
                 continue
             lspan = to_pos_int(dyr) - to_pos_int(byr)
             if (lspan < 21) or to_pos_int(byr) > 1935:
