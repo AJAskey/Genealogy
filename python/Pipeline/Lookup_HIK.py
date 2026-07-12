@@ -6,7 +6,7 @@ Summary: Instantly translates a single HISTID into an HIK using the Crosswalk DB
 import duckdb
 
 CROSSWALK_DB = r"d:\Data\Genealogy_Data\IPUMS_Crosswalk.db"
-TARGET_HISTID = "D2821B96-5DFB-482F-9E97-A1B5C707CA4A"
+TARGET_HISTID = "84BC89BD-09C6-4458-912B-B5C6FE8E6C76"
 
 print(f"Searching Crosswalk for HISTID: {TARGET_HISTID}...")
 con = duckdb.connect(database=CROSSWALK_DB, read_only=True)

@@ -9,14 +9,14 @@ import duckdb
 import os
 
 # --- CONFIGURATION ---
-MASTER_VAULT_DB = r"d:\Data\Genealogy_Data\Test_DuckDB_Vault.db"
+MASTER_VAULT_DB = r"d:\Data\Genealogy_Data\Master_DuckDB_Vault.db"
 CROSSWALK_DB = r"d:\Data\Genealogy_Data\IPUMS_Crosswalk.db"
 OUTPUT_GEDCOM = r"C:\tempc\ShortTermCSVfiles\test_census.ged"
 
 # --- ISOLATION CONFIGURATION ---
 # Put a specific HIK here to extract ONLY their interconnected family tree.
 # If left blank (""), the script will automatically find and export the single largest tree.
-T_HIK = "asH1V0OxvQyWD8VotLi6f"
+T_HIK = "wTsIougfveJTiHQ8iTKq8"
 TARGET_HIK = T_HIK.strip()
 
 STATE_MAP = {
@@ -85,12 +85,10 @@ def main():
 
     print("Extracting Unified Individuals across all decades...")
     inds = con.execute("""
-                       SELECT TRIM(v.HIK)             AS HIK,
-                              MODE(TRIM(i.NAMEFIRST)) AS first_name,
-                              MODE(TRIM(i.NAMELAST))  AS last_name,
-                              MODE(i.SEX)             AS SEX,
-                              MODE(i.BIRTHYR)         AS BIRTHYR,
-                              MODE(i.BPL)             AS BPL
+                       SELECT TRIM(v.HIK)     AS HIK,
+                              MODE(i.SEX)     AS SEX,
+                              MODE(i.BIRTHYR) AS BIRTHYR,
+                              MODE(i.BPL)     AS BPL
                        FROM individuals i
                                 JOIN vault_hiks v ON i.HISTID = v.HISTID
                        GROUP BY v.HIK
